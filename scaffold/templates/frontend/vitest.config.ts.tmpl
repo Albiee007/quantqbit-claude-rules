@@ -1,0 +1,28 @@
+// vitest.config.ts
+// Vitest configuration. Uses jsdom so React Testing Library can mount
+// components. Path aliases mirror tsconfig.json + vite.config.ts.
+
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import path from 'node:path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@/config': path.resolve(__dirname, '${SRC_DIR}/config'),
+      '@/components': path.resolve(__dirname, '${SRC_DIR}/components'),
+      '@/features': path.resolve(__dirname, '${SRC_DIR}/features'),
+      '@/hooks': path.resolve(__dirname, '${SRC_DIR}/hooks'),
+      '@/lib': path.resolve(__dirname, '${SRC_DIR}/lib'),
+      '@/routes': path.resolve(__dirname, '${SRC_DIR}/routes'),
+      '@/types': path.resolve(__dirname, '${SRC_DIR}/types'),
+    },
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['${SRC_DIR}/tests/setup.ts'],
+    include: ['${SRC_DIR}/**/*.{test,spec}.{ts,tsx}'],
+  },
+});

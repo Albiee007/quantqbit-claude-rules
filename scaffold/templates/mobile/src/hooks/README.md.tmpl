@@ -1,0 +1,21 @@
+# hooks/
+
+Cross-screen shared hooks for ${PROJECT_NAME}.
+
+## What lives here
+
+- Hooks used by multiple screens (`useAppState`, `useColorScheme`, etc.).
+- Adapters around RN APIs that screens would otherwise duplicate.
+
+## What does NOT live here
+
+- Screen-local hooks — those live in the screen's own `hooks/` folder.
+- Data-fetching hooks specific to one screen — same rule.
+
+## Naming
+
+- File name matches the hook name: `useThing.ts`.
+- The hook is a default export only if there is exactly one hook per file;
+  otherwise use named exports.
+
+Parent: [../README.md](../README.md)

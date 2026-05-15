@@ -1,0 +1,20 @@
+# core/
+
+Shared cross-feature primitives for ${PROJECT_NAME}. Anything that more than
+one feature depends on lives here.
+
+## Subfolders
+
+| Subfolder | What lives here |
+| --- | --- |
+| [`di/`](di/) | Manual DI graph (`AppGraph.kt`) wired by `MainApplication`. No Hilt by design. |
+| [`ui/`](ui/) | Shared Compose pieces — theme, design-system primitives. |
+| [`data/`](data/) | Shared data sources (`NetworkClient`). One Retrofit instance, shared. |
+| [`domain/`](domain/) | Shared domain models / value types used by multiple features. |
+
+## What does NOT live here
+
+- Feature-specific UI / VMs / repos — those live under `features/<name>/`.
+- Navigation — that lives under `navigation/`.
+
+Parent: [../README.md](../README.md)

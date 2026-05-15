@@ -1,0 +1,17 @@
+# ${SRC_DIR}/components/
+
+Cross-feature UI for ${PROJECT_NAME}. Anything specific to one feature lives in `features/<name>/components/` instead.
+
+## Layout
+
+| Subfolder | Purpose |
+| --- | --- |
+| [`ui/`](ui/) | Base primitives (Button, Input, Card). Bare on purpose — wire your design system here. |
+| [`layout/`](layout/) | App-shell components (header, footer, sidebar) shared across routes. |
+
+## Naming
+
+- PascalCase component file: `Button.tsx`, `AppShell.tsx`.
+- Co-located test next to the component or under `${SRC_DIR}/tests/unit/` — pick one and stay consistent.
+
+Parent: [../README.md](../README.md)

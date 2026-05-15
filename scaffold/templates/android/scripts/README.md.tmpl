@@ -1,0 +1,15 @@
+# scripts/
+
+Bash helpers for ${PROJECT_NAME}.
+
+| Script | Purpose |
+| --- | --- |
+| `check-file-size.sh` | Warns on `*.kt` files over the 500-line soft cap. Invoked by the Gradle `checkFileSize` task (which runs after `ktlintCheck`). Warning-only by design — never fails. |
+
+Run directly:
+
+```sh
+bash scripts/check-file-size.sh
+```
+
+Parent: [../README.md](../README.md)

@@ -1,0 +1,29 @@
+package ${ANDROID_PACKAGE}.core.ui.theme
+
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+
+private val LightColors = lightColorScheme()
+private val DarkColors = darkColorScheme()
+
+/**
+ * Material3 theme for ${PROJECT_NAME}. Light/dark follow the system setting.
+ *
+ * Customise [LightColors] / [DarkColors] (or pull from a generated palette)
+ * before shipping a release. Typography + Shapes intentionally use the
+ * Material3 defaults to keep the template minimal.
+ */
+@Composable
+fun AppTheme(
+    useDarkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
+    val colors = if (useDarkTheme) DarkColors else LightColors
+    MaterialTheme(
+        colorScheme = colors,
+        content = content,
+    )
+}

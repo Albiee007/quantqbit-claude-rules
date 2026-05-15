@@ -1,0 +1,30 @@
+// src/app.ts
+// Express composition only — middleware chain + version-mounted routers.
+// No business logic, no inline route handlers.
+
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
+import { requestId } from './middlewares/requestId';
+import { errorHandler } from './middlewares/errorHandler';
+import { healthRouter } from './api/${API_VERSION}/health/routes/health.routes';
+import { getHealth } from './api/${API_VERSION}/health/controllers/health.controller';
+
+export const app: Express = express();
+
+app.use(express.json());
+app.use(requestId);
+
+// Mount each feature's router under /api/${API_VERSION}/<feature>. As new
+// features land, add them here — each feature's routes file exports a router.
+app.use('/api/${API_VERSION}/health', healthRouter);
+
+// Top-level /healthz alias for orchestrators that probe the unversioned path.
+// Registered as a direct route (not a mounted router) so `GET /healthz`
+// resolves without requiring a trailing slash.
+app.get('/healthz', getHealth);
+
+// 404 handler — anything that didn't match a router falls through to here.
+app.use((req: Request, res: Response, _next: NextFunction) => {
+  res.status(404).json({ error: 'not_found', path: req.path });
+});
+
+app.use(errorHandler);

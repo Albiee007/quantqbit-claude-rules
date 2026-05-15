@@ -1,0 +1,27 @@
+# _feature_template/
+
+Template feature folder. Rename this directory to your real feature (e.g.
+`login/`, `profile/`, `cart/`) and fill in each subfolder.
+
+> Warning — leaving this folder named `_feature_template/` is intentional
+> until you start your first feature. The leading underscore keeps it sorted
+> first and signals "not a real feature yet".
+
+## The strict 4-subfolder rule
+
+| Subfolder | What lives here | File suffix |
+| --- | --- | --- |
+| [`ui/`](ui/) | Compose screens + screen-local composables | `*Screen.kt` |
+| [`viewmodel/`](viewmodel/) | ViewModels + UI state data classes | `*ViewModel.kt` |
+| [`domain/`](domain/) | Repository interfaces + use cases | `*Repository.kt`, `*UseCase.kt` |
+| [`data/`](data/) | Repository impls, Retrofit API interfaces, DTOs | `*RepositoryImpl.kt`, `*Api.kt` |
+
+## Next steps
+
+1. Rename this folder to your feature name (kebab-case avoided in Kotlin
+   package names — use one lowercase word, e.g. `cart`).
+2. Replace each `.gitkeep` with a real file in the matching suffix.
+3. Wire any new repo on `core/di/AppGraph.kt`.
+4. Add the screen's route to `navigation/AppNavGraph.kt`.
+
+Parent: [../README.md](../README.md)

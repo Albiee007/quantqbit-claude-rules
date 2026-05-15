@@ -1,0 +1,53 @@
+package ${ANDROID_PACKAGE}.features.home.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import ${ANDROID_PACKAGE}.MainApplication
+import ${ANDROID_PACKAGE}.R
+import ${ANDROID_PACKAGE}.features.home.viewmodel.HomeViewModel
+
+/**
+ * Compose screen for the home feature. Pulls its ViewModel via the manual
+ * factory wired against [MainApplication.graph].
+ */
+@Composable
+fun HomeScreen() {
+    val context = LocalContext.current
+    val app = context.applicationContext as MainApplication
+    val vm: HomeViewModel = viewModel(
+        factory = HomeViewModel.factory(app.graph.homeRepository),
+    )
+    val state by vm.uiState.collectAsState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.home_title),
+            style = MaterialTheme.typography.headlineMedium,
+        )
+        val label = if (state.isLoading) {
+            stringResource(R.string.home_status_loading)
+        } else {
+            stringResource(R.string.home_status_ok) + " — " + state.status
+        }
+        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+    }
+}

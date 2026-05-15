@@ -1,0 +1,26 @@
+# migrations/postgres/
+
+PostgreSQL migrations for ${PROJECT_NAME}.
+
+## What lives here
+
+- Numbered SQL files (`NNN_description.sql`) applied in lexical order by
+  [`scripts/run-migrations.ts`](../../scripts/run-migrations.ts).
+- Each migration is wrapped in a transaction by the runner.
+
+## What does NOT live here
+
+- ORM-generated migrations (Prisma / Drizzle / TypeORM) — the stack here is
+  intentionally pg-only. See the `Stack non-goals` section in the project
+  scaffold plan.
+
+## Naming
+
+- `NNN_short_description.sql` — three-digit zero-padded prefix, snake_case,
+  e.g. `001_init.sql`, `002_users.sql`.
+
+## Linked files
+
+- [`001_init.sql`](001_init.sql) — example migration, safe to delete.
+
+Parent: [../../README.md](../../README.md)

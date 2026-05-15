@@ -1,0 +1,35 @@
+#!/bin/sh
+# ============================================================================
+# Gradle wrapper bootstrap (POSIX).
+#
+# NOTE — this stamp ships the wrapper *script* but NOT the wrapper *jar*.
+# Run `gradle wrapper --gradle-version 8.7` once after the scaffold completes
+# so Gradle populates `gradle/wrapper/gradle-wrapper.jar`. After that the
+# wrapper is self-contained and future contributors don't need a system
+# Gradle install — they can run `./gradlew` directly.
+#
+# Rationale: shipping the binary jar in a template repo bloats the diff and
+# pins us to a specific Gradle patch version. The 60-second post-stamp step
+# is the same one Android Studio does silently on first project open.
+# ============================================================================
+
+set -e
+
+DIRNAME=$(dirname "$0")
+APP_HOME=$(cd "$DIRNAME" && pwd)
+WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+WRAPPER_PROPS="$APP_HOME/gradle/wrapper/gradle-wrapper.properties"
+
+if [ ! -f "$WRAPPER_JAR" ]; then
+  echo "[FAIL] $WRAPPER_JAR is missing." >&2
+  echo "       Run \`gradle wrapper --gradle-version 8.7\` once to populate it." >&2
+  echo "       (Requires a system Gradle install; Android Studio bundles one.)" >&2
+  exit 1
+fi
+
+JAVA_BIN="${JAVA_HOME:+$JAVA_HOME/bin/}java"
+exec "$JAVA_BIN" \
+  -classpath "$WRAPPER_JAR" \
+  -Dorg.gradle.appname="$(basename "$0")" \
+  org.gradle.wrapper.GradleWrapperMain \
+  "$@"

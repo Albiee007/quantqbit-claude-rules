@@ -1,0 +1,234 @@
+#!/bin/bash
+# ============================================================================
+# Lint Suite Wrapper for ${PROJECT_NAME} — runs all repo linters in one pass
+#
+# Runs (when installed and applicable): shellcheck, yamllint, ansible-lint,
+# terraform fmt/validate, and `docker compose config -q`. Each tool is
+# optional — missing tools are warned and skipped, not counted as failures.
+#
+# Usage:
+#   ${CODE_SUBDIR}/scripts/lint.sh
+#   make lint
+#
+# Exits non-zero if ANY tool reported a real failure (skips are OK).
+# ============================================================================
+
+set -euo pipefail
+
+# Resolve repo root (scripts/lint.sh → repo is parent of scripts/)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${REPO_ROOT}"
+
+# {{IF NO_STACKS}}
+# No recognised stacks were detected when this file was scaffolded. The
+# tool-loop below has been stamped empty, so emit a friendly note and exit.
+echo "[INFO] No recognised stacks detected; nothing to lint. Add tools or content under a recognised stack dir (scripts/, ansible/, docker/, terraform/) and re-run scaffold to enable."
+exit 0
+# {{ENDIF}}
+
+# Per-tool result: OK | FAIL | SKIP
+RESULT_SHELLCHECK="SKIP"
+RESULT_YAMLLINT="SKIP"
+RESULT_ANSIBLE_LINT="SKIP"
+RESULT_TERRAFORM="SKIP"
+RESULT_COMPOSE="SKIP"
+
+# {{IF HAS_BASH}}
+# ----------------------------------------------------------------------------
+# shellcheck — all *.sh under scripts/ except scripts/lib/
+# ----------------------------------------------------------------------------
+lint_run_shellcheck() {
+  if ! command -v shellcheck &>/dev/null; then
+    echo "[WARN] shellcheck not installed, skipping"
+    return 0
+  fi
+
+  echo "[INFO] Running shellcheck on scripts/*.sh"
+  local failed=0 file
+  while IFS= read -r -d '' file; do
+    if ! shellcheck "$file"; then
+      failed=1
+    fi
+  done < <(find scripts -type f -name '*.sh' -not -path 'scripts/lib/*' -print0)
+
+  if [ "$failed" -eq 0 ]; then
+    echo "[OK] shellcheck passed"
+    RESULT_SHELLCHECK="OK"
+  else
+    echo "[FAIL] shellcheck reported issues"
+    RESULT_SHELLCHECK="FAIL"
+  fi
+}
+# {{ENDIF}}
+
+# ----------------------------------------------------------------------------
+# yamllint — *.yml/*.yaml under detected YAML roots
+# Always defined; skips at runtime if no target dirs exist. Emits whenever
+# either Ansible or Compose is present (both produce YAML).
+# ----------------------------------------------------------------------------
+lint_run_yamllint() {
+  if ! command -v yamllint &>/dev/null; then
+    echo "[WARN] yamllint not installed, skipping"
+    return 0
+  fi
+
+  local targets=()
+  # {{IF HAS_ANSIBLE}}
+  [ -d ansible ] && targets+=(ansible)
+  # {{ENDIF}}
+  # {{IF HAS_COMPOSE}}
+  [ -d docker ] && targets+=(docker)
+  # {{ENDIF}}
+  [ -d templates ] && targets+=(templates)
+
+  if [ ${#targets[@]} -eq 0 ]; then
+    echo "[WARN] yamllint: no target directories present, skipping"
+    return 0
+  fi
+
+  echo "[INFO] Running yamllint on ${targets[*]}"
+  local failed=0 file
+  while IFS= read -r -d '' file; do
+    if ! yamllint -s "$file"; then
+      failed=1
+    fi
+  done < <(find "${targets[@]}" \
+    \( -path '*/node_modules' -o -path '*/.git' -o -path '*/.cache' \) -prune -o \
+    -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 2>/dev/null)
+
+  if [ "$failed" -eq 0 ]; then
+    echo "[OK] yamllint passed"
+    RESULT_YAMLLINT="OK"
+  else
+    echo "[FAIL] yamllint reported issues"
+    RESULT_YAMLLINT="FAIL"
+  fi
+}
+
+# {{IF HAS_ANSIBLE}}
+# ----------------------------------------------------------------------------
+# ansible-lint — single run on ansible/
+# ----------------------------------------------------------------------------
+lint_run_ansible_lint() {
+  if ! command -v ansible-lint &>/dev/null; then
+    echo "[WARN] ansible-lint not installed, skipping"
+    return 0
+  fi
+
+  echo "[INFO] Running ansible-lint on ansible/"
+  if (cd ansible && ansible-lint); then
+    echo "[OK] ansible-lint passed"
+    RESULT_ANSIBLE_LINT="OK"
+  else
+    echo "[FAIL] ansible-lint reported issues"
+    RESULT_ANSIBLE_LINT="FAIL"
+  fi
+}
+# {{ENDIF}}
+
+# {{IF HAS_TERRAFORM}}
+# ----------------------------------------------------------------------------
+# terraform — fmt -check -diff and validate per module/environment subdir
+# ----------------------------------------------------------------------------
+lint_run_terraform() {
+  if ! command -v terraform &>/dev/null; then
+    echo "[WARN] terraform not installed, skipping"
+    return 0
+  fi
+
+  echo "[INFO] Running terraform fmt + validate on modules/ and environments/"
+  local failed=0 dir
+  for dir in terraform/modules/*/ terraform/environments/*/; do
+    [ -d "$dir" ] || continue
+    # Only lint dirs that actually contain *.tf
+    if ! compgen -G "${dir}*.tf" >/dev/null; then
+      continue
+    fi
+
+    echo "[INFO]   ${dir}"
+    if ! terraform -chdir="$dir" fmt -check -diff; then
+      failed=1
+    fi
+
+    if terraform -chdir="$dir" init -backend=false -input=false -no-color &>/dev/null; then
+      if ! terraform -chdir="$dir" validate -no-color; then
+        failed=1
+      fi
+    else
+      echo "[WARN]   terraform init failed in ${dir}, skipping validate"
+    fi
+  done
+
+  if [ "$failed" -eq 0 ]; then
+    echo "[OK] terraform passed"
+    RESULT_TERRAFORM="OK"
+  else
+    echo "[FAIL] terraform reported issues"
+    RESULT_TERRAFORM="FAIL"
+  fi
+}
+# {{ENDIF}}
+
+# {{IF HAS_COMPOSE}}
+# ----------------------------------------------------------------------------
+# compose — `docker compose config -q` per docker-compose.yml under docker/
+# ----------------------------------------------------------------------------
+lint_run_compose() {
+  if ! command -v docker &>/dev/null; then
+    echo "[WARN] docker not installed, skipping compose check"
+    return 0
+  fi
+
+  echo "[INFO] Running docker compose config -q on docker/**/docker-compose.yml"
+  local failed=0 file
+  while IFS= read -r -d '' file; do
+    echo "[INFO]   ${file}"
+    if ! docker compose -f "$file" config -q; then
+      failed=1
+    fi
+  done < <(find docker -type f -name 'docker-compose.yml' -print0)
+
+  if [ "$failed" -eq 0 ]; then
+    echo "[OK] compose passed"
+    RESULT_COMPOSE="OK"
+  else
+    echo "[FAIL] compose reported issues"
+    RESULT_COMPOSE="FAIL"
+  fi
+}
+# {{ENDIF}}
+
+# ----------------------------------------------------------------------------
+# Summary + exit
+# ----------------------------------------------------------------------------
+lint_summarize() {
+  echo ""
+  echo "===== Lint summary ====="
+  printf "shellcheck:    %s\n" "$RESULT_SHELLCHECK"
+  printf "yamllint:      %s\n" "$RESULT_YAMLLINT"
+  printf "ansible-lint:  %s\n" "$RESULT_ANSIBLE_LINT"
+  printf "terraform:     %s\n" "$RESULT_TERRAFORM"
+  printf "compose:       %s\n" "$RESULT_COMPOSE"
+
+  case "FAIL" in
+    "$RESULT_SHELLCHECK"|"$RESULT_YAMLLINT"|"$RESULT_ANSIBLE_LINT"|"$RESULT_TERRAFORM"|"$RESULT_COMPOSE")
+      exit 1
+      ;;
+  esac
+}
+
+# {{IF HAS_BASH}}
+lint_run_shellcheck
+# {{ENDIF}}
+lint_run_yamllint
+# {{IF HAS_ANSIBLE}}
+lint_run_ansible_lint
+# {{ENDIF}}
+# {{IF HAS_TERRAFORM}}
+lint_run_terraform
+# {{ENDIF}}
+# {{IF HAS_COMPOSE}}
+lint_run_compose
+# {{ENDIF}}
+lint_summarize

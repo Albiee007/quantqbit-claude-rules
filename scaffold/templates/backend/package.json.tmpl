@@ -1,0 +1,42 @@
+{
+  "name": "${PROJECT_SLUG}",
+  "version": "0.1.0",
+  "private": true,
+  "description": "${PROJECT_NAME} — backend (Node + TypeScript). Stamped by /init-project-scaffold on ${TIMESTAMP}.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch ${SRC_DIR}/server.ts",
+    "start": "node dist/server.js",
+    "test": "jest",
+    "lint": "eslint . --ext .ts || true",
+    "lint:size": "bash scripts/check-file-size.sh",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mongoose": "^8.5.1",
+    "pg": "^8.12.0",
+    "zod": "^3.23.8",
+    "winston": "^3.13.1",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "tsx": "^4.16.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.3",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.10",
+    "@types/pg": "^8.11.6",
+    "@types/uuid": "^10.0.0",
+    "@types/supertest": "^6.0.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "supertest": "^7.0.0"
+  }
+}

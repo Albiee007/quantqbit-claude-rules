@@ -1,0 +1,8 @@
+.PHONY: help lint
+
+help:
+	@echo "Targets:"
+	@echo "  lint   Run the full lint suite (shellcheck, yamllint, ansible-lint, terraform, compose)"
+
+lint:
+	@bash ${CODE_SUBDIR}/scripts/lint.sh

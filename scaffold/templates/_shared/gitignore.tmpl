@@ -1,0 +1,60 @@
+# ============================================================
+# .gitignore — multi-platform defaults
+# ============================================================
+# Platform-specific renderers append entries to this file as
+# needed (node_modules for JS, build/ for Gradle, etc.).
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- env files ---
+.env
+.env.*
+!.env.example
+
+# --- logs ---
+*.log
+logs/
+
+# --- coverage ---
+coverage/
+*.lcov
+.nyc_output/
+
+# --- node ---
+node_modules/
+dist/
+build/
+.cache/
+.next/
+.expo/
+.expo-shared/
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+
+# --- gradle / android ---
+.gradle/
+local.properties
+*.iml
+.cxx/
+captures/
+.externalNativeBuild/
+
+# --- claude scaffolder backups ---
+.claude.bak/
+
+# --- temp ---
+*.tmp
+tmp/

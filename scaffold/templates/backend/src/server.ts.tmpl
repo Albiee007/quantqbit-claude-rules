@@ -1,0 +1,33 @@
+// src/server.ts
+// HTTP server bootstrap. Compose app + listen + handle graceful shutdown.
+// Business logic lives in src/api/*; this file is intentionally tiny.
+
+import http from 'node:http';
+import { app } from './app';
+import { env } from './config/env';
+import { logger } from './config/logger';
+
+const server = http.createServer(app);
+
+server.listen(env.PORT, () => {
+  logger.info(`[${PROJECT_NAME}] listening on :${env.PORT}`);
+});
+
+function shutdown(signal: string): void {
+  logger.info(`Received ${signal}, draining...`);
+  server.close((err) => {
+    if (err) {
+      logger.error('Error during shutdown', { err });
+      process.exit(1);
+    }
+    process.exit(0);
+  });
+  // Force-exit after 10s if close() hangs.
+  setTimeout(() => {
+    logger.warn('Shutdown grace period exceeded, forcing exit');
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

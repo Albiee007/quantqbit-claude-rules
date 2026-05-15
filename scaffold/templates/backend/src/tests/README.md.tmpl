@@ -1,0 +1,31 @@
+# ${SRC_DIR}/tests/
+
+Tests for ${PROJECT_NAME}.
+
+## Layout
+
+- [`unit/`](unit/) — pure function tests. Mock everything I/O.
+- [`integration/`](integration/) — wire one feature end-to-end (route → controller → service). Use `supertest`.
+- [`fixtures/`](fixtures/) — sample payloads and request bodies.
+
+## What lives here
+
+- `*.spec.ts` / `*.test.ts` files. Jest discovers both suffixes via the root `jest.config.ts`.
+- One folder per category — never mix unit and integration in the same folder.
+
+## What does NOT live here
+
+- Tests that exercise live external services. Those belong in a separate
+  `tests/e2e/` folder (not part of the default `npm test` run).
+
+## Naming
+
+- `<feature>.spec.ts` — unit test for `<feature>'s` service.
+- `<feature>.integration.spec.ts` — integration test for the feature's route.
+
+## A baseline test
+
+[`unit/health.spec.ts`](unit/health.spec.ts) covers the example `health`
+feature. Keep similar coverage as you add features.
+
+Parent: [../README.md](../README.md)

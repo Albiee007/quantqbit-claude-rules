@@ -1,0 +1,25 @@
+# components/
+
+Cross-screen reusable presentational components for ${PROJECT_NAME}.
+
+## What lives here
+
+- Base UI primitives (`Button`, `TextField`, `Card`) wrapped in your design
+  tokens.
+- Layout wrappers (`Screen`, `Section`) used by multiple screens.
+
+## What does NOT live here
+
+- Screen-local components — those live in the screen's own `components/`
+  subfolder.
+- Components that fetch data — those belong inside a screen or a `features/`
+  folder. Components in this directory are presentational only.
+- Hooks — those live in `${SRC_DIR}/hooks/` or in a screen's `hooks/` folder.
+
+## Naming
+
+- One component per file. File name matches the component name (`Button.tsx`).
+- Sub-components used only by one parent live in the same file as the
+  parent, not in their own file.
+
+Parent: [../README.md](../README.md)

@@ -1,0 +1,49 @@
+package ${ANDROID_PACKAGE}.features.home.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import ${ANDROID_PACKAGE}.features.home.domain.GetHomeStatusUseCase
+import ${ANDROID_PACKAGE}.features.home.domain.HomeRepository
+import ${ANDROID_PACKAGE}.features.home.domain.Status
+
+/** UI state surfaced by [HomeViewModel]. */
+data class HomeUiState(
+    val isLoading: Boolean = true,
+    val status: Status? = null,
+)
+
+/**
+ * Plain Compose-friendly ViewModel.
+ *
+ * Constructor takes a [HomeRepository] from [${ANDROID_PACKAGE}.core.di.AppGraph]
+ * — no Hilt by design. Use [HomeViewModel.Factory] when calling viewModel().
+ */
+class HomeViewModel(repository: HomeRepository) : ViewModel() {
+
+    private val getStatus = GetHomeStatusUseCase(repository)
+
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val status = getStatus()
+            _uiState.value = HomeUiState(isLoading = false, status = status)
+        }
+    }
+
+    companion object {
+        /** Factory that pulls the repo off the application graph. */
+        fun factory(repository: HomeRepository): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    HomeViewModel(repository) as T
+            }
+    }
+}

@@ -1,0 +1,10 @@
+// ${SRC_DIR}/components/ui/Input.tsx
+// Base input component. Bare wrapper — extend with your design system later.
+
+import type { InputHTMLAttributes } from 'react';
+
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
+
+export function Input(props: InputProps): JSX.Element {
+  return <input {...props} />;
+}

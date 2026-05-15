@@ -1,0 +1,17 @@
+# lib/
+
+Framework-agnostic primitives for ${PROJECT_NAME}. **No imports from
+`screens/`, `navigation/`, `features/`, or `api/`.**
+
+| File | Purpose |
+| --- | --- |
+| [`storage.ts`](storage.ts) | Typed wrapper around `@react-native-async-storage/async-storage`. |
+
+## Guard rails
+
+- Functions in this folder must be testable in pure Node — no React, no
+  Navigation, no Expo-specific globals at the module top level.
+- Add tests under [`${SRC_DIR}/tests/unit/`](../tests/) when adding logic
+  here.
+
+Parent: [../README.md](../README.md)

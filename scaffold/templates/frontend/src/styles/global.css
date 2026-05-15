@@ -1,0 +1,36 @@
+/* global.css — minimal base styles. Replace with your UI library's reset / */
+/* design tokens when you adopt one. */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #222222;
+  background: #ffffff;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell__header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.app-shell__main {
+  flex: 1;
+  padding: 24px;
+}
+
+.app-shell__footer {
+  padding: 16px 24px;
+  border-top: 1px solid #eeeeee;
+  color: #666666;
+}

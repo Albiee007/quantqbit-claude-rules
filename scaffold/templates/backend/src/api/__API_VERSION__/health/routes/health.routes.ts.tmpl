@@ -1,0 +1,10 @@
+// health.routes.ts
+// Routes for the health feature. Registers GET / on its own router; the
+// router is mounted under /healthz and /api/${API_VERSION}/health in app.ts.
+
+import { Router } from 'express';
+import { getHealth } from '../controllers/health.controller';
+
+export const healthRouter: Router = Router();
+
+healthRouter.get('/', getHealth);

@@ -1,0 +1,14 @@
+// src/tests/unit/health.spec.ts
+// Baseline unit test for the health feature. Verifies that the service
+// returns the expected shape and that uptime is a non-negative number.
+
+import { fetchHealth } from '../../api/${API_VERSION}/health/services/health.service';
+
+describe('health.service', () => {
+  it('returns status=ok with a non-negative uptime', () => {
+    const result = fetchHealth();
+    expect(result.status).toBe('ok');
+    expect(typeof result.uptime).toBe('number');
+    expect(result.uptime).toBeGreaterThanOrEqual(0);
+  });
+});

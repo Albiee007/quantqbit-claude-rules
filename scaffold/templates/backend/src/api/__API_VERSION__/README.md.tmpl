@@ -1,0 +1,30 @@
+# ${SRC_DIR}/api/${API_VERSION}/
+
+API version ${API_VERSION} for ${PROJECT_NAME}.
+
+## What lives here
+
+- One folder per feature, named after the feature (lowercase, plural).
+- The `_feature_template/` exemplar — copy it and rename to start a new feature.
+- The working `health/` feature — a real `GET /healthz` example.
+
+## The strict 4-subfolder rule
+
+Every feature folder under this version has exactly:
+
+- `routes/` — `*.routes.ts` (route registration)
+- `controllers/` — `*.controller.ts` (request handlers)
+- `services/` — `*.service.ts` (business logic)
+- `types/` — `*.types.ts` (request/response and domain types)
+
+No file lives at a feature root — the feature's `README.md` is the only
+top-level item inside a feature folder.
+
+## Adding a feature
+
+1. Copy `_feature_template/` to `<your-feature>/`.
+2. Rename the `__FEATURE__.*` placeholders.
+3. Fill in the four subfolders.
+4. Mount the router in `${SRC_DIR}/app.ts`.
+
+Parent: [../README.md](../README.md)

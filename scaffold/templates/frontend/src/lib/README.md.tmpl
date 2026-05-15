@@ -1,0 +1,16 @@
+# ${SRC_DIR}/lib/
+
+Framework-agnostic helpers for ${PROJECT_NAME}. No React imports, no DOM access beyond `window.fetch` — anything that reaches into JSX belongs in `components/` or a feature folder.
+
+## What lives here
+
+- [`api-client.ts`](api-client.ts) — fetch wrapper with base-URL handling.
+- [`format.ts`](format.ts) — pure formatting helpers.
+
+## What does NOT live here
+
+- React components → `${SRC_DIR}/components/` or a feature.
+- Hooks → `${SRC_DIR}/hooks/` or a feature.
+- Network calls specific to one feature → `features/<name>/services/`.
+
+Parent: [../README.md](../README.md)

@@ -1,0 +1,43 @@
+# ${PROJECT_NAME} — Repository Structure
+
+> Stub stamped on ${TIMESTAMP}. Re-run `/init-project-scaffold` (or the equivalent CLI) when the top-level shape changes substantially.
+
+## Top-level
+
+| Path | Purpose |
+| --- | --- |
+| `CLAUDE.md`, `AI_RULES.md` | Agent rules (generic + project-specific). |
+| `README.md` | Project overview + quick start. |
+| `docs/` | This folder — single source of truth for architecture/api/data/flows. |
+| `${SRC_DIR}/` | All application code. |
+| `scripts/` | Operational scripts (migrations, kb-sync, lint, etc.). |
+| `migrations/` | Database migrations. |
+| `tests/` (or `${SRC_DIR}/tests/`) | Unit + integration + fixtures. |
+| `.env.example` | Placeholder env shape. Never commit a real `.env`. |
+
+## Tree
+
+```
+TODO: paste the output of `tree -L 4 --gitignore` here, or let the
+      scaffolder auto-regenerate this file when re-run.
+```
+
+## Naming convention
+
+Inferable from suffix:
+
+| Suffix | Meaning | Lives in |
+| --- | --- | --- |
+| `*.routes.*` | Route registration | `routes/` |
+| `*.controller.*` | Request handlers — TwiML/JSON only, no business logic | `controllers/` |
+| `*.service.*` | Business logic | `services/` |
+| `*.types.*` | Types and interfaces local to the feature | `types/` |
+| `*.model.*` | Data model (one per collection/table) | `models/` (top-level) |
+| `*.handler.*` | Event/message handlers (WS, queue, etc.) | `handlers/` |
+| `*.gateway.*` | External entrypoint (WS server, queue consumer) | feature-specific |
+| `*.client.*` | Third-party service client wrapper | feature-specific |
+| `*.spec.*` / `*.test.*` | Tests | `tests/` |
+
+## Per-feature subfolder rule
+
+Every feature under `${SRC_DIR}/api/${API_VERSION}/` has the same set of subfolders. Files live inside them, never at the feature root. See the per-feature `README.md` for the exact rule on this platform.

@@ -1,0 +1,25 @@
+# ${SRC_DIR}/config/
+
+Environment / boot-time configuration for ${PROJECT_NAME}.
+
+## What lives here
+
+- [`env.ts`](env.ts) — zod-validated env loader. Fails fast on boot if a required var is missing.
+- [`logger.ts`](logger.ts) — winston logger instance; request-id child logger factory.
+- [`mongo.ts`](mongo.ts) — Mongoose connector stub.
+- [`postgres.ts`](postgres.ts) — `pg.Pool` factory stub.
+<!-- {{IF WITH_I18N}} -->
+- [`i18n/`](i18n/) — translation registry and helpers.
+<!-- {{ENDIF}} -->
+
+## What does NOT live here
+
+- HTTP handlers or business logic. Those live under `${SRC_DIR}/api/`.
+- Domain types. Those live in the feature folder's `types/` or in `${SRC_DIR}/types/`.
+
+## Naming
+
+- Lowercase, one concern per file (`env.ts`, `logger.ts`, `mongo.ts`).
+- Suffixes are unnecessary here — each file is named after the resource it configures.
+
+Parent: [../README.md](../README.md)

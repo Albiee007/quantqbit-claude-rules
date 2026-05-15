@@ -1,0 +1,16 @@
+# navigation/
+
+Compose navigation graph for ${PROJECT_NAME}.
+
+- `AppNavGraph.kt` — the single `NavHost` for the app. Add one `composable {}`
+  block per screen.
+- `Routes` object — centralised string route constants (alphabetised).
+
+## Convention
+
+Screens are decoupled from the navigator: pass typed lambdas
+(e.g. `onItemClick: (id: String) -> Unit`) into the screen rather than the
+NavController itself. Keeps screens testable without setting up a NavHost in
+the test.
+
+Parent: [../README.md](../README.md)

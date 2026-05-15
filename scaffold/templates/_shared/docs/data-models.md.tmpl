@@ -1,0 +1,34 @@
+# ${PROJECT_NAME} — Data Models
+
+> Stub stamped on ${TIMESTAMP}. One section per collection/table. Group by datastore.
+
+## Datastores
+
+| Store | Used for | Connection |
+| --- | --- | --- |
+| _example: MongoDB_ | _sessions, messages, summaries_ | `MONGO_URI` |
+| _example: PostgreSQL_ | _relational + pgvector_ | `DATABASE_URL` |
+
+## Models
+
+### `_example`
+
+**Store**: _MongoDB / PostgreSQL_
+**Source**: [`${SRC_DIR}/models/example.model.ts`](../${SRC_DIR}/models/example.model.ts)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `_id` | ObjectId | Primary key |
+| `createdAt` | Date | Indexed |
+
+**Indexes**: list indexes (compound, unique, TTL).
+
+### _add more models below as the schema grows_
+
+---
+
+## Migration policy
+
+- Migrations live in [`../migrations/`](../migrations/).
+- One file per change, sequenced (`001_init.sql`, `002_add_users_email_idx.sql`).
+- Forward-only by default; document the rollback procedure inline when destructive.

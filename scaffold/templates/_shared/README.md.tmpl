@@ -1,0 +1,57 @@
+# ${PROJECT_NAME}
+
+Stamped from the `/init-project-scaffold` skill on ${TIMESTAMP}.
+
+## Layout philosophy
+
+This repo follows three rules, enforced by lint and reviewed by the agent rules in [CLAUDE.md](CLAUDE.md):
+
+1. **Folder-per-category.** Every feature has the same fixed set of subfolders. No files at a feature root — they live inside one of the prescribed subfolders.
+2. **Small files (300–500 lines).** Long files are split into smaller categorised files. `scripts/lint.sh` warns when files exceed the cap (warning-only by default).
+3. **Naming convention.** Content is inferable from the suffix: `*.routes.*`, `*.controller.*`, `*.service.*`, `*.types.*`, `*.model.*`, `*.handler.*`, `*.gateway.*`, `*.client.*`, `*.spec.*`.
+
+See [`${SRC_DIR}/README.md`](${SRC_DIR}/README.md) for the per-feature subfolder rule on this platform.
+
+## Quick start
+
+See the platform-specific commands in the stamped `package.json` / `build.gradle.kts` / `app.json` for the exact `dev` / `build` / `test` entrypoints. The high-level shape is the same on every platform:
+
+```bash
+# install deps
+npm install        # or ./gradlew dependencies for Android
+
+# build smoke test
+npm run build      # or ./gradlew assembleDebug
+
+# run tests
+npm test           # or ./gradlew testDebugUnitTest
+
+# start dev server (where applicable)
+npm run dev        # backend / frontend / mobile
+```
+
+## Docs
+
+| File | Purpose |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Index for the docs folder. |
+| [docs/system-architecture.md](docs/system-architecture.md) | High-level system design. |
+| [docs/api.md](docs/api.md) | API endpoints (request/response shapes). |
+| [docs/data-models.md](docs/data-models.md) | Data models — one section per collection/table. |
+| [docs/business-flows.md](docs/business-flows.md) | End-to-end user flows. |
+| [docs/integrations.md](docs/integrations.md) | Third-party integrations (payment, messaging, observability, etc.). |
+| [docs/background-jobs.md](docs/background-jobs.md) | Scheduled jobs, queues, workers. |
+| [docs/repo-structure.md](docs/repo-structure.md) | Auto-generated directory tree dump. |
+| [docs/runbook.md](docs/runbook.md) | Ops runbook (deploys, incidents, rollback). |
+| [docs/plans/](docs/plans/) | Long-form implementation plans. |
+
+## Agent rules
+
+- [CLAUDE.md](CLAUDE.md) — generic agent rules for this project.
+- [AI_RULES.md](AI_RULES.md) — project-specific AI rules (verification gates, prompt hygiene, forbidden actions).
+
+For the operational `.claude/` layer (denies, hooks, custom sub-agents), run the companion `/init-project-rules` slash command shipped by the same `quantqbit-claude-rules` plugin.
+
+## License
+
+TODO: choose a license and replace this section.

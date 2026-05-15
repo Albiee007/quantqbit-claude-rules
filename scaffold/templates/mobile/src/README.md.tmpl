@@ -1,0 +1,38 @@
+# ${SRC_DIR}/
+
+Application code for ${PROJECT_NAME}. Stamped on ${TIMESTAMP}.
+
+## Layout
+
+| Path | Purpose |
+| --- | --- |
+| [`config/`](config/) | Env loader (zod-validated via `expo-constants`), `QueryClient` singleton. |
+| [`navigation/`](navigation/) | React Navigation stack/tab routing — `RootNavigator` + param-list types. |
+| [`screens/`](screens/) | One folder per screen. Strict 4-subfolder rule (see [`screens/README.md`](screens/README.md)). |
+| [`features/`](features/) | Cross-screen domain features (auth, profile, etc.). Same 4-subfolder rule. |
+| [`components/`](components/) | Reusable presentational components — base UI, no screen wiring. |
+| [`hooks/`](hooks/) | Shared cross-screen hooks. |
+| [`lib/`](lib/) | Framework-agnostic primitives. No imports from `screens/`, `navigation/`, or `api/`. |
+| [`api/`](api/) | API client surface — fetch wrappers, endpoint typings. |
+| [`types/`](types/) | Shared type declarations. |
+| [`tests/`](tests/) | Unit tests + fixtures. |
+
+The top-level `App.tsx` lives at the repo root (Expo convention) and only
+composes `SafeAreaProvider` + `QueryClientProvider` + `NavigationContainer`.
+
+## Naming convention
+
+Content must be inferable from the suffix:
+
+- `*.tsx` — React components and screens.
+- `use*.ts` — hooks.
+- `*.service.ts` — business-logic helpers (API orchestration, transforms).
+- `*.types.ts` — types local to a folder.
+- `*.test.tsx` / `*.spec.ts` — tests.
+
+## File size
+
+Soft cap: **300–500 lines**. Run `npm run lint:size` to surface offenders.
+Warning-only by default.
+
+Parent: [../README.md](../README.md)

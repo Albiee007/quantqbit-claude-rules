@@ -1,0 +1,21 @@
+# ${SRC_DIR}/config/
+
+Boot-time configuration for ${PROJECT_NAME} (frontend).
+
+## What lives here
+
+- [`env.ts`](env.ts) — zod-validated `import.meta.env` loader. Fails fast on boot if a required var is missing.
+- [`queryClient.ts`](queryClient.ts) — React Query client singleton.
+- [`theme.ts`](theme.ts) — minimal design tokens. Replace with your UI library's theme.
+
+## What does NOT live here
+
+- React components — those live in `${SRC_DIR}/components/` (shared) or inside a feature's `components/` folder.
+- Business logic. Use `${SRC_DIR}/features/<name>/services/` or `${SRC_DIR}/lib/`.
+
+## Naming
+
+- Lowercase, one concern per file (`env.ts`, `queryClient.ts`, `theme.ts`).
+- Each file is named after the resource it configures.
+
+Parent: [../README.md](../README.md)

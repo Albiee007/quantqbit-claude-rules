@@ -1,0 +1,45 @@
+# ${PROJECT_NAME} — AI Rules
+
+Project-specific rules that AI agents working on this codebase must follow. These are the rules that vary per project — generic agent rules live in [CLAUDE.md](CLAUDE.md) and the operational layer shipped by `/init-project-rules`.
+
+> **Edit this file.** It is a stub stamped on ${TIMESTAMP}. Replace the placeholders below with rules that match your domain.
+
+## Verification gates
+
+Define the gates that must pass before a task is considered complete. Examples:
+
+- [ ] Unit tests for the changed module pass.
+- [ ] Integration tests for the affected feature pass.
+- [ ] `bash scripts/lint.sh` is clean (warnings allowed; errors not).
+- [ ] Build smoke test passes (`npm run build`, `./gradlew assembleDebug`, etc.).
+- [ ] No `.env` file was edited or committed.
+- [ ] No file exceeds 500 lines (warning is acceptable if justified in the PR description).
+
+## Prompt hygiene
+
+- Reference functions and files by path with line numbers (`src/api/v1/users/users.service.ts:42`) so the reader can jump straight to the location.
+- Avoid speculative summarisation — describe what the diff does, not what it could enable.
+- For non-trivial work, write a plan and get user approval before implementing.
+
+## Forbidden actions
+
+- Do not introduce dependencies from the **Stack non-goals** list (see project README and the upstream `quantqbit-claude-rules` plan).
+- Do not commit secrets, tokens, or PII. Use `.env.example` for placeholder shape only.
+- Do not push directly to the project's staging branch without explicit user approval.
+
+## Domain-specific rules
+
+Replace this section with rules unique to this project (compliance, regulated data, language-locked components, etc.). Generic examples of the *shape* such rules should take:
+
+- _Payments app_: never log full card numbers or CVV in any environment, including local dev.
+- _Healthcare app_: PHI must never appear in client-side error reports or analytics payloads.
+- _E-commerce app_: order totals are always validated server-side; values from the client are treated as untrusted hints.
+
+Your rules here:
+
+- TODO: list project-specific invariants.
+
+## Escalation
+
+- When a rule conflict is unclear, ask the user via `AskUserQuestion` before deciding.
+- When a verification gate fails after two repair attempts, surface the failure rather than papering over it.

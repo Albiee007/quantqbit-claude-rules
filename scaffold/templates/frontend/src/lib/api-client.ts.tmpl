@@ -1,0 +1,41 @@
+// ${SRC_DIR}/lib/api-client.ts
+// Thin fetch wrapper. Reads VITE_API_BASE_URL from env and prepends it to
+// every relative path. No auth header wiring yet — when WITH_AUTH is enabled
+// add the header here.
+
+import { env } from '../config/env';
+
+export interface ApiClientOptions {
+  baseUrl?: string;
+}
+
+export function buildUrl(path: string, baseUrl: string = env.VITE_API_BASE_URL): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalisedBase = baseUrl.replace(/\/+$/, '');
+  const normalisedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${normalisedBase}${normalisedPath}`;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  init: RequestInit = {},
+  options: ApiClientOptions = {},
+): Promise<T> {
+  const url = buildUrl(path, options.baseUrl);
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      'content-type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`API ${res.status} ${res.statusText} on ${url}`);
+  }
+
+  // 204 No Content — caller should expect undefined.
+  if (res.status === 204) return undefined as T;
+
+  return (await res.json()) as T;
+}

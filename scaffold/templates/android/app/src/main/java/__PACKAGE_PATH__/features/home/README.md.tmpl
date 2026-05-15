@@ -1,0 +1,30 @@
+# home/
+
+Working example feature for ${PROJECT_NAME}. Compose screen that reads a
+hardcoded `Status.OK` from `HomeRepositoryImpl`.
+
+> **Intentionally tiny.** This feature exists to demonstrate the strict
+> 4-subfolder rule, not to demo auth, DB access, or live network calls. Do
+> NOT expand it. If you need a network or auth example, copy
+> `_feature_template/` and build a separate feature.
+
+## The strict 4-subfolder rule
+
+| Subfolder | What lives here | File suffix |
+| --- | --- | --- |
+| [`ui/`](ui/) | Compose screen (`HomeScreen.kt`) + screen-local composables | `*Screen.kt` |
+| [`viewmodel/`](viewmodel/) | `HomeViewModel.kt` + `HomeUiState` data class | `*ViewModel.kt` |
+| [`domain/`](domain/) | `HomeRepository` interface + `GetHomeStatusUseCase` | `*Repository.kt`, `*UseCase.kt` |
+| [`data/`](data/) | `HomeRepositoryImpl` (hardcoded `Status.OK`) | `*RepositoryImpl.kt` |
+
+## How it wires together
+
+1. `MainApplication.onCreate()` constructs `AppGraph(this)`.
+2. `AppGraph` builds `HomeRepositoryImpl` and exposes it via `homeRepository`.
+3. `HomeScreen` reads `MainApplication.graph.homeRepository` and feeds it
+   into `HomeViewModel.factory(...)`.
+4. The VM emits `HomeUiState(isLoading=false, status=OK)`.
+
+No Hilt, no Room, no KSP — see `app/build.gradle.kts` for the rationale.
+
+Parent: [../README.md](../README.md)

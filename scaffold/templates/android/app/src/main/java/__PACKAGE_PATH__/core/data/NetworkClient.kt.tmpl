@@ -1,0 +1,45 @@
+package ${ANDROID_PACKAGE}.core.data
+
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
+import java.util.concurrent.TimeUnit
+
+/**
+ * Wraps Retrofit + OkHttp + Moshi.
+ *
+ * Single instance held on [${ANDROID_PACKAGE}.core.di.AppGraph]. Feature
+ * repositories call [retrofit] to create their own API interfaces. Keep
+ * baseUrl configurable later (per-flavour or per build-type) — for v1 it
+ * is hard-coded to a known public placeholder.
+ */
+class NetworkClient private constructor(
+    val retrofit: Retrofit,
+) {
+    companion object {
+        private const val BASE_URL = "https://example.com/"
+
+        fun create(): NetworkClient {
+            val logging = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BASIC
+            }
+            val ok = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor(logging)
+                .build()
+            val moshi = Moshi.Builder()
+                .add(KotlinJsonAdapterFactory())
+                .build()
+            val retrofit = Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(ok)
+                .addConverterFactory(MoshiConverterFactory.create(moshi))
+                .build()
+            return NetworkClient(retrofit)
+        }
+    }
+}

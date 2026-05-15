@@ -1,0 +1,29 @@
+package ${ANDROID_PACKAGE}.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import ${ANDROID_PACKAGE}.features.home.ui.HomeScreen
+
+/**
+ * Single Compose navigation graph for ${PROJECT_NAME}.
+ *
+ * Add new screens by adding a [composable] block here and a route constant
+ * in [Routes]. Avoid deep navigation logic in this file — pass typed
+ * callbacks into screens so each screen stays decoupled from the navigator.
+ */
+@Composable
+fun AppNavGraph() {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = Routes.HOME) {
+        composable(Routes.HOME) {
+            HomeScreen()
+        }
+    }
+}
+
+/** Centralised string route constants — keep alphabetised. */
+object Routes {
+    const val HOME: String = "home"
+}

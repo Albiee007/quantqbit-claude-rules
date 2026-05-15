@@ -1,0 +1,41 @@
+package ${ANDROID_PACKAGE}
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Before
+import org.junit.Test
+import ${ANDROID_PACKAGE}.features.home.domain.HomeRepository
+import ${ANDROID_PACKAGE}.features.home.domain.Status
+import ${ANDROID_PACKAGE}.features.home.viewmodel.HomeViewModel
+
+/**
+ * Placeholder unit test — verifies the ViewModel resolves its status off a
+ * fake repository. Kept tiny so it stays green across Kotlin / coroutines
+ * version bumps. Replace once real features land.
+ */
+class HomeViewModelTest {
+
+    private val testDispatcher = StandardTestDispatcher()
+
+    @Before fun setUp() { Dispatchers.setMain(testDispatcher) }
+    @After fun tearDown() { Dispatchers.resetMain() }
+
+    @Test
+    fun `loads status from repository`() = runTest(testDispatcher) {
+        val fake = object : HomeRepository {
+            override suspend fun fetchStatus(): Status = Status.OK
+        }
+        val vm = HomeViewModel(fake)
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        assertFalse(state.isLoading)
+        assertEquals(Status.OK, state.status)
+    }
+}

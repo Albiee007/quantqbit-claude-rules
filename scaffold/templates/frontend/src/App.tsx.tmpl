@@ -1,0 +1,10 @@
+// ${SRC_DIR}/App.tsx
+// Application composition only — no business logic, no inline routes.
+// Each feature owns its own components / hooks / services; route mounting
+// happens in routes/index.tsx.
+
+import { AppRoutes } from './routes';
+
+export function App(): JSX.Element {
+  return <AppRoutes />;
+}

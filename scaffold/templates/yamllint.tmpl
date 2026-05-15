@@ -1,0 +1,40 @@
+# ============================================================
+# .yamllint — YAML linting config
+# ============================================================
+# Relaxed for Ansible idioms (yes/no truthy, no doc-start) and
+# Jinja2 templating (single space inside braces). Line length
+# bumped to 160 so Ansible task names and module args remain
+# readable on one line.
+
+extends: default
+
+rules:
+  line-length:
+    max: 160
+    level: warning
+
+  # Ansible commonly uses yes/no/on/off as truthy values.
+  # Disable key checks so quoted YAML keys aren't flagged.
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no', 'on', 'off']
+    check-keys: false
+
+  # Many Ansible task files omit the leading `---`.
+  document-start:
+    present: false
+
+  # Permit bash-style `# comment` (one space from content).
+  comments:
+    min-spaces-from-content: 1
+
+  # Comments in our playbooks aren't always indented to match
+  # the next line — disable the indentation check entirely.
+  comments-indentation: disable
+
+  # Jinja2 expressions like `{{ var }}` need one space inside.
+  braces:
+    max-spaces-inside: 1
+
+  # Ansible mode bits like `0644` clash with the default
+  # octal-values rule — disable it.
+  octal-values: disable

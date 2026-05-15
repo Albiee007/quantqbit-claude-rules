@@ -1,0 +1,22 @@
+# ${SRC_DIR}/api/
+
+HTTP surface for ${PROJECT_NAME}.
+
+## What lives here
+
+- One subfolder per API version (`${API_VERSION}/`, `v2/`, …).
+- Inside each version, one folder per feature, plus the `_feature_template/`
+  exemplar.
+
+## Versioning
+
+- New endpoints land in the current version (`${API_VERSION}/`).
+- Breaking changes get a new version folder. Old versions stay until
+  deprecation is complete.
+
+## Naming
+
+- Version folders are lowercase `v<n>`.
+- Feature folders are lowercase, plural where applicable (`users/`, `orders/`).
+
+Parent: [../README.md](../README.md)

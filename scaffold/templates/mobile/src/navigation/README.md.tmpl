@@ -1,0 +1,19 @@
+# navigation/
+
+React Navigation wiring for ${PROJECT_NAME}.
+
+| File | Purpose |
+| --- | --- |
+| [`RootNavigator.tsx`](RootNavigator.tsx) | Top-level stack. Adds new screens here as the app grows. |
+| [`types.ts`](types.ts) | Type-level param lists for each navigator. |
+
+## Conventions
+
+- One file per navigator. Nested navigators get their own file (e.g.
+  `TabsNavigator.tsx`).
+- Param lists live in `types.ts` and are referenced via
+  `NativeStackScreenProps<RootStackParamList, 'Home'>` in screen components.
+- Never import screen-internal types here — the navigator only knows the
+  screen component and its route params.
+
+Parent: [../README.md](../README.md)

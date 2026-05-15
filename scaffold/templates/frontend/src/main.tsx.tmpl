@@ -1,0 +1,28 @@
+// ${SRC_DIR}/main.tsx
+// React entrypoint. Creates the root, wraps the app in router + react-query
+// providers. No business logic — that lives in App.tsx (composition) and the
+// per-feature folders.
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+
+import { App } from './App';
+import { queryClient } from './config/queryClient';
+import './styles/global.css';
+
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Root element #root not found in index.html');
+}
+
+ReactDOM.createRoot(rootElement).render(
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </QueryClientProvider>
+  </React.StrictMode>,
+);

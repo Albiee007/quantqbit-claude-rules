@@ -1,0 +1,35 @@
+# ${PROJECT_NAME} — Background Jobs
+
+> Stub stamped on ${TIMESTAMP}. One section per scheduled job, queue, or worker.
+
+## Job index
+
+| Job | Schedule | Trigger | Source |
+| --- | --- | --- | --- |
+| _example: kb-sync_ | _daily 02:00 UTC_ | _cron_ | _scripts/kb-sync.ts_ |
+
+## Job: _example_
+
+**Cadence**: cron `0 2 * * *` (daily at 02:00 UTC).
+**Trigger**: scheduled (cron) — also invokable on demand via `npm run job:kb-sync`.
+**Source**: [`../scripts/kb-sync.ts`](../scripts/kb-sync.ts).
+**Datastore touched**: _PostgreSQL kb_chunks_.
+**Failure mode**: log + alert; safe to re-run (idempotent on `source_id`).
+
+### Inputs
+
+- `KB_SYNC_BATCH_SIZE` env (default 100).
+
+### Outputs
+
+- Rows inserted/updated in `kb_chunks`.
+- One row in `kb_sync_jobs` per run.
+
+### Observability
+
+- Logs to stdout (collected by the platform).
+- Failure → exit non-zero so the scheduler retries.
+
+---
+
+Add new jobs below.

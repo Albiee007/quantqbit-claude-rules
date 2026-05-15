@@ -1,0 +1,21 @@
+// settings.gradle.kts — project-level settings for ${PROJECT_NAME}.
+// Pinned plugin + dependency repositories so the build is reproducible.
+
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "${PROJECT_SLUG}"
+include(":app")

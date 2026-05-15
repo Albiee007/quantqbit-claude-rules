@@ -1,0 +1,38 @@
+# ${PROJECT_NAME} — local development compose stack.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${PROJECT_SLUG}-app
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      - mongo
+      - postgres
+
+  mongo:
+    image: mongo:7
+    container_name: ${PROJECT_SLUG}-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${PROJECT_SLUG}-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${PROJECT_SLUG}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  mongo_data:
+  postgres_data:

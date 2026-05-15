@@ -1,0 +1,19 @@
+# ${SRC_DIR}/tests/
+
+Vitest tests for ${PROJECT_NAME}.
+
+## Layout
+
+| Path | Purpose |
+| --- | --- |
+| [`setup.ts`](setup.ts) | Vitest global setup — jest-dom matchers wired here. |
+| `unit/` | Component + hook + service tests. Mock fetch — no live network. |
+| `e2e/` | Reserved for Playwright/Cypress scenarios (no runner wired in v1). |
+
+## Conventions
+
+- Test file: `<Name>.test.tsx` for components, `<name>.test.ts` for plain modules.
+- One describe block per module under test.
+- Use `vi.stubGlobal('fetch', ...)` to mock network in unit tests — no MSW dependency in v1.
+
+Parent: [../README.md](../README.md)

@@ -1,0 +1,24 @@
+// ${SRC_DIR}/components/layout/AppShell.tsx
+// Shared layout wrapper — header, main slot, footer. Keep it bare; per-route
+// content lives in routes/. Replace this with your design system's shell
+// component when you adopt one.
+
+import type { ReactNode } from 'react';
+
+export interface AppShellProps {
+  children: ReactNode;
+}
+
+export function AppShell({ children }: AppShellProps): JSX.Element {
+  return (
+    <div className="app-shell">
+      <header className="app-shell__header">
+        <h1>${PROJECT_NAME}</h1>
+      </header>
+      <main className="app-shell__main">{children}</main>
+      <footer className="app-shell__footer">
+        <small>${PROJECT_NAME} — stamped ${TIMESTAMP}</small>
+      </footer>
+    </div>
+  );
+}

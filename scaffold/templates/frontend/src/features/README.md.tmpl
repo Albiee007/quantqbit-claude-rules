@@ -1,0 +1,23 @@
+# ${SRC_DIR}/features/
+
+Feature folders for ${PROJECT_NAME}. Each feature owns its own components, hooks, services, and types.
+
+## The strict 4-subfolder rule
+
+Every feature has **exactly** these four subfolders:
+
+| Subfolder | What lives here | Naming suffix |
+| --- | --- | --- |
+| `components/` | React components for the feature | `*.tsx` |
+| `hooks/` | React Query hooks + plain hooks for the feature | `use*.ts` |
+| `services/` | Network calls + business logic | `*.service.ts` |
+| `types/` | Types and interfaces local to the feature | `*.types.ts` |
+
+No file lives at the feature root — the only top-level file inside a feature folder is its own `README.md`.
+
+## Examples
+
+- [`health/`](health/) — working tiny example that calls `/healthz`. Stays minimal on purpose; do NOT grow it into an auth/DB demo.
+- [`_feature_template/`](_feature_template/) — copy + rename for new features.
+
+Parent: [../README.md](../README.md)

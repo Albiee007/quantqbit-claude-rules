@@ -1,0 +1,25 @@
+# ${SRC_DIR}/models/
+
+Data models for ${PROJECT_NAME}.
+
+## What lives here
+
+- One file per collection / table, named `<entity>.model.ts`.
+- Mongoose schemas, pg row interfaces, or both — the file owns the entity.
+
+## What does NOT live here
+
+- Business logic — that belongs in a feature's `services/`.
+- HTTP shapes (request/response types) — those live in the feature's `types/`.
+
+## Naming
+
+- `<entity>.model.ts` — singular, lowercase. Examples: `user.model.ts`, `order.model.ts`.
+
+## File size
+
+If a single model file grows past 500 lines, split it into per-concern files
+(`user.schema.ts`, `user.indexes.ts`, `user.statics.ts`) and re-export from a
+barrel.
+
+Parent: [../README.md](../README.md)

@@ -1,0 +1,11 @@
+// ${SRC_DIR}/types/shared.ts
+// Cross-feature types. Keep narrow — feature-local types belong in
+// features/<name>/types/. Anything that needs to be shared across two or
+// more features lands here.
+
+export type Iso8601String = string;
+
+export interface ApiError {
+  message: string;
+  code?: string;
+}

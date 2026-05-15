@@ -1,0 +1,46 @@
+# ============================================================
+# .editorconfig — workspace-wide editor defaults
+# ============================================================
+# UTF-8 + LF + final newline enforced everywhere so
+# cross-platform contributors (Windows/macOS/Linux) produce
+# identical output. Per-language overrides match upstream norms.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{yml,yaml,json,toml}]
+indent_style = space
+indent_size = 2
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+[*.sh]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+
+[*.kt]
+indent_style = space
+indent_size = 4
+
+[*.{xml,gradle,gradle.kts}]
+indent_style = space
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+
+[*.mk]
+indent_style = tab

@@ -1,0 +1,29 @@
+# screens/
+
+One folder per screen. Every screen folder uses the **strict 4-subfolder
+rule** — no files live at the screen root.
+
+## The strict 4-subfolder rule
+
+| Subfolder | What lives here | Naming suffix |
+| --- | --- | --- |
+| `components/` | Screen-local presentational components | `*.tsx` |
+| `hooks/` | Screen-local hooks (`useThing.ts`) | `use*.ts` |
+| `services/` | Business logic / API orchestration | `*.service.ts` |
+| `types/` | Types and interfaces local to the screen | `*.types.ts` |
+
+The screen component itself (e.g. `HomeScreen.tsx`) is the only `.tsx` at
+the screen root — it composes pieces from the four subfolders into the
+final UI. The screen file is the navigator-registered component.
+
+## Working example
+
+- [`home/`](home/) — minimal example screen. `HomeHeader` component +
+  `useHomeData` hook + `home.service` API call. Intentionally tiny.
+
+## Template
+
+- [`_screen_template/`](_screen_template/) — rename to your screen name and
+  start filling in.
+
+Parent: [../README.md](../README.md)

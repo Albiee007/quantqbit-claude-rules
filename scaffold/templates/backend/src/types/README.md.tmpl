@@ -1,0 +1,20 @@
+# ${SRC_DIR}/types/
+
+Shared type declarations for ${PROJECT_NAME}.
+
+## What lives here
+
+- [`express.d.ts`](express.d.ts) — augments Express's `Request` so `req.id` is typed.
+- [`shared.ts`](shared.ts) — types reused by more than one feature.
+
+## What does NOT live here
+
+- Feature-local types — those live in `${SRC_DIR}/api/<version>/<feature>/types/`.
+- Mongoose / pg row types — those live with their model in `${SRC_DIR}/models/`.
+
+## Naming
+
+- `*.d.ts` for ambient module augmentations.
+- `*.ts` for ordinary exported types.
+
+Parent: [../README.md](../README.md)

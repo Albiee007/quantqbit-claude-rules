@@ -1,0 +1,21 @@
+# health/
+
+Working example feature for ${PROJECT_NAME}. Calls `${VITE_API_BASE_URL:-/healthz}` and renders Loading / OK / Error.
+
+This feature exists as a layout demonstration — it must stay tiny. Do NOT grow it into an auth/DB/observability example.
+
+## 4-subfolder rule
+
+| Subfolder | What lives here | Naming suffix |
+| --- | --- | --- |
+| [`components/`](components/) | React components | `*.tsx` |
+| [`hooks/`](hooks/) | React Query hook + plain hooks | `use*.ts` |
+| [`services/`](services/) | Network call | `*.service.ts` |
+| [`types/`](types/) | Local types | `*.types.ts` |
+
+## Next steps
+
+- Replace this README's "endpoints" section once you wire real endpoints.
+- Add a `*.test.tsx` under `${SRC_DIR}/tests/unit/` for new hooks / components.
+
+Parent: [../README.md](../README.md)

@@ -1,0 +1,16 @@
+# auth/
+
+Auth feature stub for ${PROJECT_NAME}. Stamped only when `--with-auth` is set.
+
+Intentionally tiny — no provider wiring, no JWT logic baked in. Replace the placeholder service with your real auth flow (Cognito, Auth0, Clerk, etc.).
+
+## 4-subfolder rule
+
+| Subfolder | What lives here | Naming suffix |
+| --- | --- | --- |
+| [`components/`](components/) | Login / signup / signed-in shell components | `*.tsx` |
+| [`hooks/`](hooks/) | `useAuth`, `useCurrentUser` etc. | `use*.ts` |
+| [`services/`](services/) | Token storage, sign-in / sign-out network calls | `*.service.ts` |
+| [`types/`](types/) | User / session shapes | `*.types.ts` |
+
+Parent: [../README.md](../README.md)

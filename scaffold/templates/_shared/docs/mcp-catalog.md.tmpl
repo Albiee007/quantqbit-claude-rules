@@ -1,0 +1,84 @@
+# ${PROJECT_NAME} — MCP Server Catalog
+
+> Stamped on ${TIMESTAMP}. Curated list of MCP (Model Context Protocol) servers that are likely useful for this project based on common stack signals. **None are enabled by default** — `.claude/mcp.json` ships with `mcpServers: {}`. Enable the ones you actually use.
+
+## How to enable a server
+
+1. Copy the snippet from this catalog into `.claude/mcp.json` under `mcpServers`.
+2. Remove the `_doc` placeholder field if it's still there.
+3. Set any required env vars (each entry below lists them).
+4. Restart Claude Code (or start a new session) so the MCP server is picked up.
+
+## Catalog (by detection signal)
+
+| Signal in your project | Suggested MCP server | Why |
+| --- | --- | --- |
+| Git remote on GitHub (`origin` points at `github.com`) | `github` | Read/comment on issues, PRs, repos, releases |
+| Git remote on GitLab | `gitlab` (community) | Same, for GitLab projects |
+| PostgreSQL dep (`pg`, `pg-promise`, Drizzle on Postgres) | `postgres` | Schema introspection, read-only queries |
+| MongoDB dep (`mongoose`, `mongodb`) | filesystem-flavoured MCP or a MongoDB-specific community MCP | Inspect collections, indexes |
+| Stripe dep (`stripe` SDK) | `stripe` | Read products, prices, customers (test mode) |
+| Sentry SDK (`@sentry/*`) | `sentry` | Look up issue context for debugging |
+| Linear references (in `docs/`, issue comments, etc.) | `linear` | Read/update issues from inside Claude |
+| Jira references | `jira` | Same, for Atlassian-based teams |
+| Slack workspace mentioned in runbook | `slack` | Post deploy notes, read incident channels |
+| Browser automation (`playwright`, `cypress`, `puppeteer`) | `puppeteer` | Drive a headless browser from Claude |
+| Heavy docs / RAG-style retrieval | `memory` | Persistent memory across sessions |
+| External research needs | `brave-search` | Web search without leaving Claude |
+
+## Example snippets
+
+### GitHub
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+      }
+    }
+  }
+}
+```
+
+### PostgreSQL
+
+```json
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost:5432/${PROJECT_SLUG}"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Filesystem (scoped to project)
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}/projects/${PROJECT_SLUG}"]
+    }
+  }
+}
+```
+
+## Picking servers
+
+- **Start narrow.** Enable one or two servers you'll actually use this week. Don't pre-enable a long list — every server adds context to every prompt.
+- **Prefer read-only by default.** Most MCP servers default to read-only; opt into writes (issue updates, DB mutations) only when you actively need them.
+- **Secrets stay in env vars.** Never hardcode tokens in `.claude/mcp.json`. Read them via `${VAR}` from environment.
+
+## Updating
+
+Re-run `/init-project-scaffold` (or the underlying `bash init-scaffold.sh`) with `--force` if you want to regenerate `.claude/mcp.json` from scratch — your file will be backed up to `.claude.bak/<timestamp>/` first.
+
+For finer-grained edits, just edit `.claude/mcp.json` directly — the scaffolder will only overwrite on a forced re-run.

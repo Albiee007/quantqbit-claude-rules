@@ -1,0 +1,13 @@
+// ${SRC_DIR}/components/ui/Button.tsx
+// Base button component. Intentionally bare — wire your UI library (MUI,
+// Chakra, etc.) here or replace with a styled variant.
+
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  children: ReactNode;
+}
+
+export function Button({ children, ...rest }: ButtonProps): JSX.Element {
+  return <button {...rest}>{children}</button>;
+}

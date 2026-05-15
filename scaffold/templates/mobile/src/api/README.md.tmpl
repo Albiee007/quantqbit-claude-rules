@@ -1,0 +1,23 @@
+# api/
+
+API client surface for ${PROJECT_NAME}. Endpoint-shaped wrappers around
+`fetch`, typed against the response shapes defined in each feature/screen's
+`types/` folder.
+
+| File | Purpose |
+| --- | --- |
+| [`client.ts`](client.ts) | Shared fetch wrapper — base URL, headers, error normalisation. |
+
+## What lives here
+
+- One `*.api.ts` file per backend resource (`health.api.ts`, `users.api.ts`).
+- The shared `client.ts` fetch wrapper (auth header injection, retry, etc.).
+
+## What does NOT live here
+
+- React hooks — those live in screen/feature `hooks/` folders.
+- Mocks — those live in `${SRC_DIR}/tests/`.
+- Caching strategy — TanStack Query owns that; this folder returns raw
+  promises.
+
+Parent: [../README.md](../README.md)

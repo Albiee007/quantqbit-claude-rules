@@ -1,0 +1,38 @@
+# ${PROJECT_NAME} — API
+
+> Stub stamped on ${TIMESTAMP}. One section per endpoint; group by feature.
+
+## Base URL
+
+| Environment | Base URL |
+| --- | --- |
+| Local | `http://localhost:3000/api/${API_VERSION}` |
+| Staging | _TODO_ |
+| Production | _TODO_ |
+
+## Authentication
+
+_TODO_: describe the auth scheme (JWT / API key / session cookie). Reference [`${SRC_DIR}/middlewares/`](../${SRC_DIR}/middlewares/) for the validators.
+
+## Conventions
+
+- All responses are JSON. Error shape: `{ "error": { "code": "...", "message": "..." } }`.
+- Pagination: `?limit=` and `?cursor=` (cursor-based).
+- Idempotency: `Idempotency-Key` header on POST/PUT.
+
+## Endpoints
+
+### Health
+
+#### `GET /healthz`
+
+Returns the service liveness state. No auth.
+
+**Response 200**
+```json
+{ "status": "ok", "uptime": 12345 }
+```
+
+### _Feature template_
+
+Replace with real features. Use the per-feature folder under [`${SRC_DIR}/api/${API_VERSION}/`](../${SRC_DIR}/api/${API_VERSION}/) as the source of truth — the doc summarises; the code is canonical.

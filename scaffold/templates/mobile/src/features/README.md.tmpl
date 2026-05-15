@@ -1,0 +1,32 @@
+# features/
+
+Cross-screen domain features for ${PROJECT_NAME}. Use this folder for slices
+of behaviour that span multiple screens (auth, profile, analytics, etc.).
+
+## The strict 4-subfolder rule
+
+Every feature folder uses the same four subfolders as `screens/`:
+
+| Subfolder | What lives here | File suffix |
+| --- | --- | --- |
+| `components/` | Shared feature components | `*.tsx` |
+| `hooks/` | Feature hooks | `use*.ts` |
+| `services/` | Business logic + API orchestration | `*.service.ts` |
+| `types/` | Feature types | `*.types.ts` |
+
+## When to add a feature vs. a screen
+
+- **Screen**: anything reachable via the navigator. Has its own route.
+- **Feature**: anything used by multiple screens. No route of its own.
+
+If unsure, start as a screen — promote to a feature later if you find
+yourself importing it from a second screen.
+
+<!-- {{IF WITH_AUTH}} -->
+## Included features
+
+- `auth/` — auth flow scaffolding (sign-in screen, AsyncStorage token, etc.).
+  Stamped because `--with-auth` was passed.
+<!-- {{ENDIF}} -->
+
+Parent: [../README.md](../README.md)

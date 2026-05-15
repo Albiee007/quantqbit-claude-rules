@@ -1,0 +1,28 @@
+# ${FEATURE_NAME}/
+
+Feature folder for `${FEATURE_NAME}`. Stamped from the `_feature_template/`.
+
+## What lives here
+
+| Subfolder | What lives here | Naming suffix |
+| --- | --- | --- |
+| [`components/`](components/) | React components for this feature | `*.tsx` |
+| [`hooks/`](hooks/) | React Query hooks + plain hooks | `use*.ts` |
+| [`services/`](services/) | Network calls + business logic | `*.service.ts` |
+| [`types/`](types/) | Request/response and domain types | `*.types.ts` |
+
+## What does NOT live here
+
+- Cross-feature UI primitives → `${SRC_DIR}/components/`.
+- Shared hooks (used by 2+ features) → `${SRC_DIR}/hooks/`.
+- Framework-agnostic helpers → `${SRC_DIR}/lib/`.
+- Cross-feature types → `${SRC_DIR}/types/shared.ts`.
+
+## Next steps
+
+1. Rename this folder to your actual feature name (kebab-case, e.g. `users`, `orders`).
+2. Replace the empty subfolders' `.gitkeep` files with real `*.tsx` / `use*.ts` / `*.service.ts` / `*.types.ts` files.
+3. Mount the feature's page component in `${SRC_DIR}/routes/index.tsx`.
+4. Add a test under `${SRC_DIR}/tests/unit/`.
+
+Parent: [../README.md](../README.md)

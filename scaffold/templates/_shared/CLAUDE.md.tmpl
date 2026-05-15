@@ -1,0 +1,53 @@
+# ${PROJECT_NAME} — Agent Rules
+
+Workflow rules and conventions for the **${PROJECT_NAME}** repo.
+
+> This file is the **project-scaffold layer**. The operational agent-rules layer (denies, hooks, lint configs, custom sub-agents) is shipped separately by the `/init-project-rules` slash command. Run that first if you haven't already.
+
+## Project snapshot
+
+| Path | Purpose |
+| --- | --- |
+| `${SRC_DIR}/` | All application code lives here. |
+| `${SRC_DIR}/config/` | Environment loading, logger, DB clients, third-party SDK init. |
+| `${SRC_DIR}/middlewares/` | Cross-cutting request middleware (auth, request-id, error handler, validators). |
+| `${SRC_DIR}/models/` | Data models — one file per collection or table. |
+| `${SRC_DIR}/lib/` | Framework-agnostic primitives. No imports from `middlewares/`, `models/`, or `api/`. |
+| `${SRC_DIR}/api/${API_VERSION}/<feature>/` | One folder per feature. Every feature has the same fixed set of subfolders. |
+| `docs/` | Architecture, API, data-model, runbook docs. Each phase updates these. |
+| `tests/` (or `${SRC_DIR}/tests/`) | Unit + integration + fixtures. |
+
+## Non-negotiables
+
+- **File-size soft cap: 300–500 lines.** Split any file exceeding 500 lines into smaller categorised files. The repo's `lint.sh` warns when the cap is exceeded (warning-only by default; `--strict` makes it fatal).
+- **Folder-per-category strict rule.** No file at a feature root — every file lives inside one of the prescribed subfolders.
+- **Naming convention.** File content must be inferable from the suffix: `*.routes.*`, `*.controller.*`, `*.service.*`, `*.types.*`, `*.model.*`, `*.handler.*`, `*.gateway.*`, `*.client.*`, `*.spec.*`.
+- **Never edit, delete, overwrite, stage, or restore any `.env` file** (`.env`, `.env.*`, any subfolder).
+- **Stage files by name only.** Never run `git add -A`, `git add .`, or `git add --all`.
+- **In plan mode**, make no edits and call no non-readonly tools.
+- **Pass `model: "opus"` on every worker-agent spawn.** Never accept a smaller model silently.
+
+## How to work
+
+1. **Plan first.** Discuss the approach, produce a concrete plan, wait for explicit approval before changing code.
+2. **Delegate to worker agents** for code exploration and implementation. Keep the main context focused on planning, review, and integration. Always pass `model: "opus"`.
+3. **Review every worker output** — read the diff, confirm scope was respected, run the relevant verification command.
+4. **Update `docs/`** at the end of every phase. Each architectural decision lands in `docs/system-architecture.md`; each new endpoint lands in `docs/api.md`; each new model lands in `docs/data-models.md`.
+
+## Project-scaffold conventions
+
+- **Every architectural folder has a `README.md`** stating what lives there, what does NOT, the naming suffix to use, and a link to the parent.
+- **Leaf subfolders inside a feature** (`routes/`, `controllers/`, `services/`, `types/`, and platform analogues) use `.gitkeep` — the parent feature `README.md` documents the rule once.
+- **`AI_RULES.md`** lives next to this file and holds project-specific AI rules (verification gates, prompt hygiene). Edit it to suit your domain.
+
+## Verification
+
+Run the right check for the surface you touched.
+
+- Lint: `bash scripts/lint.sh` (warning-only by default; `bash scripts/lint.sh --strict` upgrades file-size warnings to errors).
+- Per-platform build smoke test (see project README for the exact command — varies by stack).
+
+## Notes
+
+- This file was stamped by the `/init-project-scaffold` skill on ${TIMESTAMP}.
+- The companion `/init-project-rules` skill stamps the operational `.claude/` layer.

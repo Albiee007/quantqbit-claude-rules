@@ -1,0 +1,19 @@
+// ${SRC_DIR}/routes/index.tsx
+// Router configuration. Each feature exports its own page component; route
+// mounting happens here only — keeps routes/ as the single source of truth.
+
+import { Routes, Route } from 'react-router-dom';
+
+import { AppShell } from '../components/layout/AppShell';
+import { HealthStatus } from '../features/health/components/HealthStatus';
+
+export function AppRoutes(): JSX.Element {
+  return (
+    <AppShell>
+      <Routes>
+        <Route path="/" element={<HealthStatus />} />
+        <Route path="*" element={<p>Not found.</p>} />
+      </Routes>
+    </AppShell>
+  );
+}

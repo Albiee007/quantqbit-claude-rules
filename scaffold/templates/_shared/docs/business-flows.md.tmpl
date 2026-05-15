@@ -1,0 +1,42 @@
+# ${PROJECT_NAME} — Business Flows
+
+> Stub stamped on ${TIMESTAMP}. One section per end-to-end user flow. Use ASCII ladders or Mermaid sequence diagrams.
+
+## Flow index
+
+| Flow | Trigger | Outcome |
+| --- | --- | --- |
+| _example: user signup_ | _POST /users_ | _new user record + welcome email_ |
+
+## Flow: _example_
+
+```
+user ──submits form──▶ POST /api/${API_VERSION}/users
+                         │
+                         ▼
+                      validate (zod)
+                         │
+                         ▼
+                      check uniqueness
+                         │
+                  ┌──────┴──────┐
+                  │             │
+                exists       new
+                  │             │
+                  ▼             ▼
+              409 reply      create record
+                                │
+                                ▼
+                            201 reply + welcome job queued
+```
+
+References: [`${SRC_DIR}/api/${API_VERSION}/users/`](../${SRC_DIR}/api/${API_VERSION}/users/).
+
+### Edge cases
+
+- _example_: invalid email → 422 with field-level error.
+- _example_: duplicate email → 409 with `error.code = "user_exists"`.
+
+---
+
+Add new flows below. One section per flow, with the ladder, the references, and the edge cases.

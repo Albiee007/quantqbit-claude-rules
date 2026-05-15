@@ -1,0 +1,41 @@
+{
+  "name": "${PROJECT_SLUG}",
+  "version": "0.1.0",
+  "private": true,
+  "description": "${PROJECT_NAME} — frontend (Vite + React + TypeScript). Stamped by /init-project-scaffold on ${TIMESTAMP}.",
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings=0 || true; bash scripts/check-file-size.sh",
+    "lint:size": "bash scripts/check-file-size.sh",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.1",
+    "@tanstack/react-query": "^5.51.23",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "vite": "^5.4.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.4.8",
+    "jsdom": "^24.1.1",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/node": "^20.14.10"
+  }
+}

@@ -1,0 +1,15 @@
+package ${ANDROID_PACKAGE}.features.home.data
+
+import ${ANDROID_PACKAGE}.features.home.domain.HomeRepository
+import ${ANDROID_PACKAGE}.features.home.domain.Status
+
+/**
+ * v1 implementation — returns hardcoded [Status.OK].
+ *
+ * No network call yet (the scaffold stays self-contained — see the project
+ * README's "tiny example feature" rule). Swap this for a Retrofit-backed
+ * impl in your first real feature.
+ */
+class HomeRepositoryImpl : HomeRepository {
+    override suspend fun fetchStatus(): Status = Status.OK
+}

@@ -1,0 +1,22 @@
+# ============================================================
+# .shellcheckrc — ShellCheck config
+# ============================================================
+# Disables tuned for a ${CODE_SUBDIR}/scripts/lib/ source pattern,
+# where helper libraries are sourced from dynamically-resolved
+# paths (e.g. via $(dirname "$0")). ShellCheck cannot statically
+# follow these, so SC1090/SC1091 would otherwise flood the output
+# with false positives.
+
+# SC1090: Can't follow non-constant source. Use a directive...
+#   Intentional — lib scripts are sourced via computed paths.
+disable=SC1090
+
+# SC1091: Not following: <file> was not specified as input.
+#   Common in our lib/ source pattern; sourced files live in the
+#   same dir but ShellCheck isn't told about them at lint time.
+disable=SC1091
+
+# Allow ShellCheck to follow `source` / `.` directives when it
+# can resolve them (improves coverage for the cases SC1090/1091
+# wouldn't otherwise warn about).
+external-sources=true

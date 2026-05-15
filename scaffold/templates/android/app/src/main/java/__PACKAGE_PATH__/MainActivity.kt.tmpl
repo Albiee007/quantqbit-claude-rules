@@ -1,0 +1,32 @@
+package ${ANDROID_PACKAGE}
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import ${ANDROID_PACKAGE}.core.ui.theme.AppTheme
+import ${ANDROID_PACKAGE}.navigation.AppNavGraph
+
+/**
+ * Single launcher activity. Hosts the Compose navigation graph.
+ *
+ * Intentionally thin — all UI lives under features/.
+ */
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AppTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    AppNavGraph()
+                }
+            }
+        }
+    }
+}

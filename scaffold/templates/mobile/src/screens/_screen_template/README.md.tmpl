@@ -1,0 +1,31 @@
+# ${SCREEN_NAME}/
+
+Screen folder for `${SCREEN_NAME}`. Stamped from the `_screen_template/`.
+
+## What lives here
+
+| Subfolder | What lives here | File suffix |
+| --- | --- | --- |
+| [`components/`](components/) | Screen-local presentational components | `*.tsx` |
+| [`hooks/`](hooks/) | Screen-local hooks | `use*.ts` |
+| [`services/`](services/) | Business logic / API orchestration | `*.service.ts` |
+| [`types/`](types/) | Types local to this screen | `*.types.ts` |
+
+The screen component itself (e.g. `${SCREEN_NAME}Screen.tsx`) is the only
+`.tsx` at the screen root.
+
+## What does NOT live here
+
+- Cross-screen UI primitives — those live in `${SRC_DIR}/components/`.
+- Cross-screen hooks — those live in `${SRC_DIR}/hooks/`.
+- API client wrappers — those live in `${SRC_DIR}/api/`.
+
+## Next steps
+
+1. Rename this folder to the screen name (e.g. `settings/`).
+2. Create the `<Name>Screen.tsx` entry component at the screen root.
+3. Register it in [`${SRC_DIR}/navigation/RootNavigator.tsx`](../../navigation/RootNavigator.tsx)
+   and add the route to [`${SRC_DIR}/navigation/types.ts`](../../navigation/types.ts).
+4. Fill the four subfolders. Each leaf is a `.gitkeep` placeholder.
+
+Parent: [../README.md](../README.md)

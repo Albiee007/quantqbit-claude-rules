@@ -1,0 +1,16 @@
+# config/
+
+Boot-time configuration for ${PROJECT_NAME}. Fail-fast on bad config.
+
+| File | Purpose |
+| --- | --- |
+| [`env.ts`](env.ts) | Zod-validated env loader. Reads `EXPO_PUBLIC_*` and falls back to `app.json`'s `extra`. |
+| [`queryClient.ts`](queryClient.ts) | Singleton `QueryClient` for TanStack Query. Tuned for mobile defaults. |
+
+## What does NOT live here
+
+- Screen components (those live in `screens/`).
+- API clients (those live in `api/`).
+- Type definitions shared across folders (those live in `types/`).
+
+Parent: [../README.md](../README.md)

@@ -1,0 +1,15 @@
+# scripts/
+
+Bash utility scripts for the ${PROJECT_NAME} mobile app. Linux/macOS targets
+plus Git Bash on Windows.
+
+| Script | Purpose |
+| --- | --- |
+| [`check-file-size.sh`](check-file-size.sh) | Warns on `.ts`/`.tsx` files exceeding 500 lines. Wired into `npm run lint`. Warning-only. |
+
+## Conventions
+
+- All scripts start with `set -euo pipefail` (or `set -uo pipefail` when
+  exit-0 behaviour matters for warnings).
+- Functions use `snake_case` with a module prefix.
+- Log markers: `[INFO]`, `[OK]`, `[WARN]`, `[FAIL]`.

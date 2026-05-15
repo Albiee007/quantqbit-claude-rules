@@ -1,0 +1,28 @@
+# features/
+
+One folder per feature. Every feature has the same fixed set of subfolders.
+
+## The strict 4-subfolder rule
+
+| Subfolder | What lives here | File suffix |
+| --- | --- | --- |
+| [`ui/`](home/ui/) | Compose screens + screen-local composables | `*Screen.kt`, `*Section.kt` |
+| [`viewmodel/`](home/viewmodel/) | `androidx.lifecycle.ViewModel` subclasses + UI state types | `*ViewModel.kt` |
+| [`domain/`](home/domain/) | Pure-Kotlin business contracts: repository interfaces + use cases | `*Repository.kt`, `*UseCase.kt` |
+| [`data/`](home/data/) | Repository implementations, Retrofit API interfaces, DTOs | `*RepositoryImpl.kt`, `*Api.kt` |
+
+No file lives at the feature root — only the four subfolders + a `README.md`.
+
+## What does NOT live here
+
+- Cross-feature shared code → `core/`.
+- Navigation graph → `navigation/`.
+- The Application class / MainActivity → top-level package.
+
+## Adding a new feature
+
+Copy `_feature_template/`, rename, fill in the four subfolders. Add a route
+in `navigation/AppNavGraph.kt`. Wire any new repository in
+`core/di/AppGraph.kt`.
+
+Parent: [../README.md](../README.md)

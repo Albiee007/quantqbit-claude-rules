@@ -1,0 +1,53 @@
+# ${PROJECT_NAME} — Runbook
+
+> Stub stamped on ${TIMESTAMP}. Replace placeholders with real procedures.
+
+## Environments
+
+| Environment | URL | Datastore | Deployed from |
+| --- | --- | --- | --- |
+| Local | `http://localhost:3000` | local docker-compose | working tree |
+| Staging | _TODO_ | _TODO_ | staging branch |
+| Production | _TODO_ | _TODO_ | main branch via release tag |
+
+## Deploy
+
+### Standard deploy (staging)
+
+1. Push to the staging branch.
+2. CI runs lint + tests + build.
+3. On green, CI deploys to the staging environment.
+4. Smoke-test the deployment via `/healthz`.
+
+### Standard deploy (production)
+
+_TODO_: describe production deploy.
+
+### Rollback
+
+_TODO_: describe rollback. Typical pattern: redeploy the previous release tag.
+
+## Incidents
+
+### Triage
+
+1. Check `/healthz` on each environment.
+2. Check the logs dashboard (link _TODO_).
+3. Check the metrics dashboard (link _TODO_).
+
+### Common failures
+
+- _example_: 5xx burst from `/api/${API_VERSION}/...` — check DB connection pool, restart the api service if exhausted.
+- _example_: integration timeout — check the third-party status page, fall back to cached responses if available.
+
+### Escalation
+
+- _TODO_: name on-call, communication channel.
+
+## Backups
+
+- _TODO_: cadence, storage location, restore procedure.
+
+## Secrets
+
+- _TODO_: where secrets live (Vault / SOPS / cloud secrets manager). Never in the repo.

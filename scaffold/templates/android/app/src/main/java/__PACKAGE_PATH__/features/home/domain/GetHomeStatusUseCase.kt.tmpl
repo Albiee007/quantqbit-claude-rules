@@ -1,0 +1,11 @@
+package ${ANDROID_PACKAGE}.features.home.domain
+
+/**
+ * Use case wrapper around [HomeRepository.fetchStatus]. Trivial today — kept
+ * to demonstrate the domain/ layer pattern so future features can add real
+ * orchestration (cache → network fallback, retry, multi-repo aggregation)
+ * without changing the ViewModel call site.
+ */
+class GetHomeStatusUseCase(private val repository: HomeRepository) {
+    suspend operator fun invoke(): Status = repository.fetchStatus()
+}

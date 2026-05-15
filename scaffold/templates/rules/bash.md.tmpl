@@ -1,0 +1,46 @@
+---
+name: bash
+description: Bash script conventions (executables, libs, logging, safety)
+paths:
+  - "**/*.sh"
+  - "**/scripts/**"
+---
+
+# Bash Conventions
+
+## Safety header
+
+Executable scripts (anything with a `#!/bin/bash` shebang and meant to be run directly) MUST start with:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+```
+
+<!-- Library files in scripts/lib/ are *sourced*, not executed. They intentionally OMIT
+     `set -euo pipefail` so they inherit the caller's shell options without surprising
+     side effects. -->
+
+## Banner block
+
+Every script and library starts with a header banner: a `# ====...` separator line, the title, a short purpose paragraph, requirements, and a `Usage:` block. Cite an exemplar script in this repo (e.g., ${CITATION_BASH}) and match its style.
+
+## Naming
+
+- Functions: `snake_case` with a module prefix tied to the file/library — e.g., `registry_init`, `registry_add`, `platform_detect`.
+- Module prefix prevents collisions when multiple libs are sourced into the same script.
+
+## Logging
+
+Use the project's standard inline log markers (do not invent new ones):
+
+- `[INFO]` — progress / informational
+- `[OK]` — success
+- `[WARN]` — non-fatal problem
+- `[FAIL]` — fatal error before exiting non-zero
+
+## Tool checks and quoting
+
+- Check tool availability before invoking: `command -v jq >/dev/null || { echo "[FAIL] jq required"; exit 1; }`.
+- Always quote variable expansions: `"$var"`, `"${arr[@]}"` — never bare `$var`. Word-splitting bugs are not worth the brevity.
+- Prefer `[[ ... ]]` over `[ ... ]` for tests.

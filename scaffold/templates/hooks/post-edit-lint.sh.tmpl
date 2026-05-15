@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# === ${PROJECT_NAME} PostToolUse lint hook ===
+# Lints Edit/Write targets; warns to stderr but never blocks (always exits 0).
+set -euo pipefail
+
+# jq is required: manual sed extraction can't reliably handle escaped
+# quotes or multi-line JSON. Without jq we silently skip the lint pass.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "[post-edit-lint] jq required; skipping lint pass" 1>&2
+  exit 0
+fi
+
+payload="$(cat || true)"
+file_path="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)"
+
+[ -z "$file_path" ] && exit 0
+[ -f "$file_path" ] || exit 0
+
+run_or_warn() {
+  local bin="$1"; shift
+  if command -v "$bin" >/dev/null 2>&1; then
+    "$bin" "$@" 1>&2 || true
+  else
+    printf '[post-edit-lint] %s not installed, skipping\n' "$bin" 1>&2
+  fi
+}
+
+case "$file_path" in
+  *.sh)
+    run_or_warn shellcheck "$file_path"
+    ;;
+  # Fix 7: path-based ansible match. The previous substring matcher
+  # (`*ansible*.yml`) missed real Ansible files (`tasks/main.yml`,
+  # `playbook.yml`) and falsely matched CI templates that merely have
+  # "ansible" in the filename. Anchoring on `/ansible/` in the path catches
+  # the canonical Ansible directory layout (roles/, playbooks/, group_vars/
+  # under an ansible/ root) and avoids false positives.
+  */ansible/*.yml|*/ansible/*.yaml)
+    run_or_warn ansible-lint --offline -p "$file_path"
+    ;;
+  *.yml|*.yaml)
+    run_or_warn yamllint -s "$file_path"
+    ;;
+  *)
+    : ;;
+esac
+
+exit 0

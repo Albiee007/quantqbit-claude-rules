@@ -1,0 +1,32 @@
+# health/
+
+Working example feature for ${PROJECT_NAME}. Real `GET /healthz` endpoint
+that returns `{ status: "ok", uptime: <seconds> }`.
+
+> **Intentionally tiny.** This feature exists to demonstrate the strict
+> 4-subfolder rule, not to demo auth, DB access, or external calls. Do NOT
+> expand it. If you need an auth or DB example, copy `_feature_template/`
+> and build a separate feature.
+
+## The strict 4-subfolder rule
+
+Every feature folder has the same set of subfolders. Files live inside them,
+never at the feature root.
+
+| Subfolder | What lives here | File suffix |
+| --- | --- | --- |
+| [`routes/`](routes/) | Route registration | `*.routes.ts` |
+| [`controllers/`](controllers/) | Request handlers — call the service, format the response | `*.controller.ts` |
+| [`services/`](services/) | Business logic | `*.service.ts` |
+| [`types/`](types/) | Request/response and domain types | `*.types.ts` |
+
+## Endpoints
+
+- `GET /healthz` → `200 { status: "ok", uptime: <seconds> }`
+
+The route is mounted twice in [`${SRC_DIR}/app.ts`](../../../app.ts):
+
+1. `/api/${API_VERSION}/health/` (versioned).
+2. `/healthz` (unversioned — for orchestrator probes that don't know about your API version).
+
+Parent: [../README.md](../README.md)

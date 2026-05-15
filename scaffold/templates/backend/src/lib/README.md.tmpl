@@ -1,0 +1,25 @@
+# ${SRC_DIR}/lib/
+
+Framework-agnostic primitives for ${PROJECT_NAME}.
+
+## What lives here
+
+- [`ttl-cache.ts`](ttl-cache.ts) — in-process TTL Map.
+- [`retry.ts`](retry.ts) — exponential-backoff retry helper.
+- [`stringUtils.ts`](stringUtils.ts) — string helpers (slug, truncate).
+
+## What does NOT live here
+
+- Anything that imports from `middlewares/`, `models/`, or `api/`. `lib/` is
+  a leaf module — it depends on nothing inside this project except itself
+  and approved third-party packages.
+- HTTP middleware. Use `${SRC_DIR}/middlewares/`.
+- Business logic. Use a feature's `services/`.
+
+## Naming
+
+- Lowercase, hyphen- or camelCase one-concept-per-file (`ttl-cache.ts`,
+  `retry.ts`, `stringUtils.ts`).
+- Tests sit in `${SRC_DIR}/tests/unit/` with the matching `*.spec.ts` suffix.
+
+Parent: [../README.md](../README.md)

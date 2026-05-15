@@ -1,0 +1,26 @@
+# home/
+
+Working example screen for ${PROJECT_NAME}. Demonstrates the strict
+4-subfolder rule with a tiny `HomeHeader` component, a `useHomeData` hook
+backed by TanStack Query, a `home.service.ts` that hits a configurable
+`EXPO_PUBLIC_API_BASE_URL`, and matching `home.types.ts`.
+
+> **Intentionally tiny.** This screen exists to demonstrate the folder
+> rule, not to demo auth, real navigation, or push notifications. Do NOT
+> expand it — copy `_screen_template/` for new screens.
+
+## The strict 4-subfolder rule
+
+| Subfolder | What lives here | File suffix |
+| --- | --- | --- |
+| [`components/`](components/) | Screen-local components | `*.tsx` |
+| [`hooks/`](hooks/) | Screen-local hooks | `use*.ts` |
+| [`services/`](services/) | Business logic / API orchestration | `*.service.ts` |
+| [`types/`](types/) | Types local to this screen | `*.types.ts` |
+
+## Files
+
+- [`HomeScreen.tsx`](HomeScreen.tsx) — navigator-registered component. The
+  only `.tsx` at the screen root.
+
+Parent: [../README.md](../README.md)

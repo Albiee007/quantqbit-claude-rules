@@ -1,0 +1,16 @@
+// ${SRC_DIR}/config/queryClient.ts
+// React Query client singleton. Configured here so the same instance is
+// shared between providers, tests, and devtools. Defaults are conservative
+// (no refetchOnWindowFocus, 30s stale time) — features can override per-query.
+
+import { QueryClient } from '@tanstack/react-query';
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});

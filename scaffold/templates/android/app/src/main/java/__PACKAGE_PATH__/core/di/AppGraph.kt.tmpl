@@ -1,0 +1,30 @@
+package ${ANDROID_PACKAGE}.core.di
+
+import android.content.Context
+import ${ANDROID_PACKAGE}.core.data.NetworkClient
+import ${ANDROID_PACKAGE}.features.home.data.HomeRepositoryImpl
+import ${ANDROID_PACKAGE}.features.home.domain.HomeRepository
+
+/**
+ * Manual DI graph. Plain Kotlin service-locator — no Hilt / Dagger / KSP.
+ *
+ * Wired in [${ANDROID_PACKAGE}.MainApplication.onCreate].
+ *
+ * Conventions:
+ *  - Singletons are `val`s constructed in field initialisation order.
+ *  - Repositories expose interfaces (defined in `<feature>/domain/`); the
+ *    graph picks the concrete impl from `<feature>/data/`.
+ *  - To swap an impl for tests, instantiate [AppGraph] directly with a fake
+ *    Context and override the field via subclassing.
+ */
+class AppGraph(applicationContext: Context) {
+
+    // Stored so feature repositories that need a Context (e.g. for
+    // SharedPreferences, file paths, asset loading) can read it via the graph.
+    @Suppress("unused")
+    val appContext: Context = applicationContext.applicationContext
+
+    val networkClient: NetworkClient = NetworkClient.create()
+
+    val homeRepository: HomeRepository = HomeRepositoryImpl()
+}

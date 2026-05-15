@@ -1,0 +1,27 @@
+// vite.config.ts
+// Vite configuration for ${PROJECT_NAME}. Path aliases mirror tsconfig.json so
+// `import x from '@/lib/api-client'` resolves the same way at build time and
+// at type-check time.
+
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'node:path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@/config': path.resolve(__dirname, '${SRC_DIR}/config'),
+      '@/components': path.resolve(__dirname, '${SRC_DIR}/components'),
+      '@/features': path.resolve(__dirname, '${SRC_DIR}/features'),
+      '@/hooks': path.resolve(__dirname, '${SRC_DIR}/hooks'),
+      '@/lib': path.resolve(__dirname, '${SRC_DIR}/lib'),
+      '@/routes': path.resolve(__dirname, '${SRC_DIR}/routes'),
+      '@/types': path.resolve(__dirname, '${SRC_DIR}/types'),
+    },
+  },
+  server: {
+    port: 5173,
+    host: true,
+  },
+});

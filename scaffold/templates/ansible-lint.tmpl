@@ -1,0 +1,25 @@
+# ============================================================
+# .ansible-lint — ansible-lint config
+# ============================================================
+# Strictest reasonable profile (`production`) with FQCN enforced
+# to match the existing convention (e.g. ansible.builtin.copy,
+# community.docker.docker_container). Skip list intentionally
+# left empty — populate after the first lint run identifies
+# rules that produce unactionable noise on existing roles.
+
+profile: production
+
+# Populate after the first lint run identifies rules that produce
+# unactionable noise on the existing roles.
+skip_list: []
+
+warn_list:
+  - experimental  # don't fail builds on rules still marked experimental
+
+enable_list:
+  - fqcn  # FQCN required everywhere; matches existing role conventions
+
+exclude_paths:
+  - .cache/
+  - terraform/.terraform/
+  - node_modules/

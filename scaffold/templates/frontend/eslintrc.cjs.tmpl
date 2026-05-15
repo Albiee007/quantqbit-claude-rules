@@ -1,0 +1,27 @@
+// .eslintrc.cjs — minimal ESLint config for ${PROJECT_NAME} (frontend).
+// Intentionally minimal — no @typescript-eslint plugins so the stamp installs
+// fast and works without type-aware linting. Users can layer plugins on top.
+
+module.exports = {
+  root: true,
+  env: { browser: true, es2022: true, node: true },
+  extends: ['eslint:recommended'],
+  parserOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    ecmaFeatures: { jsx: true },
+  },
+  ignorePatterns: ['dist', 'node_modules', '.eslintrc.cjs', '*.config.ts', '*.config.js'],
+  overrides: [
+    {
+      files: ['**/*.ts', '**/*.tsx'],
+      // No TS parser — eslint:recommended runs core rules only, which is
+      // enough for a "warn-on-obvious-mistake" pass without forcing the
+      // template to ship a heavy TS lint setup.
+      rules: {
+        'no-unused-vars': 'off', // tsc reports these already
+        'no-undef': 'off',       // tsc reports these already
+      },
+    },
+  ],
+};

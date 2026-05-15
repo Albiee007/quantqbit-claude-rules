@@ -1,0 +1,24 @@
+// ${SRC_DIR}/config/theme.ts
+// Minimal design tokens for ${PROJECT_NAME}. Bare on purpose — pick a UI
+// library (MUI, Chakra, Mantine, shadcn/ui, …) and grow this file or replace
+// it with that library's theme. Per Stack non-goals: no UI library is
+// bundled by the scaffolder.
+
+export const theme = {
+  colors: {
+    primary: '#0066cc',
+    text: '#222222',
+    background: '#ffffff',
+    muted: '#666666',
+    error: '#cc0000',
+  },
+  space: {
+    xs: '4px',
+    sm: '8px',
+    md: '16px',
+    lg: '24px',
+    xl: '32px',
+  },
+} as const;
+
+export type Theme = typeof theme;

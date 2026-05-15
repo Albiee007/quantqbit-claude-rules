@@ -1,0 +1,25 @@
+# tests/
+
+Unit tests for ${PROJECT_NAME}. Powered by `jest-expo` + `@testing-library/
+react-native`.
+
+| Path | Purpose |
+| --- | --- |
+| [`unit/`](unit/) | Unit tests — pure modules and small components. |
+
+## Conventions
+
+- One test file per module: `homeHeader.test.tsx`, `storage.test.ts`.
+- Tests live alongside the source path under `tests/unit/<mirror>/...` or
+  use the colocated `*.test.tsx` pattern next to the source — pick one and
+  stay consistent.
+- Use `@testing-library/react-native`'s `render` + `screen.getByText`,
+  `screen.getByRole` for component tests.
+
+## Running
+
+```bash
+npm test
+```
+
+Parent: [../README.md](../README.md)

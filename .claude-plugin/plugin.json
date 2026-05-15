@@ -1,0 +1,26 @@
+{
+  "name": "quantqbit-claude-rules",
+  "version": "0.2.0",
+  "description": "Two-layer Claude Code scaffolder: `/init-project-rules` ships agent rules, hooks, lint configs, and custom sub-agents; `/init-project-scaffold` stamps a buildable per-platform project skeleton (backend / frontend / mobile / android) with strict feature-organised folder discipline.",
+  "license": "MIT",
+  "homepage": "https://github.com/Albiee007/quantqbit-claude-rules",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Albiee007/quantqbit-claude-rules.git"
+  },
+  "keywords": [
+    "claude-code",
+    "claude-rules",
+    "agents",
+    "linting",
+    "scaffolder",
+    "infrastructure",
+    "devops",
+    "project-skeleton",
+    "starter",
+    "backend",
+    "frontend",
+    "mobile",
+    "android"
+  ]
+}

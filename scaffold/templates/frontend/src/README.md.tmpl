@@ -1,0 +1,46 @@
+# ${SRC_DIR}/
+
+Application code for ${PROJECT_NAME} (frontend). Stamped on ${TIMESTAMP}.
+
+## Layout
+
+| Path | Purpose |
+| --- | --- |
+| [`main.tsx`](main.tsx) | React entrypoint — createRoot, providers, router. |
+| [`App.tsx`](App.tsx) | Composition only. No business logic. |
+| [`config/`](config/) | Env loader, query client, theme tokens. |
+| [`components/`](components/) | Cross-feature UI primitives + layout shells. |
+| [`features/`](features/) | Per-feature folders — see the feature-folder rule below. |
+| [`hooks/`](hooks/) | Shared cross-feature hooks. |
+| [`lib/`](lib/) | Framework-agnostic helpers. No React imports. |
+| [`routes/`](routes/) | Router config. Each feature exports its own page component; mounting happens here. |
+| [`styles/`](styles/) | Global CSS. Per-component styles co-locate with the component. |
+| [`types/`](types/) | Cross-feature type declarations. |
+| [`tests/`](tests/) | Unit + e2e tests + Vitest setup. |
+
+## The strict 4-subfolder feature rule
+
+Every feature under `features/<name>/` has **exactly these four subfolders**:
+
+| Subfolder | What lives here | Naming suffix |
+| --- | --- | --- |
+| `components/` | React components for the feature | `*.tsx` |
+| `hooks/` | React Query hooks + plain hooks for the feature | `use*.ts` |
+| `services/` | Network calls + framework-agnostic logic | `*.service.ts` |
+| `types/` | Types and interfaces local to the feature | `*.types.ts` |
+
+No file lives at the feature root. The feature's own `README.md` is the only top-level file inside a feature folder.
+
+## Naming convention
+
+Content must be inferable from the name:
+
+- `HealthStatus.tsx` — React component (PascalCase).
+- `useHealth.ts` — React hook (starts with `use`).
+- `health.service.ts` — network / business logic.
+- `health.types.ts` — request/response and domain types.
+- `HealthStatus.test.tsx` — Vitest test (co-located under `tests/`).
+
+## File size
+
+Soft cap: **300–500 lines**. Run `npm run lint:size` to surface offenders. The check is warning-only — Compose-style screen components and generated clients can legitimately exceed the cap.

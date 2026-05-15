@@ -1,0 +1,47 @@
+# ${SRC_DIR}/
+
+Application code for ${PROJECT_NAME}. Stamped on ${TIMESTAMP}.
+
+## Layout
+
+| Path | Purpose |
+| --- | --- |
+| [`server.ts`](server.ts) | HTTP server bootstrap — listens, handles graceful shutdown. |
+| [`app.ts`](app.ts) | Express composition only. No business logic. |
+| [`config/`](config/) | Environment loader, logger, DB clients. |
+| [`middlewares/`](middlewares/) | Cross-cutting request middleware. |
+| [`models/`](models/) | Data models — one file per collection or table. |
+| [`lib/`](lib/) | Framework-agnostic primitives. No imports from `middlewares/`, `models/`, or `api/`. |
+| [`api/${API_VERSION}/<feature>/`](api/${API_VERSION}/) | Per-feature folders — see the feature-folder rule below. |
+| [`types/`](types/) | Shared type declarations and module augmentations. |
+| [`tests/`](tests/) | Unit + integration tests + fixtures. |
+
+## The strict 4-subfolder feature rule
+
+Every feature under `api/${API_VERSION}/<name>/` has **exactly these four subfolders**:
+
+| Subfolder | What lives here | Naming suffix |
+| --- | --- | --- |
+| `routes/` | Route registration (`router.get('/x', handler)`) | `*.routes.ts` |
+| `controllers/` | Thin handlers — parse input, call service, format response | `*.controller.ts` |
+| `services/` | Business logic — pure functions where possible | `*.service.ts` |
+| `types/` | Types and interfaces local to the feature | `*.types.ts` |
+
+No file lives at the feature root. The feature's own `README.md` is the only
+top-level file inside a feature folder.
+
+## Naming convention
+
+Content must be inferable from the suffix. Examples:
+
+- `users.routes.ts` — route registration for the users feature.
+- `users.controller.ts` — request handlers (TwiML / JSON only, no business logic).
+- `users.service.ts` — business logic.
+- `users.types.ts` — request/response and domain types.
+- `user.model.ts` — Mongoose / pg row type (lives in `${SRC_DIR}/models/`, not the feature folder).
+- `users.spec.ts` / `users.test.ts` — tests (live in `${SRC_DIR}/tests/`).
+
+## File size
+
+Soft cap: **300–500 lines**. Run `npm run lint:size` to surface offenders. The
+check is warning-only.

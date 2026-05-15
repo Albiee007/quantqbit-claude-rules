@@ -1,0 +1,16 @@
+package ${ANDROID_PACKAGE}.features.home.domain
+
+/** Status returned by the home feature. */
+enum class Status { OK, DEGRADED, DOWN }
+
+/**
+ * Read-only contract for the home feature. The concrete impl lives in
+ * [${ANDROID_PACKAGE}.features.home.data.HomeRepositoryImpl] and is wired via
+ * [${ANDROID_PACKAGE}.core.di.AppGraph].
+ *
+ * Kept narrow on purpose — see project README for the "tiny example feature"
+ * rule.
+ */
+interface HomeRepository {
+    suspend fun fetchStatus(): Status
+}

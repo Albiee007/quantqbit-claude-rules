@@ -1,0 +1,12 @@
+# scripts/
+
+Auxiliary scripts for ${PROJECT_NAME} (frontend).
+
+## What lives here
+
+- [`check-file-size.sh`](check-file-size.sh) — warns on `.ts` / `.tsx` files over 500 lines. Wired into `npm run lint` and `npm run lint:size`. Warning-only — never fails the build.
+
+## Conventions
+
+- Bash scripts use `set -uo pipefail` and exit 0 unless an explicit failure is desired.
+- Add new helpers here only when they don't fit `package.json` `scripts`.

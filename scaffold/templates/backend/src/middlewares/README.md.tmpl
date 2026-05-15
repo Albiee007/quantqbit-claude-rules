@@ -1,0 +1,21 @@
+# ${SRC_DIR}/middlewares/
+
+Cross-cutting Express middleware for ${PROJECT_NAME}.
+
+## What lives here
+
+- [`errorHandler.ts`](errorHandler.ts) — terminal error handler. Always last in the chain.
+- [`requestId.ts`](requestId.ts) — assigns a uuid per request, exposes it on `req.id`.
+- [`validate.ts`](validate.ts) — zod validation factory for request body / query / params.
+
+## What does NOT live here
+
+- Feature-specific handlers — those live under `${SRC_DIR}/api/<version>/<feature>/controllers/`.
+- Models or DB code — those live under `${SRC_DIR}/models/` and `${SRC_DIR}/config/`.
+
+## Naming
+
+- Lowercase camelCase, one middleware per file (`requestId.ts`, `errorHandler.ts`).
+- The default export (or a named export matching the filename) is the middleware function.
+
+Parent: [../README.md](../README.md)

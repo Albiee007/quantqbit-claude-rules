@@ -1,0 +1,36 @@
+# ${PROJECT_NAME} — Integrations
+
+> Stub stamped on ${TIMESTAMP}. One section per third-party service.
+
+## Service index
+
+| Service | Purpose | Env vars | Client file |
+| --- | --- | --- | --- |
+| _example: Stripe_ | _payments_ | `STRIPE_API_KEY` | _src/config/stripe.ts_ |
+
+## Service: _example_
+
+**Auth**: API key in `STRIPE_API_KEY` (header `Authorization: Bearer ...`).
+**Client**: [`${SRC_DIR}/config/stripe.ts`](../${SRC_DIR}/config/stripe.ts) (singleton).
+**Used by**: features _A_, _B_.
+
+### Endpoints we call
+
+| Method | Path | When | Idempotency |
+| --- | --- | --- | --- |
+| POST | `/charges` | checkout | Yes (Idempotency-Key) |
+
+### Webhooks they call
+
+| Event | Handler | Verification |
+| --- | --- | --- |
+| `charge.succeeded` | `POST /webhooks/stripe` | HMAC-SHA256 of body with `STRIPE_WEBHOOK_SECRET` |
+
+### Failure modes
+
+- _example_: 429 rate limit → exponential backoff via `lib/retry.ts`.
+- _example_: 5xx → retry 3x, then dead-letter.
+
+---
+
+Add new services below.

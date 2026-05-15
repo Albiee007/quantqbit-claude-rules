@@ -1,0 +1,28 @@
+# scripts/
+
+Operational scripts for ${PROJECT_NAME}.
+
+## What lives here
+
+- One-off CLI utilities (migrations runner, data fixers, kb-sync, etc.).
+- Shell scripts that wrap repetitive `npm` / `docker` flows.
+- File-size lint check (`check-file-size.sh`) — invoked by `npm run lint:size`.
+
+## What does NOT live here
+
+- Application HTTP / business logic. That belongs under `${SRC_DIR}/api/`.
+- Database models. Those live under `${SRC_DIR}/models/`.
+- Framework-agnostic helpers. Those go in `${SRC_DIR}/lib/`.
+
+## Naming
+
+- `*.ts` for TypeScript-based scripts (run via `tsx` in dev or compiled in CI).
+- `*.sh` for plain bash helpers.
+
+## Linked files
+
+- [`run-migrations.ts`](run-migrations.ts) — runs `migrations/postgres/*.sql` in order.
+- [`check-file-size.sh`](check-file-size.sh) — warns when a `.ts` file exceeds 500 lines.
+- [`tsconfig.scripts.json`](tsconfig.scripts.json) — extends the root tsconfig for script compilation.
+
+Parent: [../README.md](../README.md)
