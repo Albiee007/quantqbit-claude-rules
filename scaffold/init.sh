@@ -38,6 +38,7 @@
 # ============================================================================
 
 set -euo pipefail
+unset MSYS_NO_PATHCONV MSYS2_ARG_CONV_EXCL
 
 # ----------------------------------------------------------------------------
 # Resolve script + target directories
@@ -417,5 +418,5 @@ if [[ "${NO_HARNESS:-false}" != "true" ]]; then
   echo ""
   echo "[INFO] Installing the agent harness (scaffold/sync.sh)"
   trap - EXIT
-  bash "${SCRIPT_DIR}/sync.sh" --target "$TARGET_DIR" --allow-dirty
+  bash "${SCRIPT_DIR}/sync.sh" --target "$TARGET_DIR"
 fi

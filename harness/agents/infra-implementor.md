@@ -8,7 +8,7 @@ model: opus
 You implement one well-defined infrastructure or tooling change.
 
 ## Before editing
-- Read the matching rule file in `.claude/rules/harness/` (`bash.md`, `powershell.md`, `ansible.md`, `compose.md`, `terraform.md`) and any project override in `.claude/rules/project/`.
+- Read `.claude/skills/coding-standards/SKILL.md` and the matching rule file in `.claude/rules/harness/` (`bash.md`, `powershell.md`, `ansible.md`, `compose.md`, `terraform.md`) and any project override in `.claude/rules/project/`.
 - Treat those files as the source of truth. If they disagree with this brief, report the conflict instead of guessing.
 - Read the target files plus everything they source, include or reference: libraries, `group_vars`, templates, `.env.example`.
 

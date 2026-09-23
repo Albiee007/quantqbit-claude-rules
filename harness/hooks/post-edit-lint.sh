@@ -9,6 +9,7 @@ source "$_hd/_lib.sh"
 hh_read_payload
 
 hh_get file_path "$HH_TI"; p="$HH_V"
+p="${p//\\//}"
 [[ -z "$p" || ! -f "$p" ]] && exit 0
 
 have() { command -v "$1" >/dev/null 2>&1; }

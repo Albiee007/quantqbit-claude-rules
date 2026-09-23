@@ -106,7 +106,7 @@ run "$R5" --profiles all --force-unlock; check "--force-unlock proceeds" test $?
 
 echo "10. CRLF checkout is not 'modified'"
 R6="$(new_repo crlf)"; run "$R6" --profiles all --commit
-f="$R6/.claude/rules/harness/00-core.md"; sed -i.bak 's/$/\r/' "$f"; rm -f "$f.bak"
+f="$R6/.claude/rules/harness/00-core.md"; awk '{ printf "%s\r\n", $0 }' "$f" > "$f.crlf" && mv "$f.crlf" "$f"
 bash "$R6/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor ignores CRLF" test $? -eq 0
 run "$R6" --allow-dirty; check "sync treats CRLF as unchanged" grep -q '0 file(s) changed' "$WORK/out.log"
 
@@ -137,6 +137,72 @@ check "lock removed" test ! -e "$R8/.claude/harness/lock"
 check "clean file removed" test ! -e "$R8/.claude/rules/harness/00-core.md"
 check "modified file kept" grep -q keepme "$R8/.claude/agents/verifier.md"
 check "seed kept (project-owned)" test -f "$R8/.claude/harness.config"
+
+echo "15. downgrade refused unless --allow-downgrade"
+R9="$(new_repo downgrade)"; run "$R9" --profiles all --commit
+lk="$R9/.claude/harness/lock"
+awk -F'\t' -v OFS='\t' '$1 == "harness_version" { $2 = "99.0.0" } 1' "$lk" > "$lk.t" && mv "$lk.t" "$lk"
+git -C "$R9" commit -qam "pretend newer"
+before="$(tree_sum "$R9")"
+run "$R9"; check "older source refused (exit 1)" test $? -eq 1
+check "refusal explains" grep -q 'older than the installed' "$WORK/out.log"
+check "tree unchanged" test "$before" = "$(tree_sum "$R9")"
+run "$R9" --allow-downgrade; check "--allow-downgrade proceeds" test $? -eq 0
+
+echo "16. edit settings.project.json, then sync (documented flow, no commit first)"
+R10="$(new_repo projsettings)"; run "$R10" --profiles all --commit
+printf '{"permissions":{"allow":["Bash(npm test)"]}}\n' > "$R10/.claude/settings.project.json"
+run "$R10" --commit; check "sync accepts uncommitted settings.project.json" test $? -eq 0
+check "merged into settings.json" grep -q 'Bash(npm test)' "$R10/.claude/settings.json"
+check "commit includes settings.project.json" test -z "$(git -C "$R10" status --porcelain -- .claude/settings.project.json)"
+
+echo "17. --profiles is persisted to harness.config"
+run "$R10" --profiles backend --commit; check "profile change ok" test $? -eq 0
+check "harness.config updated" grep -qx 'profiles=backend' "$R10/.claude/harness.config"
+run "$R10"; check "plain re-sync keeps profile" grep -q '0 file(s) changed' "$WORK/out.log"
+check "ui-ux still absent" test ! -e "$R10/.claude/skills/ui-ux"
+
+echo "18. existing settings.json + settings.project.json + v0.x entries migrate safely"
+R11="$(new_repo migrate)"; mkdir -p "$R11/.claude"
+cat > "$R11/.claude/settings.json" <<'JSON'
+{"model":"sonnet","permissions":{"allow":["Bash(make build)"],"deny":["Edit(**/.env.*)","Write(**/.env.*)","Bash(curl*)"]},
+ "hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"bash .claude/hooks/session-start-context.sh"}]}],
+          "PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"bash .claude/hooks/post-edit-lint.sh"},{"type":"command","command":"echo keep-me"}]}]}}
+JSON
+printf '{"permissions":{"deny":["Bash(git push *main*)"]}}\n' > "$R11/.claude/settings.project.json"
+git -C "$R11" add -A; git -C "$R11" commit -qm s
+run "$R11" --profiles all; check "migration ok (exit 0)" test $? -eq 0
+p="$R11/.claude/settings.project.json"; s="$R11/.claude/settings.json"
+check "team allow kept" grep -q 'Bash(make build)' "$p"
+check "existing project deny kept" grep -q 'git push \*main\*' "$p"
+check "custom deny kept" grep -q 'Bash(curl\*)' "$p"
+check "v0.x .env.* deny dropped" test -z "$(grep 'Edit(\*\*/.env.\*)' "$p")"
+check "v0.x hooks dropped" test -z "$(grep 'session-start-context' "$p")"
+check "unrelated hook kept" grep -q 'keep-me' "$p"
+check "non-Opus model dropped" test -z "$(grep '"model"' "$p")"
+check "generated settings has harness guard" grep -q 'guard.sh' "$s"
+
+echo "19. --theirs keeps a persistent backup"
+R12="$(new_repo backup)"; mkdir -p "$R12/.claude/agents"; echo "my reviewer" > "$R12/.claude/agents/reviewer.md"
+git -C "$R12" add -A; git -C "$R12" commit -qm own
+run "$R12" --profiles all --theirs; check "theirs ok" test $? -eq 0
+check "backup exists" test -n "$(grep -rl 'my reviewer' "$R12/.claude/harness/.backup" 2>/dev/null)"
+check "backup dir is gitignored" git -C "$R12" check-ignore -q "$R12/.claude/harness/.backup/x"
+
+echo "20. lock is identical from different source checkouts"
+R13="$(new_repo lockA)"; R14="$(new_repo lockB)"
+C2="$WORK/srccopy"; mkdir -p "$C2"; (cd "$SRC" && tar cf - --exclude=./.git --exclude=./Agent-Harness .) | (cd "$C2" && tar xf -)
+run "$R13" --profiles all; bash "$C2/scaffold/sync.sh" --target "$R14" --profiles all >/dev/null 2>&1
+check "same lock bytes from repo and non-git copy" cmp -s "$R13/.claude/harness/lock" "$R14/.claude/harness/lock"
+check "lock source is canonical https" grep -q $'^source\thttps://github.com/' "$R13/.claude/harness/lock"
+
+echo "21. Windows clone keeps scripts LF (shipped .claude/.gitattributes)"
+R15="$(new_repo eol)"; run "$R15" --profiles all --commit
+git -c core.autocrlf=true clone -q "$R15" "$WORK/eolclone"
+check ".claude/.gitattributes shipped" test -f "$R15/.claude/.gitattributes"
+check "guard.sh checked out LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$WORK/eolclone/.claude/harness/hooks/guard.sh")"
+check "lock checked out LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$WORK/eolclone/.claude/harness/lock")"
+bash "$WORK/eolclone/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor healthy on autocrlf clone" test $? -eq 0
 
 echo
 echo "sync tests: $pass passed, $fail failed"

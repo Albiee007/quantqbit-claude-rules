@@ -1,42 +1,45 @@
-#Requires -Version 5.0
-# ============================================================================
-# Claude Scaffold — PowerShell entrypoint (umbrella dispatcher)
-#
-# Thin wrapper around init-scaffold.sh. Defers all logic to bash because the
-# scaffold pipeline (envsubst, find, awk, sed) lives there. If Git Bash (or
-# another bash on PATH) is available we forward all args to init-scaffold.sh
-# and exit with its code. Otherwise we print a one-liner pointing the user
-# at Git Bash / WSL.
+#Requires -Version 5.1
+# === /init-project-scaffold (per-platform starter) (PowerShell entry point) ===
+# Thin wrapper: runs init-scaffold.sh with Git Bash so Windows, macOS and Linux share one
+# implementation. Git for Windows' bash is preferred over WSL's bash.exe, which
+# cannot resolve Windows paths.
 #
 # Usage:
-#   .\init-scaffold.ps1 [options]   # forwards to: bash init-scaffold.sh [options]
-# ============================================================================
-
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scaffold\init-scaffold.ps1 [options]
+#   (same options as init-scaffold.sh; run with --help to list them)
+#
+# Note: do NOT set MSYS_NO_PATHCONV here. bash.exe would pass it on to native
+# git.exe / python.exe, which then receive unresolvable /c/... paths.
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$InitSh    = Join-Path $ScriptDir 'init-scaffold.sh'
-
-if (-not (Test-Path -LiteralPath $InitSh)) {
-    Write-Host "[FAIL] Cannot find init-scaffold.sh next to init-scaffold.ps1: $InitSh"
-    exit 1
+$sh = Join-Path $PSScriptRoot 'init-scaffold.sh'
+if (-not (Test-Path -LiteralPath $sh)) {
+    Write-Host "[FAIL] Cannot find init-scaffold.sh next to this script: $sh"
+    exit 2
 }
 
-$bash = Get-Command bash -ErrorAction SilentlyContinue
-if ($null -eq $bash) {
-    Write-Host "[FAIL] bash not found on PATH."
-    Write-Host "       Install Git Bash (https://git-scm.com/download/win) or run init-scaffold.sh under WSL."
-    exit 1
+$candidates = @()
+foreach ($base in @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA)) {
+    if ($base) {
+        $candidates += (Join-Path $base 'Git\bin\bash.exe')
+        $candidates += (Join-Path $base 'Programs\Git\bin\bash.exe')
+    }
+}
+$bash = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $bash) {
+    $cmd = Get-Command bash -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source -notmatch 'System32') { $bash = $cmd.Source }
+}
+if (-not $bash) {
+    Write-Host "[FAIL] Git Bash not found. Install Git for Windows (https://git-scm.com/download/win)."
+    Write-Host "       Or run init-scaffold.sh from WSL, macOS or Linux."
+    exit 2
 }
 
-# Disable MSYS auto path conversion. Git Bash mangles arguments that look
-# like Unix paths (e.g. --target=/c/foo gets rewritten to a Windows path)
-# which breaks --target=, --src-dir=, etc. Setting MSYS_NO_PATHCONV=1 is
-# process-scoped (PowerShell child env) so it doesn't pollute the user's
-# shell beyond this invocation. Mirrors init.ps1 fix E5.
-$env:MSYS_NO_PATHCONV = "1"
+# Clear inherited MSYS path-conversion overrides (see note above).
+Remove-Item Env:MSYS_NO_PATHCONV -ErrorAction SilentlyContinue
+Remove-Item Env:MSYS2_ARG_CONV_EXCL -ErrorAction SilentlyContinue
 
-# Forward all arguments verbatim. Use the bash shim's own path resolution so
-# Windows path mangling doesn't trip us up.
-& $bash.Source $InitSh @args
+& $bash $sh @args
 exit $LASTEXITCODE

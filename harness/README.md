@@ -7,9 +7,9 @@ This project vendors the QuantQbit agent harness: shared agent rules, skills, ag
 | Path | Owner | May I edit it? |
 |---|---|---|
 | `.claude/rules/harness/*` | harness | No. Override in `.claude/rules/project/` |
-| `.claude/skills/{coding-standards,design-patterns,ui-ux,seo}/` | harness | No. Add your own skills under other names |
+| `.claude/skills/{coding-standards,design-patterns,ui-ux,seo,harness}/` | harness | No. Add your own skills under other names |
 | `.claude/agents/{explorer,implementor,infra-implementor,reviewer,verifier}.md` | harness | No. Add your own agents under other names |
-| `.claude/harness/*` (hooks, snippets, bin, lock, this README) | harness | No |
+| `.claude/harness/*` (hooks, snippets, bin, lock, this README), `.claude/.gitattributes` | harness | No |
 | `.claude/settings.json` | **generated** | No. Edit `.claude/settings.project.json` instead, then re-sync |
 | `.claude/settings.project.json` | project | Yes: team-shared permissions, env and hooks |
 | `.claude/harness.config` | project | Yes: profiles and verification commands |
@@ -27,7 +27,9 @@ bash .claude/harness/bin/harness-sync.sh --dry-run  # preview an update
 bash .claude/harness/bin/harness-sync.sh --commit   # update to the latest harness and commit
 ```
 
-In Claude Code you can also say "sync the harness" or run `/harness-sync`, which uses the plugin skill.
+In Claude Code you can also ask "sync the harness" (the in-project `harness` skill runs the commands above), or use the plugin's `/harness-install` skill if the plugin is installed.
+
+The sync uses the newest local harness source it finds (your installed plugin, `$HARNESS_HOME`, or `~/.local/share/quantqbit-claude-rules`), else clones the upstream repo. `--ref vX.Y.Z` pins a release; `--remote` takes the latest upstream.
 
 ## Why it is merge- and conflict-safe
 

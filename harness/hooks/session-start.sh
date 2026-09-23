@@ -11,13 +11,17 @@ hh_read_payload
 lock="$HH_ROOT/.claude/harness/lock"
 cfg="$HH_ROOT/.claude/harness.config"
 
-# New context (startup / clear / compact): forget which checklists were shown.
+# New context (startup / clear / compact): forget which checklists were shown,
+# and prune markers left behind by old sessions (> 1 day).
 hh_marker_prefix
 rm -f "$HH_V"* 2>/dev/null || true
+find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'claude-harness-*' -mtime +1 -delete 2>/dev/null || true
 
 ver="?"; profiles="all"; kept=0; conflict=0
 if [[ -f "$lock" ]]; then
   while IFS=$'\t' read -r a b _ _ e; do
+    # A CRLF checkout leaves a trailing CR on the last field of each line.
+    a="${a%$'\r'}"; b="${b%$'\r'}"; e="${e%$'\r'}"
     case "$a" in
       harness_version) ver="$b" ;;
       profiles) profiles="$b" ;;
@@ -26,7 +30,8 @@ if [[ -f "$lock" ]]; then
     [[ "${e:-}" == "kept-local" ]] && kept=$((kept + 1))
   done < "$lock"
 fi
-if [[ -f "$cfg" ]]; then
+# Profiles come from the lock (what is installed); fall back to the config.
+if [[ ! -f "$lock" && -f "$cfg" ]]; then
   while IFS='=' read -r k v; do
     [[ "$k" == "profiles" && -n "$v" ]] && profiles="${v%$'\r'}"
   done < "$cfg"

@@ -8,6 +8,47 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.0.1] - 2026-09-24
+
+End-to-end verification (isolated plugin installs, a standalone clone, Windows PowerShell, a second developer on a CRLF checkout, and live headless Claude Code sessions) found the issues below. Everything listed was reproduced independently before it was fixed.
+
+### Fixed
+- **Plugin could not be installed** (blocker): `plugin.json` `repository` was an object; Claude Code requires a string. Also added `author`, a marketplace description, quoted command `argument-hint`s, and moved `version` to `plugin.json` only. `claude plugin validate --strict` now passes and runs in `validate-harness.sh`.
+- **PowerShell entry points were broken** (blocker): the `.ps1` wrappers exported `MSYS_NO_PATHCONV=1`, so native `git.exe`/`python.exe` got unresolvable paths. This made `sync.ps1` fail on any project with a `settings.json`, silently ignore `--commit`, and skip the dirty-tree guard. All five wrappers now share one template and prefer Git for Windows' bash over WSL's. The bash scripts also clear an inherited `MSYS_NO_PATHCONV`.
+- **CRLF scripts on Windows clones:** a harness-owned `.claude/.gitattributes` now pins `*.sh` and the lock to LF, so hooks keep working under WSL, Linux and containers. The doctor flags CRLF scripts. `session-start.sh` now tolerates a CRLF lock.
+- **Non-deterministic lock:** the `source` line now always holds the canonical upstream URL. It no longer records the syncing checkout's remote (local paths, SSH forms and tokens leaked into committed locks and churned between developers). The bootstrap only trusts https URLs from a lock.
+- **Silent downgrades:** sync refuses a source older than the installed harness (`--allow-downgrade` to override). The doctor compares versions by order and finds the installed plugin copy.
+- **Settings flows:**
+  - Editing `settings.project.json` and re-syncing is no longer refused by the dirty-tree guard, and `--commit` includes it.
+  - A pre-existing `settings.json` is merged into an existing `settings.project.json` instead of conflicting.
+  - v0.x hook entries, the over-broad `.env.*` denies and a non-Opus `model` are dropped during that one-time migration, each with a notice.
+- **`--profiles` did not persist:** it now updates `profiles=` in `harness.config` inside the same transaction.
+- **`.env` guard gaps:** the guard now covers Grep and PowerShell, matches case-insensitively, and catches `.env*` globs and comma/paren boundaries. It no longer blocks exclusion arguments (`--exclude=.env*`) or read-only metadata commands (`ls`, `git check-ignore`), which had pushed the model toward riskier commands. Deny rules were added for `.env.staging`, `.env.development` and `.env.test`.
+- **Sub-agents never got checklists:** checklist dedupe was keyed on the session only. It is now keyed per agent context.
+- **Checklists arrived too late:** a checklist attached to a write came after the content was composed. The first UI or SEO write in each agent context is now denied once, with the checklist and the skill to load, and the retry is allowed. Set `checklists=inform` in `harness.config` to only inform.
+- **`--theirs` lost data:** overwritten files are now kept under `.claude/harness/.backup/<time>/` (gitignored).
+- **Smaller fixes:**
+  - The generated settings `file_version` no longer churns.
+  - Uninstall removes empty harness dirs and lists the project files it leaves.
+  - `init.sh` no longer leaks its staging dir or passes `--allow-dirty`, and it stamps lint configs only for detected stacks.
+  - The Makefile recipe works from its own directory.
+  - `check-url.sh --help` works.
+  - `post-edit-lint` handles Windows paths.
+  - Old dedupe markers are pruned.
+  - `additionalDirectories` was removed.
+  - The bootstrap accepts `--source=`/`--ref=`, reports a missing tag cleanly (exit 2), and adds `--remote`.
+  - The Python lookup also tries the Windows `py -3` launcher.
+
+### Changed
+- Docs: a new [GETTING-STARTED.md](./GETTING-STARTED.md), corrected install commands, prerequisites per OS, private-repo access, measured hook latency (about 80–300 ms per hook on Windows), and conflict semantics (`--keep` applies only to CONFLICT-MODIFIED).
+
+### Upgrade notes
+- **Projects on v1.0.0:** run `bash .claude/harness/bin/harness-sync.sh --dry-run`, then `--commit`.
+  - Expect every managed file to update once (the marker text changed to plain ASCII) and a new `.claude/.gitattributes`.
+  - If a project has its own `.claude/.gitattributes`, it conflicts. Merge its rules into a root `.gitattributes`, then re-sync.
+- **Windows clones made before this release:** re-checkout once to pick up LF scripts: `git rm -r --cached -q .claude && git checkout -- .claude`.
+- **Projects migrated from v0.x under 1.0.0:** remove the v0.x `hooks` entries and the `Edit/Write(**/.env.*)` denies from `.claude/settings.project.json`, delete `.claude/hooks/` and the old `.claude/rules/{bash,ansible,compose,terraform}.md`, then re-sync. The doctor lists these leftovers.
+
 ## [1.0.0] - 2026-09-23
 
 ### Added

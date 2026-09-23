@@ -11,6 +11,7 @@
 # Usage: bash .claude/harness/bin/harness-doctor.sh [--quiet]
 # Exit: 0 healthy, 1 warnings, 2 errors.
 set -euo pipefail
+unset MSYS_NO_PATHCONV MSYS2_ARG_CONV_EXCL
 
 BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$BIN/../../.." && pwd)"
@@ -74,16 +75,28 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   done
 fi
 
-# Behind upstream? Only if a local harness source can be found.
-for s in "${HARNESS_HOME:-}" "${CLAUDE_PLUGIN_ROOT:-}" "$HOME/.local/share/quantqbit-claude-rules"; do
-  if [[ -n "$s" && -f "$s/VERSION" && -f "$s/harness/manifest.tsv" ]]; then
-    up="$(tr -d '[:space:]' < "$s/VERSION")"
-    if [[ "$up" != "$ver" ]]; then
-      warn "installed harness v$ver, source at $s is v$up — run harness sync"
-    fi
-    break
-  fi
+# Scripts must have LF endings, or non-MSYS bash (Linux, WSL, containers) fails.
+while IFS= read -r f; do
+  warn "CRLF line endings in $f: re-checkout (git rm -r --cached -q .claude && git checkout -- .claude); the shipped .claude/.gitattributes keeps them LF"
+done < <(find "$ROOT/.claude/harness" "$ROOT/.claude/skills" -name '*.sh' -type f 2>/dev/null \
+           | while IFS= read -r f; do awk -v BINMODE=3 -v r="${f#"$ROOT"/}" '/\r$/ { print r; exit }' "$f"; done)
+
+# v0.x leftovers superseded by the harness.
+for f in .claude/hooks/session-start-context.sh .claude/hooks/post-edit-lint.sh \
+         .claude/rules/bash.md .claude/rules/ansible.md .claude/rules/compose.md .claude/rules/terraform.md; do
+  if [[ -e "$ROOT/$f" ]]; then warn "v0.x leftover $f (superseded by the harness; review and delete it)"; fi
 done
+
+# Newer harness available locally? (plugin copy, HARNESS_HOME, ~/.local/share clone)
+best="$(hc_find_sources | head -n 1 || true)"
+if [[ -n "$best" ]]; then
+  up="${best%%$'\t'*}"; src="${best#*$'\t'}"
+  if hc_ver_lt "$ver" "$up"; then
+    warn "installed harness v$ver, a newer v$up is available at $src - run: bash .claude/harness/bin/harness-sync.sh --dry-run"
+  elif hc_ver_lt "$up" "$ver"; then
+    hc_info "local source at $src is v$up, older than the installed v$ver - update that source before syncing from it"
+  fi
+fi
 
 if [[ $errors -eq 0 && $warns -eq 0 ]]; then
   [[ $quiet -eq 1 ]] || hc_ok "harness v$ver healthy ($(wc -l < "$rows" | tr -d ' ') files verified)"

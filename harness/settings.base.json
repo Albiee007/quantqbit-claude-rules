@@ -6,7 +6,6 @@
   },
   "permissions": {
     "defaultMode": "plan",
-    "additionalDirectories": ["~/.claude/plans/"],
     "deny": [
       "Read(**/.env)",
       "Edit(**/.env)",
@@ -20,6 +19,15 @@
       "Read(**/.env.production)",
       "Edit(**/.env.production)",
       "Write(**/.env.production)",
+      "Read(**/.env.staging)",
+      "Edit(**/.env.staging)",
+      "Write(**/.env.staging)",
+      "Read(**/.env.development)",
+      "Edit(**/.env.development)",
+      "Write(**/.env.development)",
+      "Read(**/.env.test)",
+      "Edit(**/.env.test)",
+      "Write(**/.env.test)",
       "Bash(git add -A*)",
       "Bash(git add .)",
       "Bash(git add . *)",
@@ -34,28 +42,44 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/session-start.sh\"", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/session-start.sh\"",
+            "timeout": 10
+          }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/prompt-router.sh\"", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/prompt-router.sh\"",
+            "timeout": 10
+          }
         ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Agent|Task|Read|Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "matcher": "Agent|Task|Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Bash|PowerShell",
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/guard.sh\"", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/guard.sh\"",
+            "timeout": 10
+          }
         ]
       },
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/file-context.sh\"", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/file-context.sh\"",
+            "timeout": 10
+          }
         ]
       }
     ],
@@ -63,7 +87,11 @@
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/post-edit-lint.sh\"", "timeout": 60 }
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/post-edit-lint.sh\"",
+            "timeout": 60
+          }
         ]
       }
     ]

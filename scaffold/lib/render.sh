@@ -125,14 +125,24 @@ render_export_vars() {
 #      stamped by init-scaffold.sh (a separate dispatcher) — init.sh walks
 #      templates/ recursively, so we must explicitly exclude these subtrees.
 # ----------------------------------------------------------------------------
-render_should_skip() {
-  local tmpl_relpath="$1"
-  case "$tmpl_relpath" in
-    # v0.2.0 project-scaffold templates — not for init.sh.
+render_not_mine() {
+  # Templates that belong to other generators: the project-scaffold platform
+  # trees (init-scaffold.sh) and the agent harness seeds (sync.sh). v1.0+:
+  # agent rules, hooks, settings and CLAUDE.md come from the harness; init.sh
+  # stamps lint tooling only.
+  case "$1" in
     _shared/*|backend/*|frontend/*|mobile/*|android/*) return 0 ;;
-    # v1.0: agent rules, hooks, settings and CLAUDE.md are owned by the agent
-    # harness (scaffold/sync.sh); init.sh only stamps lint tooling.
     seed/*|rules/*|hooks/*|CLAUDE.md.tmpl|settings.json.tmpl) return 0 ;;
+  esac
+  return 1
+}
+
+render_should_skip() {
+  # Stack-gated lint configs: only stamp configs for stacks that were detected.
+  case "$1" in
+    shellcheckrc.tmpl)  [[ "${HAS_BASH:-false}" != "true" ]] && return 0 ;;
+    ansible-lint.tmpl)  [[ "${HAS_ANSIBLE:-false}" != "true" ]] && return 0 ;;
+    yamllint.tmpl)      [[ "${HAS_ANSIBLE:-false}" != "true" && "${HAS_COMPOSE:-false}" != "true" ]] && return 0 ;;
   esac
   return 1
 }
@@ -269,6 +279,7 @@ render_all() {
   while IFS= read -r -d '' tmpl; do
     tmpl_relpath="${tmpl#${templates_dir}/}"
 
+    render_not_mine "$tmpl_relpath" && continue
     if render_should_skip "$tmpl_relpath"; then
       echo "[INFO]   skip ${tmpl_relpath} (stack not detected)"
       continue
@@ -320,4 +331,6 @@ render_all() {
     echo "[OK]   wrote ${out_path}"
     CREATED_FILES+=("$out_path")
   done
+  # Clean staging now: callers (init.sh) may replace the EXIT trap afterwards.
+  rm -rf "$staging_dir"
 }

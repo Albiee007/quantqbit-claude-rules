@@ -40,6 +40,18 @@ expect "allow cp .env.example x" guard.sh '{"tool_name":"Bash","tool_input":{"co
 expect "allow process.env"       guard.sh '{"tool_name":"Bash","tool_input":{"command":"node -e \"console.log(process.env.HOME)\""}}' ''
 expect "allow unrelated tool"    guard.sh '{"tool_name":"Glob","tool_input":{"pattern":"**/.env"}}' ''
 
+echo "guard (gaps found in live verification)"
+expect "deny glob cat .env*"          guard.sh '{"tool_name":"Bash","tool_input":{"command":"cat .env*"}}' 'deny'
+expect "deny case variant .ENV.Staging" guard.sh '{"tool_name":"Bash","tool_input":{"command":"cat .ENV.Staging"}}' 'deny'
+expect "deny PowerShell Get-Content"  guard.sh '{"tool_name":"PowerShell","tool_input":{"command":"Get-Content .env.staging"}}' 'deny'
+expect "deny Grep glob .env*"         guard.sh '{"tool_name":"Grep","tool_input":{"pattern":"KEY","glob":".env*"}}' 'deny'
+expect "deny comma list"              guard.sh '{"tool_name":"Bash","tool_input":{"command":"cp a,.env.test b"}}' 'deny'
+expect "deny chained after ls"        guard.sh '{"tool_name":"Bash","tool_input":{"command":"ls .env && cat .env"}}' 'deny'
+expect "allow --exclude=.env*"        guard.sh '{"tool_name":"Bash","tool_input":{"command":"grep -r --exclude=.env* TODO src"}}' ''
+expect "allow rg -g !.env*"           guard.sh '{"tool_name":"Bash","tool_input":{"command":"rg -g \"!.env*\" TODO"}}' ''
+expect "allow git check-ignore .env"  guard.sh '{"tool_name":"Bash","tool_input":{"command":"git check-ignore .env"}}' ''
+expect "allow Grep for process.env"   guard.sh '{"tool_name":"Grep","tool_input":{"pattern":"process.env","path":"src"}}' ''
+
 echo "prompt-router"
 expect "UI prompt → ui checklist"      prompt-router.sh '{"session_id":"a1","prompt":"Make the login screen responsive"}' 'ui-ux'
 expect "same topic not repeated"       prompt-router.sh '{"session_id":"a1","prompt":"tweak the button color"}' ''
@@ -56,6 +68,15 @@ expect "new .tsx → ui"       file-context.sh '{"session_id":"b1","tool_name":"
 expect "robots.txt → seo"    file-context.sh '{"session_id":"b2","tool_name":"Write","tool_input":{"file_path":"/p/public/robots.txt"}}' 'seo'
 expect "auth route → security" file-context.sh '{"session_id":"b3","tool_name":"Edit","tool_input":{"file_path":"/p/src/auth/login.ts"}}' 'security'
 expect "plain .go → nothing" file-context.sh '{"session_id":"b4","tool_name":"Edit","tool_input":{"file_path":"/p/internal/math/add.go"}}' ''
+expect "first UI write denied (enforce)"   file-context.sh '{"session_id":"b5","tool_name":"Write","tool_input":{"file_path":"C:\\p\\src\\ui\\Chip.tsx"}}' '"permissionDecision":"deny"'
+expect "retry allowed"                     file-context.sh '{"session_id":"b5","tool_name":"Write","tool_input":{"file_path":"C:\\p\\src\\ui\\Chip.tsx"}}' ''
+expect "sub-agent gets its own gate"       file-context.sh '{"session_id":"b5","agent_id":"a-1","agent_type":"implementor","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Card.tsx"}}' 'deny'
+expect "agent_id in tool_input ignored"    file-context.sh '{"session_id":"b5","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/X.tsx","agent_id":"evil"}}' ''
+run prompt-router.sh '{"session_id":"b6","prompt":"restyle the navbar"}' >/dev/null
+expect "prompt checklist satisfies gate"   file-context.sh '{"session_id":"b6","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Nav.tsx"}}' ''
+printf 'checklists=inform\n' > "$P/.claude/harness.config"
+expect "inform mode adds context only"     file-context.sh '{"session_id":"b7","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Y.tsx"}}' '"additionalContext"'
+rm -f "$P/.claude/harness.config"
 
 echo "session-start"
 expect "summary without lock warns" session-start.sh '{"session_id":"c1","source":"startup"}' 'lock is missing'
@@ -65,6 +86,8 @@ expect "reports kept-local" session-start.sh '{"session_id":"c1"}' 'kept-local'
 run prompt-router.sh '{"session_id":"c2","prompt":"style the navbar"}' >/dev/null
 run session-start.sh '{"session_id":"c2","source":"compact"}' >/dev/null
 expect "compact resets dedupe" prompt-router.sh '{"session_id":"c2","prompt":"style the navbar"}' 'ui-ux'
+printf 'harness_version\t9.9.9\r\nprofiles\tweb\r\nmanaged\tx\t1\th\tkept-local\r\n' > "$P/.claude/harness/lock"
+expect "CRLF lock: kept-local still seen" session-start.sh '{"session_id":"c3"}' 'kept-local'
 
 echo "post-edit-lint"
 printf 'if [ x\n' > "$P/bad.sh"

@@ -39,7 +39,7 @@ When the skill is triggered, locate the scaffolder by trying these paths **in or
 2. **`~/.local/share/quantqbit-claude-rules/scaffold/init-scaffold.sh`** — standalone-clone path documented in the plugin's README.
 3. **`$PROJECT_SCAFFOLD_HOME/scaffold/init-scaffold.sh`** — environment-variable override for users who clone to a non-default location.
 
-If none resolve, tell the user: "I can't find the project-scaffold runner. Install the `quantqbit-claude-rules` plugin (`claude plugin install <url>`) or clone the repo to `~/.local/share/quantqbit-claude-rules` (or set `$PROJECT_SCAFFOLD_HOME` to a custom path) and re-run."
+If none resolve, tell the user: "I can't find the project-scaffold runner. Install the `quantqbit-claude-rules` plugin (`claude plugin marketplace add Albiee007/quantqbit-claude-rules`, then `claude plugin install quantqbit-claude-rules@quantqbit`) or clone the repo to `~/.local/share/quantqbit-claude-rules` (or set `$PROJECT_SCAFFOLD_HOME` to a custom path) and re-run."
 
 ### Invocation
 
@@ -56,10 +56,10 @@ Once the scaffolder is located:
    On Windows native PowerShell:
 
    ```powershell
-   pwsh -NoProfile -File <resolved-path>/init-scaffold.ps1 --platform=<platform> [other flags]
+   powershell -NoProfile -ExecutionPolicy Bypass -File <resolved-path>\init-scaffold.ps1 --platform=<platform> [other flags]
    ```
 
-   The `.ps1` wrapper requires Git Bash on the PATH and forwards to `init-scaffold.sh`.
+   The `.ps1` wrapper needs Git for Windows installed (it finds Git Bash itself) and forwards to `init-scaffold.sh`.
 
 4. **Pass through user-supplied flags** verbatim. The scaffolder accepts: `--platform=`, `--target=`, `--project-name=`, `--src-dir=`, `--api-version=`, `--features=`, `--android-package=`, `--with-i18n`, `--with-auth`, `--force`, `--non-interactive`.
 

@@ -10,7 +10,7 @@ Detail lives in skills and path-scoped rules. This file stays short on purpose.
 
 ## 2. Model: Opus only
 - Every sub-agent runs on Opus. Pass `model: "opus"` when spawning with the Agent tool.
-- Settings force this through `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`, and a hook denies any other model. Do not try to work around either.
+- Settings force this (`CLAUDE_CODE_SUBAGENT_MODEL=opus` overrides agent frontmatter), and a hook denies any other requested model. Do not try to work around either.
 - If a tool, skill or plugin routes to a smaller model, tell the user before continuing.
 
 ## 3. Plan mode
@@ -42,6 +42,7 @@ Load the skill **before** starting the matching work. This is required, not opti
 | Writing or reviewing any code | `coding-standards` (always in effect) |
 
 Hooks inject a short checklist when a prompt or file matches one of these. That checklist does not replace the skill.
+The first UI or SEO file write in each agent context is denied once: read the named `.claude/skills/<skill>/SKILL.md`, apply it, then retry the same write.
 
 ## 6. Verification before "done"
 Run the checks that match the change, and report the actual result:

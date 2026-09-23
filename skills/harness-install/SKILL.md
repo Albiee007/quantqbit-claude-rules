@@ -9,7 +9,7 @@ argument-hint: "[--dry-run|--diff|--commit|--keep|--theirs|--profiles=web,mobile
 This skill runs the harness sync engine that ships with this plugin, against the user's current project.
 
 ## Steps
-1. Confirm the target is the project root (usually the current working directory, at the git top level).
+1. Confirm the target is the project root (usually the current working directory, at the git top level). Suggest a feature branch first: a first install adds about 90 files under `.claude/`.
 2. Preview first. Always do this unless the user already asked for a specific mode:
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}/scaffold/sync.sh" --target "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" --dry-run
@@ -25,7 +25,8 @@ This skill runs the harness sync engine that ships with this plugin, against the
 - `0`: done.
 - `1`: nothing was written. Explain the cause, then let the user choose:
   - **CONFLICT-MODIFIED:** a harness file was edited locally. Recommend moving the change into `.claude/rules/project/`, then re-running with `--theirs`. `--keep` keeps the local version (doctor keeps flagging it).
-  - **CONFLICT-UNMANAGED:** a project file sits at a harness path. Rename it, or use `--theirs`.
+  - **CONFLICT-UNMANAGED:** a project file uses a reserved harness name (agents explorer, implementor, infra-implementor, verifier, reviewer; skills coding-standards, design-patterns, ui-ux, seo, harness). Rename it (recommended), or use `--theirs`; the user's copy is saved under `.claude/harness/.backup/`. `--keep` does not apply.
+  - **Older source:** "v<X> is older than the installed v<Y>". The plugin copy is stale: run `claude plugin marketplace update quantqbit` and `claude plugin update quantqbit-claude-rules@quantqbit`, restart Claude Code, then sync again. `--allow-downgrade` only on purpose.
   - **Dirty tree:** commit or stash the changes under the harness paths, or pass `--allow-dirty`.
 - `2`: error. Everything was rolled back automatically. Show the error.
 

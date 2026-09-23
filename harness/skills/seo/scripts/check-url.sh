@@ -22,11 +22,17 @@ UA="${SEO_UA:-Mozilla/5.0 (compatible; seo-check-url/1.0; read-only audit)}"
 MAX_TIME="${SEO_MAX_TIME:-30}"
 
 usage() {
-  sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
+  # Print the leading comment block (skipping the shebang and any injected
+  # harness:managed marker), independent of line numbers.
+  awk 'NR == 1 { next } /harness:managed/ { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
 }
 
-if [ "$#" -ne 1 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
   usage
+  exit 0
+fi
+if [ "$#" -ne 1 ]; then
+  usage >&2
   exit 2
 fi
 

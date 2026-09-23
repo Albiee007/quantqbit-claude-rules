@@ -11,6 +11,8 @@ You review and report findings. You never edit files.
 The parent gives you a **lens** and a **scope** (a diff, a branch, paths, or a URL). If no lens is given, use `code`. If no scope is given, review `git diff` against the merge base with the default branch.
 
 ## Lens → what to load and check
+Load a skill by reading `.claude/skills/<name>/SKILL.md` and the reference files it names.
+
 | Lens | Load | Focus |
 |---|---|---|
 | `code` | skill `coding-standards`, its review checklist | Correctness, error handling, naming, tests, readability, and consistency with the surrounding code |

@@ -1,6 +1,6 @@
 ---
 description: Scaffold a buildable starter for backend / frontend / mobile / android with the strict feature-organised folder layout
-argument-hint: [--platform=backend|frontend|mobile|android] [--project-name=NAME] [--src-dir=DIR] [--api-version=vN] [--features=a,b,c] [--android-package=ID] [--with-i18n] [--with-auth] [--force] [--non-interactive]
+argument-hint: "[--platform=backend|frontend|mobile|android] [--project-name=NAME] [--src-dir=DIR] [--api-version=vN] [--features=a,b,c] [--android-package=ID] [--with-i18n] [--with-auth] [--force] [--non-interactive]"
 ---
 
 # /init-project-scaffold
@@ -38,23 +38,22 @@ If `--platform=` is omitted, the dispatcher auto-detects by sniffing `build.grad
 
 Without `--force`, the script refuses to overwrite any of these if already present:
 
-- `CLAUDE.md`, `AI_RULES.md`
 - `package.json`, `build.gradle.kts`, `build.gradle`, `app.json`
 - `src/`, `app/`, `docs/`
 
-To regenerate, ask the user to confirm and re-run with `--force` — clobbered files are first backed up to `<target>/.claude.bak/<timestamp>/`.
+To regenerate, ask the user to confirm and re-run with `--force`. Clobbered files are first backed up to `<target>/.claude.bak/<timestamp>/`. `CLAUDE.md`, `AI_RULES.md` and `.mcp.json` are never overwritten, even with `--force`.
 
 ## What gets produced
 
 Buildable per-platform starter with:
 
-- Root config (`package.json` / `build.gradle.kts`, `tsconfig.json`, `jest.config.ts`, `.env.example`, `Dockerfile`, `docker-compose.yml` where applicable).
+- Root config (`package.json` / `build.gradle.kts`, `tsconfig.json`, `jest.config.cjs` / `vitest.config.ts`, `.env.example`, `Dockerfile`, `docker-compose.yml` where applicable).
 - `CLAUDE.md` + `AI_RULES.md` (stamped from `_shared/` — pointing to `/init-project-rules` for the operational layer).
 - `docs/` (9 files: system-architecture, api, data-models, business-flows, integrations, background-jobs, repo-structure, runbook, README).
 - `src/` (or `app/` for android) with the strict feature-organised layout — every feature has the same fixed set of subfolders. Files live inside subfolders, never at the feature root.
 - One working example feature (`health` on backend/frontend, `home` on mobile/android) — intentionally tiny, do not expand.
 - One `_feature_template/` (or `_screen_template/`) with the 4 subfolders + `.gitkeep` markers for the user to rename.
-- A `scripts/lint.sh` with a **warning-only** file-size cap at 500 lines (use `--strict` to upgrade to error).
+- A `scripts/lint.sh` with a **warning-only** file-size cap at 500 lines.
 
 ## After generation
 

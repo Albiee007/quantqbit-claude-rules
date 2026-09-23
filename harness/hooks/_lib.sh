@@ -71,19 +71,54 @@ hh_marker_prefix() {
   HH_V="${TMPDIR:-/tmp}/claude-harness-${sid:-nosession}-"
 }
 
+# hh_topic_marker <topic> — sets HH_V to the dedupe marker for this topic in
+# this agent context. Sub-agents share the parent's session_id but start with
+# a fresh context, so the key includes agent_id ("main" on the main thread).
+# agent_id is read only from the part of the payload before tool_input, so a
+# tool argument can never spoof it.
+hh_topic_marker() {
+  local aid
+  hh_get agent_id "${HH_PAYLOAD%%\"tool_input\"*}"
+  aid="${HH_V//[^A-Za-z0-9_-]/}"
+  hh_marker_prefix
+  HH_V="$HH_V${aid:-main}-$1"
+}
+
+# hh_snippet_text <topic> — sets HH_V to the snippet text ("" if none).
+hh_snippet_text() {
+  local f="$HH_SNIPPETS/$1.md" line body=""
+  if [[ -f "$f" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      body+="${line%$'\r'}"$'\n'
+    done < "$f"
+  fi
+  HH_V="$body"
+}
+
 # HH_OUT accumulates snippet text; hh_add_snippet <topic> appends a topic's
-# snippet at most once per session.
+# snippet at most once per agent context. Returns 1 if it was already shown.
 HH_OUT=""
 hh_add_snippet() {
-  local topic="$1" f m line body=""
-  f="$HH_SNIPPETS/$topic.md"
-  [[ -f "$f" ]] || return 0
-  hh_marker_prefix
-  m="$HH_V$topic"
-  [[ -e "$m" ]] && return 0
+  local topic="$1" m
+  [[ -f "$HH_SNIPPETS/$topic.md" ]] || return 0
+  hh_topic_marker "$topic"; m="$HH_V"
+  [[ -e "$m" ]] && return 1
   : > "$m" 2>/dev/null || true
+  hh_snippet_text "$topic"
+  HH_OUT+="$HH_V"$'\n'
+  return 0
+}
+
+# hh_config <key> — sets HH_V to KEY=VALUE from .claude/harness.config ("" if unset).
+hh_config() {
+  local k v line
+  HH_V=""
+  [[ -f "$HH_ROOT/.claude/harness.config" ]] || return 0
   while IFS= read -r line || [[ -n "$line" ]]; do
-    body+="${line%$'\r'}"$'\n'
-  done < "$f"
-  HH_OUT+="$body"$'\n'
+    line="${line%$'\r'}"
+    [[ "$line" == \#* || "$line" != *=* ]] && continue
+    k="${line%%=*}"; v="${line#*=}"
+    k="${k//[[:space:]]/}"
+    if [[ "$k" == "$1" ]]; then HH_V="${v//[[:space:]]/}"; return 0; fi
+  done < "$HH_ROOT/.claude/harness.config"
 }

@@ -10,31 +10,42 @@
 #     back, and the lock is written last as the commit point.
 #   * Never clobbers local work: a harness file edited in the project (its hash
 #     differs from the lock) or a pre-existing unmanaged file at a harness path
-#     aborts the sync, unless you pass --keep or --theirs.
+#     aborts the sync. --keep (edited files only) or --theirs (overwrite; a copy
+#     is kept in .claude/harness/.backup/) resolve it.
+#   * Never downgrades: a source older than the installed harness is refused
+#     unless --allow-downgrade is passed.
 #   * Ownership split: the harness only writes paths it owns. Project files
 #     (CLAUDE.md, AGENTS.md, .claude/rules/project/, settings.project.json)
-#     are never modified. Seed files are written once, only if absent.
+#     are never modified, except: a pre-existing settings.json is migrated into
+#     settings.project.json once, and --profiles updates harness.config.
+#     Seed files are written once, only if absent.
 #   * settings.json is generated from harness base + .claude/settings.project.json.
-#   * Deterministic lock (no timestamps), so two developers who sync the same
-#     version produce byte-identical files and no merge conflicts.
+#   * Deterministic lock (no timestamps, canonical source URL), so developers
+#     who sync the same version produce byte-identical files.
 #
 # Usage: bash scaffold/sync.sh [options]
 #   --target DIR       project root (default: current directory)
-#   --profiles LIST    comma list of web,mobile,backend,infra,all (default: from
-#                      .claude/harness.config, else auto-detected on first install)
+#   --profiles LIST    comma list of web,mobile,backend,infra,all. Saved to
+#                      .claude/harness.config (default: from that file, else
+#                      auto-detected on first install)
 #   --dry-run          show the plan and exit without writing
-#   --diff             with --dry-run, also show unified diffs for updates
+#   --diff             like --dry-run, plus unified diffs for updates
 #   --keep             keep locally modified harness files (marked kept-local)
-#   --theirs           overwrite locally modified or unmanaged files (backed up)
+#   --theirs           overwrite locally modified or unmanaged files; the old
+#                      copies are saved under .claude/harness/.backup/<time>/
 #   --no-seed          do not write seed files on first install
 #   --commit           git add + commit the synced paths on the current branch
 #   --uninstall        remove unmodified harness files and the lock
 #   --allow-dirty      skip the "harness paths have uncommitted changes" guard
+#   --allow-downgrade  allow syncing from a source older than the installed one
 #   --force-unlock     clear a stale sync mutex left by a crashed run
 #   -h, --help
-# Exit codes: 0 ok, 1 conflicts (nothing written), 2 error (rolled back).
+# Exit codes: 0 ok, 1 refused (conflicts / dirty tree / downgrade; nothing
+# written), 2 error (rolled back).
 # ============================================================================
 set -euo pipefail
+# Native git.exe/python.exe need MSYS path conversion; never inherit an override.
+unset MSYS_NO_PATHCONV MSYS2_ARG_CONV_EXCL
 
 SYNC_SRC_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 H="$SYNC_SRC_ROOT/harness"
@@ -43,7 +54,7 @@ source "$H/bin/harness-lib.sh"
 
 # ---------------------------------------------------------------- arguments
 target="."; profiles_arg=""; dry=0; diffmode=0; keep=0; theirs=0; seed=1
-commit=0; uninstall=0; allow_dirty=0; force_unlock=0
+commit=0; uninstall=0; allow_dirty=0; allow_downgrade=0; force_unlock=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) target="${2:?--target needs a dir}"; shift 2 ;;
@@ -59,8 +70,9 @@ while [[ $# -gt 0 ]]; do
     --commit) commit=1; shift ;;
     --uninstall) uninstall=1; shift ;;
     --allow-dirty) allow_dirty=1; shift ;;
+    --allow-downgrade) allow_downgrade=1; shift ;;
     --force-unlock) force_unlock=1; shift ;;
-    -h|--help) sed -n '2,/^# =====.*$/p' "${BASH_SOURCE[0]}" | sed -n '1,40p'; exit 0 ;;
+    -h|--help) awk 'NR > 1 && /^# =+$/ && ++n == 2 { exit } NR > 1 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) hc_die "unknown option: $1 (see --help)" ;;
   esac
 done
@@ -73,18 +85,84 @@ CL="$T/.claude"
 HD="$CL/harness"
 TMPD="$HD/.tmp"
 LOCK="$HD/lock"
+CFG="$CL/harness.config"
+PROJ="$CL/settings.project.json"
 VERSION="$(tr -d '[:space:]' < "$SYNC_SRC_ROOT/VERSION")"
 MANIFEST="$H/manifest.tsv"
 [[ -f "$MANIFEST" ]] || hc_die "harness/manifest.tsv missing — run scaffold/lib/release.sh in the harness repo"
 
-# ---------------------------------------------------------------- preflight
+# ---------------------------------------------------------------- preflight (no writes)
+old_ver=""
+[[ -f "$LOCK" ]] && old_ver="$(tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "harness_version" { print $2; exit }')"
+first_install=0
+[[ -f "$LOCK" ]] || first_install=1
+
+if [[ $uninstall -eq 0 ]] && hc_ver_lt "$VERSION" "$old_ver"; then
+  if [[ $allow_downgrade -eq 1 ]]; then
+    hc_warn "downgrading harness v$old_ver → v$VERSION (--allow-downgrade)"
+  else
+    hc_fail "harness source $SYNC_SRC_ROOT is v$VERSION, older than the installed v$old_ver — nothing was written."
+    hc_info "Update the source first (claude plugin marketplace update quantqbit && claude plugin update quantqbit-claude-rules@quantqbit, or git pull in your clone), or pass --allow-downgrade to roll back on purpose."
+    exit 1
+  fi
+fi
+
+sync_detect_profiles() {
+  local p="" pkg="$T/package.json"
+  if [[ -f "$pkg" ]] && grep -qE '"(react|react-dom|next|vue|nuxt|svelte|@sveltejs/kit|astro|@angular/core|solid-js|gatsby|remix|@remix-run/react)"' "$pkg"; then
+    p="web"
+  elif [[ -f "$T/index.html" || -f "$T/public/index.html" ]]; then
+    p="web"
+  fi
+  if { [[ -f "$pkg" ]] && grep -qE '"(react-native|expo)"' "$pkg"; } || [[ -d "$T/android" || -d "$T/ios" ]] \
+     || ls "$T"/*.xcodeproj >/dev/null 2>&1 \
+     || grep -qs 'com.android' "$T/build.gradle" "$T/build.gradle.kts" "$T/app/build.gradle" "$T/app/build.gradle.kts"; then
+    p="${p:+$p,}mobile"
+  fi
+  if { [[ -f "$pkg" ]] && grep -qE '"(express|fastify|@nestjs/core|koa|hono|@hapi/hapi|mongoose|pg|prisma|typeorm|sequelize)"' "$pkg"; } \
+     || [[ -f "$T/requirements.txt" || -f "$T/pyproject.toml" || -f "$T/go.mod" || -f "$T/pom.xml" \
+           || -f "$T/Gemfile" || -f "$T/composer.json" || -f "$T/Cargo.toml" ]]; then
+    p="${p:+$p,}backend"
+  fi
+  if [[ -d "$T/ansible" || -d "$T/terraform" ]] || ls "$T"/docker-compose*.y*ml "$T"/compose*.y*ml "$T"/Dockerfile* >/dev/null 2>&1 \
+     || ls "$T"/*.tf >/dev/null 2>&1; then
+    p="${p:+$p,}infra"
+  fi
+  echo "${p:-all}"
+}
+
+cfg_profiles="$(hc_config_get "$CFG" profiles)"
+if [[ -n "$profiles_arg" ]]; then
+  PROFILES="$profiles_arg"
+elif [[ -n "$cfg_profiles" ]]; then
+  PROFILES="$cfg_profiles"
+else
+  PROFILES="$(sync_detect_profiles)"
+fi
+PROFILES="${PROFILES// /}"
+[[ "$PROFILES" =~ ^(all|web|mobile|backend|infra)(,(web|mobile|backend|infra))*$ ]] \
+  || hc_die "invalid profiles '$PROFILES' (allowed: all, or a comma list of web,mobile,backend,infra)"
+# --profiles is persisted to the project-owned harness.config (transactionally).
+cfg_update=0
+if [[ -n "$profiles_arg" && $uninstall -eq 0 && -f "$CFG" && "$cfg_profiles" != "$PROFILES" ]]; then
+  cfg_update=1
+fi
+
 in_git=0
 if git -C "$T" rev-parse --is-inside-work-tree >/dev/null 2>&1; then in_git=1; fi
 
+# Guard: refuse when any path this sync may write has uncommitted changes, so a
+# rollback or --commit can never mix with unrelated work. Only harness-owned
+# paths are checked (the project's own agents/skills are not).
 if [[ $in_git -eq 1 && $allow_dirty -eq 0 && $dry -eq 0 ]]; then
-  dirty="$(git -C "$T" status --porcelain -- .claude/rules/harness .claude/harness .claude/agents \
-            .claude/skills .claude/settings.json .claude/settings.project.json 2>/dev/null \
-            | grep -v '\.claude/harness/\.tmp' || true)"
+  guard_paths=()
+  while IFS= read -r p; do [[ -n "$p" ]] && guard_paths+=("$p"); done < <(
+    { tr -d '\r' < "$MANIFEST" | awk -F'\t' '!/^#/ && NF >= 2 { print $2 }'
+      [[ -f "$LOCK" ]] && tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "managed" || $1 == "generated" { print $2 }'
+      echo ".claude/settings.json"; echo ".claude/harness/lock"
+      [[ $cfg_update -eq 1 ]] && echo ".claude/harness.config"
+    } | LC_ALL=C sort -u)
+  dirty="$(git -C "$T" status --porcelain -- "${guard_paths[@]}" 2>/dev/null | grep -v '\.claude/harness/\.tmp' || true)"
   if [[ -n "$dirty" ]]; then
     hc_fail "harness-managed paths have uncommitted changes (commit or stash them first, or pass --allow-dirty):"
     printf '%s\n' "$dirty" >&2
@@ -153,57 +231,16 @@ sync_rollback() {
   return $ok
 }
 
-# ---------------------------------------------------------------- old lock
+# ---------------------------------------------------------------- old lock rows
 LOCK_ROWS="$W/lock_rows.tsv"
 : > "$LOCK_ROWS"
-old_ver=""
 if [[ -f "$LOCK" ]]; then
   if grep -qE '^(<<<<<<<|=======|>>>>>>>)' "$LOCK"; then
     hc_warn "lock has git merge-conflict markers; rebuilding it from disk state"
   fi
   tr -d '\r' < "$LOCK" | awk -F'\t' '($1 == "managed" || $1 == "generated" || $1 == "seed") && NF >= 5' \
     | LC_ALL=C sort -t$'\t' -k2,2 -u > "$LOCK_ROWS"
-  old_ver="$(tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "harness_version" { print $2; exit }')"
 fi
-first_install=0
-[[ -f "$LOCK" ]] || first_install=1
-
-# ---------------------------------------------------------------- profiles
-sync_detect_profiles() {
-  local p="" pkg="$T/package.json"
-  if [[ -f "$pkg" ]] && grep -qE '"(react|react-dom|next|vue|nuxt|svelte|@sveltejs/kit|astro|@angular/core|solid-js|gatsby|remix|@remix-run/react)"' "$pkg"; then
-    p="web"
-  elif [[ -f "$T/index.html" || -f "$T/public/index.html" ]]; then
-    p="web"
-  fi
-  if { [[ -f "$pkg" ]] && grep -qE '"(react-native|expo)"' "$pkg"; } || [[ -d "$T/android" || -d "$T/ios" ]] \
-     || ls "$T"/*.xcodeproj >/dev/null 2>&1 \
-     || grep -qs 'com.android' "$T/build.gradle" "$T/build.gradle.kts" "$T/app/build.gradle" "$T/app/build.gradle.kts"; then
-    p="${p:+$p,}mobile"
-  fi
-  if { [[ -f "$pkg" ]] && grep -qE '"(express|fastify|@nestjs/core|koa|hono|@hapi/hapi|mongoose|pg|prisma|typeorm|sequelize)"' "$pkg"; } \
-     || [[ -f "$T/requirements.txt" || -f "$T/pyproject.toml" || -f "$T/go.mod" || -f "$T/pom.xml" \
-           || -f "$T/Gemfile" || -f "$T/composer.json" || -f "$T/Cargo.toml" ]]; then
-    p="${p:+$p,}backend"
-  fi
-  if [[ -d "$T/ansible" || -d "$T/terraform" ]] || ls "$T"/docker-compose*.y*ml "$T"/compose*.y*ml "$T"/Dockerfile* >/dev/null 2>&1 \
-     || ls "$T"/*.tf >/dev/null 2>&1; then
-    p="${p:+$p,}infra"
-  fi
-  echo "${p:-all}"
-}
-
-CFG="$CL/harness.config"
-if [[ -n "$profiles_arg" ]]; then
-  PROFILES="$profiles_arg"
-elif [[ -n "$(hc_config_get "$CFG" profiles)" ]]; then
-  PROFILES="$(hc_config_get "$CFG" profiles)"
-else
-  PROFILES="$(sync_detect_profiles)"
-fi
-PROFILES="${PROFILES// /}"
-[[ "$PROFILES" =~ ^(all|web|mobile|backend|infra)(,(web|mobile|backend|infra))*$ ]] \
-  || hc_die "invalid profiles '$PROFILES' (allowed: all, or a comma list of web,mobile,backend,infra)"
 
 # ---------------------------------------------------------------- desired state
 # desired.tsv: dest  kind  file_version  (staged file lives at $STAGE/dest)
@@ -223,15 +260,17 @@ if [[ $uninstall -eq 0 ]]; then
   done < <(tr -d '\r' < "$MANIFEST")
 
   # Generated settings.json = base + project overrides.
-  PROJ="$CL/settings.project.json"
   has_settings_row=0
   grep -q $'^generated\t.claude/settings.json\t' "$LOCK_ROWS" && has_settings_row=1
-  if [[ -f "$CL/settings.json" && $has_settings_row -eq 0 && ! -f "$PROJ" ]]; then
+  mkdir -p "$STAGE/.claude"
+  if [[ -f "$CL/settings.json" && $has_settings_row -eq 0 ]]; then
     # First install into a project that already has settings.json: preserve it
-    # by moving its content to the project-owned settings.project.json.
+    # by folding it (and any existing settings.project.json) into the
+    # project-owned settings.project.json. v0.x harness leftovers are dropped.
     migrate_settings=1
-    mkdir -p "$STAGE/.claude"
-    cp "$CL/settings.json" "$STAGE/.claude/settings.project.json"
+    hc_py "$SYNC_SRC_ROOT/scaffold/lib/settings_merge.py" --migrate "$CL/settings.json" \
+      "$( [[ -f "$PROJ" ]] && echo "$PROJ" || echo - )" "$STAGE/.claude/settings.project.json" \
+      || hc_die "python 3 is required to migrate .claude/settings.json (install Python 3; on Windows the 'py' launcher also works)"
     printf '.claude/settings.project.json\tseed\n' >> "$SEEDS"
     proj_in="$STAGE/.claude/settings.project.json"
   elif [[ -f "$PROJ" ]]; then
@@ -239,10 +278,9 @@ if [[ $uninstall -eq 0 ]]; then
   else
     proj_in=""
   fi
-  mkdir -p "$STAGE/.claude"
   if [[ -n "$proj_in" ]]; then
-    PY="$(hc_python)" || hc_die "python3 is required to merge .claude/settings.project.json (install Python 3)"
-    "$PY" "$SYNC_SRC_ROOT/scaffold/lib/settings_merge.py" "$H/settings.base.json" "$proj_in" "$STAGE/.claude/settings.json" \
+    hc_python >/dev/null || hc_die "python 3 is required to merge .claude/settings.project.json (install Python 3; on Windows the 'py' launcher also works)"
+    hc_py "$SYNC_SRC_ROOT/scaffold/lib/settings_merge.py" "$H/settings.base.json" "$proj_in" "$STAGE/.claude/settings.json" \
       || exit 2
   else
     tr -d '\r' < "$H/settings.base.json" > "$STAGE/.claude/settings.json"
@@ -253,7 +291,6 @@ if [[ $uninstall -eq 0 ]]; then
   if [[ $seed -eq 1 && $first_install -eq 1 ]]; then
     SEED_SRC="$SYNC_SRC_ROOT/scaffold/templates/seed"
     if [[ ! -e "$CFG" ]]; then
-      mkdir -p "$STAGE/.claude"
       sed "s/^profiles=.*/profiles=$PROFILES/" "$SEED_SRC/harness.config" > "$STAGE/.claude/harness.config"
       printf '.claude/harness.config\tseed\n' >> "$SEEDS"
     fi
@@ -267,6 +304,15 @@ if [[ $uninstall -eq 0 ]]; then
     if [[ ! -e "$T/CLAUDE.md" && ! -e "$T/AGENTS.md" && ! -e "$CL/CLAUDE.md" ]]; then
       sed "s/{{PROJECT_NAME}}/$(basename "$T" | sed 's/[&/\]/\\&/g')/g" "$SEED_SRC/CLAUDE.md" > "$STAGE/CLAUDE.md"
       printf 'CLAUDE.md\tseed\n' >> "$SEEDS"
+    fi
+  fi
+
+  # --profiles: rewrite only the profiles= line of the project's harness.config.
+  if [[ $cfg_update -eq 1 ]]; then
+    if grep -qE '^[[:space:]]*profiles[[:space:]]*=' "$CFG"; then
+      tr -d '\r' < "$CFG" | sed -E "s/^[[:space:]]*profiles[[:space:]]*=.*/profiles=$PROFILES/" > "$STAGE/.claude/harness.config"
+    else
+      { tr -d '\r' < "$CFG"; printf '\nprofiles=%s\n' "$PROFILES"; } > "$STAGE/.claude/harness.config"
     fi
   fi
 fi
@@ -293,6 +339,9 @@ awk -F'\t' -v OFS='\t' -v keep="$keep" -v theirs="$theirs" -v migrate="$migrate_
         if (!d) { print "SEED-KEEP", p, "seed", lv[p], lh[p], ls[p]; continue }
         l = 0
       }
+      # A generated file whose content did not change keeps its file_version.
+      v = dv[p]
+      if (d && dk[p] == "generated" && (p in lh) && lh[p] == nh[p]) v = lv[p]
       if (uninstall) {
         if (!l) continue
         if (c == "-")            print "GONE", p, lk[p], lv[p], lh[p], ls[p]
@@ -301,18 +350,18 @@ awk -F'\t' -v OFS='\t' -v keep="$keep" -v theirs="$theirs" -v migrate="$migrate_
         continue
       }
       if (d && l) {
-        if (c == "-")            print "RESTORE", p, dk[p], dv[p], nh[p], "clean"
-        else if (c == nh[p])     print "NOOP", p, dk[p], dv[p], nh[p], "clean"
-        else if (c == lh[p])     print "UPDATE", p, dk[p], dv[p], nh[p], "clean"
-        else if (theirs)         print "OVERWRITE", p, dk[p], dv[p], nh[p], "clean"
+        if (c == "-")            print "RESTORE", p, dk[p], v, nh[p], "clean"
+        else if (c == nh[p])     print "NOOP", p, dk[p], v, nh[p], "clean"
+        else if (c == lh[p])     print "UPDATE", p, dk[p], v, nh[p], "clean"
+        else if (theirs)         print "OVERWRITE", p, dk[p], v, nh[p], "clean"
         else if (keep || ls[p] == "kept-local") print "KEEP", p, lk[p], lv[p], lh[p], "kept-local"
-        else                     print "CONFLICT-MODIFIED", p, dk[p], dv[p], nh[p], "-"
+        else                     print "CONFLICT-MODIFIED", p, dk[p], v, nh[p], "-"
       } else if (d) {
-        if (c == "-")            print "ADD", p, dk[p], dv[p], nh[p], "clean"
-        else if (c == nh[p])     print "ADOPT", p, dk[p], dv[p], nh[p], "clean"
-        else if (p == ".claude/settings.json" && migrate) print "MIGRATE-SETTINGS", p, dk[p], dv[p], nh[p], "clean"
-        else if (theirs)         print "OVERWRITE", p, dk[p], dv[p], nh[p], "clean"
-        else                     print "CONFLICT-UNMANAGED", p, dk[p], dv[p], nh[p], "-"
+        if (c == "-")            print "ADD", p, dk[p], v, nh[p], "clean"
+        else if (c == nh[p])     print "ADOPT", p, dk[p], v, nh[p], "clean"
+        else if (p == ".claude/settings.json" && migrate) print "MIGRATE-SETTINGS", p, dk[p], v, nh[p], "clean"
+        else if (theirs)         print "OVERWRITE", p, dk[p], v, nh[p], "clean"
+        else                     print "CONFLICT-UNMANAGED", p, dk[p], v, nh[p], "-"
       } else if (l) {
         if (c == "-")            print "GONE", p, lk[p], lv[p], lh[p], ls[p]
         else if (c == lh[p])     print "REMOVE", p, lk[p], lv[p], lh[p], ls[p]
@@ -333,20 +382,39 @@ count() { awk -F'\t' -v o="$1" '$1 == o' "$OPS" | wc -l | tr -d ' '; }
 if [[ $uninstall -eq 1 ]]; then mode="uninstall"; else mode="sync ${old_ver:-<none>} → $VERSION"; fi
 hc_info "harness $mode  |  target: $T  |  profiles: $PROFILES"
 awk -F'\t' '$1 != "NOOP" && $1 != "SEED-KEEP" { printf "  %-18s %s\n", $1, $2 }' "$OPS" >&2
+[[ $cfg_update -eq 1 ]] && printf '  %-18s %s\n' "CONFIG" ".claude/harness.config (profiles=$PROFILES, was ${cfg_profiles:-unset})" >&2
 summary="$(awk -F'\t' '{ n[$1]++ } END { for (o in n) printf "%s=%d ", o, n[o] }' "$OPS")"
 hc_info "plan: ${summary:-nothing to do}"
+
+# v0.x leftovers: files the old /init-project-rules stamped, now superseded.
+legacy=()
+for f in .claude/hooks/session-start-context.sh .claude/hooks/post-edit-lint.sh \
+         .claude/rules/bash.md .claude/rules/ansible.md .claude/rules/compose.md .claude/rules/terraform.md \
+         .claude/.scaffold-manifest-rules.txt; do
+  [[ -e "$T/$f" ]] && legacy+=("$f")
+done
+if [[ ${#legacy[@]} -gt 0 && $uninstall -eq 0 ]]; then
+  hc_warn "v0.x leftovers found (superseded by .claude/rules/harness/ and .claude/harness/hooks/); review and delete them:"
+  printf '    %s\n' "${legacy[@]}" >&2
+fi
 
 conflicts=$(( $(count CONFLICT-MODIFIED) + $(count CONFLICT-UNMANAGED) ))
 if [[ $conflicts -gt 0 ]]; then
   hc_fail "$conflicts conflict(s) — nothing was written."
   awk -F'\t' '$1 ~ /^CONFLICT/ { print "  " $1 ": " $2 }' "$OPS" >&2
-  cat >&2 <<'EOF'
+  [[ $(count CONFLICT-MODIFIED) -gt 0 ]] && cat >&2 <<'EOF'
   CONFLICT-MODIFIED  : a harness file was edited in this project. Move the change into
-                       .claude/rules/project/ (or settings.project.json), then either
-                       re-run with --theirs (overwrite; old copy backed up to the output log)
-                       or --keep (keep your version; harness-doctor keeps reporting it).
-  CONFLICT-UNMANAGED : a file the harness wants to own already exists (e.g. your own
-                       .claude/agents/reviewer.md). Rename yours, or pass --theirs.
+                       .claude/rules/project/ (or settings.project.json), then re-run with
+                       --theirs (take the harness version; your copy is saved under
+                       .claude/harness/.backup/) or --keep (keep yours as kept-local;
+                       harness-doctor keeps reporting it).
+EOF
+  [[ $(count CONFLICT-UNMANAGED) -gt 0 ]] && cat >&2 <<'EOF'
+  CONFLICT-UNMANAGED : a file of yours sits at a path the harness owns. Reserved names:
+                       agents explorer, implementor, infra-implementor, verifier, reviewer;
+                       skills coding-standards, design-patterns, ui-ux, seo, harness.
+                       Rename yours (recommended), or re-run with --theirs (yours is
+                       saved under .claude/harness/.backup/). --keep does not apply.
 EOF
   exit 1
 fi
@@ -384,7 +452,7 @@ sync_apply_one() { # op path
     REMOVE)
       rm -f "$T/$p" ;;
     UNINSTALL-SETTINGS)
-      if [[ -f "$CL/settings.project.json" ]]; then cp "$CL/settings.project.json" "$T/$p"; else rm -f "$T/$p"; fi ;;
+      if [[ -f "$PROJ" ]]; then cp "$PROJ" "$T/$p"; else rm -f "$T/$p"; fi ;;
     *)
       mkdir -p "$(dirname "$T/$p")"
       mv -f "$STAGE/$p" "$T/$p" ;;
@@ -400,9 +468,10 @@ while IFS=$'\t' read -r op p _; do
       sync_apply_one "$op" "$p" ;;
   esac
 done < "$OPS"
+[[ $cfg_update -eq 1 ]] && sync_apply_one CONFIG .claude/harness.config
 
-# Write the new lock (commit point). Deterministic: sorted, no timestamps.
-src_url="$(git -C "$SYNC_SRC_ROOT" config --get remote.origin.url 2>/dev/null || echo local)"
+# Write the new lock (commit point). Deterministic: sorted, no timestamps,
+# canonical source URL (never this machine's checkout remote).
 if [[ $uninstall -eq 1 ]]; then
   if [[ -f "$LOCK" ]]; then
     mkdir -p "$(dirname "$BACKUP/.claude/harness/lock")"
@@ -413,10 +482,10 @@ if [[ $uninstall -eq 1 ]]; then
   fi
 else
   {
-    echo "# harness lock — generated by harness sync; do not edit by hand."
+    echo "# harness lock - generated by harness sync; do not edit by hand."
     echo "# Git merge conflict here? Keep either side, then re-run harness sync; it re-derives this file."
     printf 'harness_version\t%s\n' "$VERSION"
-    printf 'source\t%s\n' "${src_url%.git}"
+    printf 'source\t%s\n' "$HARNESS_UPSTREAM_URL"
     printf 'profiles\t%s\n' "$PROFILES"
     printf '#kind\tpath\tfile_version\tsha256\tstatus\n'
     awk -F'\t' -v OFS='\t' '
@@ -439,34 +508,57 @@ else
 fi
 applying=0
 
+# Keep overwritten files (--theirs) beyond the transaction: .claude/harness/.backup/
+if [[ $(count OVERWRITE) -gt 0 ]]; then
+  keep_dir="$HD/.backup/$(date -u +%Y%m%dT%H%M%SZ)"
+  while IFS=$'\t' read -r op p _; do
+    [[ "$op" == OVERWRITE && -f "$BACKUP/$p" ]] || continue
+    mkdir -p "$(dirname "$keep_dir/$p")"
+    cp -p "$BACKUP/$p" "$keep_dir/$p"
+  done < "$OPS"
+  hc_info "previous versions of overwritten files saved in ${keep_dir#"$T"/} (gitignored)"
+fi
+
 # Tidy directories emptied by removals (never above .claude/).
 while IFS=$'\t' read -r op p _; do
-  [[ "$op" == REMOVE ]] || continue
+  [[ "$op" == REMOVE || "$op" == UNINSTALL-SETTINGS ]] || continue
   d="$(dirname "$T/$p")"
   while [[ "$d" != "$T" && "$d" != "$CL" && "$d" == "$CL"/* ]]; do
     rmdir "$d" 2>/dev/null || break
     d="$(dirname "$d")"
   done
 done < "$OPS"
+if [[ $uninstall -eq 1 ]]; then
+  rmdir "$HD" "$CL/rules/harness" 2>/dev/null || true
+  left="$(awk -F'\t' '$1 == "SEED-KEEP" { printf "%s ", $2 }' "$OPS")"
+  [[ -n "$left" ]] && hc_info "project-owned files left in place: $left(CLAUDE.md may still mention .claude/rules/harness/)"
+fi
 
 awk -F'\t' '$1 == "ORPHAN-KEPT" { print "  kept (modified, now project-owned): " $2 }' "$OPS" >&2
 awk -F'\t' '$1 == "KEEP" { print "  kept-local (modified; harness-doctor will keep reporting): " $2 }' "$OPS" >&2
 awk -F'\t' '$1 == "LEAVE-MODIFIED" { print "  left in place (modified): " $2 }' "$OPS" >&2
-[[ $migrate_settings -eq 1 ]] && hc_info "existing .claude/settings.json moved to .claude/settings.project.json (project-owned); settings.json is now generated"
+[[ $migrate_settings -eq 1 ]] && hc_info "existing .claude/settings.json folded into .claude/settings.project.json (project-owned); settings.json is now generated"
+[[ $cfg_update -eq 1 ]] && hc_info "saved profiles=$PROFILES in .claude/harness.config"
 n_changed=$(wc -l < "$changed" | tr -d ' ')
 hc_ok "harness ${mode}: $n_changed file(s) changed"
 
 # ---------------------------------------------------------------- commit
-if [[ $commit -eq 1 && $n_changed -gt 0 ]]; then
+if [[ $commit -eq 1 ]]; then
   if [[ $in_git -eq 0 ]]; then
     hc_warn "--commit ignored: target is not a git repository"
   else
     paths=()
     while IFS= read -r p; do paths+=("$p"); done < "$changed"
-    git -C "$T" add -- "${paths[@]}"
-    if [[ $uninstall -eq 1 ]]; then msg="chore(harness): uninstall agent harness"; else msg="chore(harness): sync agent harness to v$VERSION"; fi
-    git -C "$T" commit -q -m "$msg" -- "${paths[@]}"
-    hc_ok "committed on $(git -C "$T" rev-parse --abbrev-ref HEAD): $(git -C "$T" log -1 --format='%h %s')"
+    # Commit the regenerated settings.json together with its project-owned source.
+    if [[ -f "$PROJ" && -n "$(git -C "$T" status --porcelain -- .claude/settings.project.json)" ]]; then
+      paths+=(".claude/settings.project.json")
+    fi
+    if [[ ${#paths[@]} -gt 0 ]]; then
+      git -C "$T" add -- "${paths[@]}"
+      if [[ $uninstall -eq 1 ]]; then msg="chore(harness): uninstall agent harness"; else msg="chore(harness): sync agent harness to v$VERSION"; fi
+      git -C "$T" commit -q -m "$msg" -- "${paths[@]}"
+      hc_ok "committed on $(git -C "$T" rev-parse --abbrev-ref HEAD): $(git -C "$T" log -1 --format='%h %s')"
+    fi
   fi
 fi
 exit 0

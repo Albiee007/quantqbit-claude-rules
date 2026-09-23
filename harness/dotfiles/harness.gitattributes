@@ -1,0 +1,8 @@
+# harness:managed - pins line endings for vendored harness files, so a Windows
+# checkout (core.autocrlf=true) never turns scripts into CRLF, which breaks
+# bash on Linux, WSL and containers. Applies to .claude/ only.
+*.sh          text eol=lf
+*.md          text eol=lf
+*.json        text eol=lf
+harness/lock  text eol=lf
+*.ps1         text eol=crlf

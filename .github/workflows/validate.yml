@@ -19,12 +19,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Claude Code CLI (for `claude plugin validate`)
+        run: npm install -g @anthropic-ai/claude-code
       - name: Install shellcheck (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
       - name: Git identity for test repos
         run: git config --global user.email ci@example.com && git config --global user.name ci
-      - name: Validate harness (policy, frontmatter, budgets, links, release consistency)
+      - name: Validate harness (policy, frontmatter, budgets, links, plugin manifest, release consistency)
         run: bash scaffold/lib/validate-harness.sh
       - name: Hook tests
         run: bash tests/hooks.test.sh
@@ -32,3 +37,24 @@ jobs:
         run: bash tests/validate.test.sh
       - name: Sync scenario tests
         run: bash tests/sync.test.sh
+      - name: macOS stock bash 3.2 compatibility (hooks + sync)
+        if: runner.os == 'macOS'
+        run: |
+          PATH="/bin:/usr/bin:$PATH" bash --version | head -1
+          PATH="/bin:/usr/bin:$PATH" /bin/bash tests/hooks.test.sh
+          PATH="/bin:/usr/bin:$PATH" /bin/bash tests/sync.test.sh
+      - name: Windows PowerShell entry points
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Join-Path $env:RUNNER_TEMP 'ps-proj'
+          New-Item -ItemType Directory -Force $p | Out-Null
+          git -C $p init -q
+          New-Item -ItemType Directory -Force (Join-Path $p '.claude') | Out-Null
+          '{"permissions":{"allow":["Bash(npm test)"]}}' | Set-Content -Encoding utf8 (Join-Path $p '.claude/settings.json')
+          git -C $p add -A; git -C $p commit -qm init
+          powershell -NoProfile -ExecutionPolicy Bypass -File scaffold\sync.ps1 --target $p --commit
+          if ($LASTEXITCODE -ne 0) { throw "sync.ps1 failed: $LASTEXITCODE" }
+          powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $p '.claude\harness\bin\harness-doctor.ps1')
+          if ($LASTEXITCODE -ne 0) { throw "harness-doctor.ps1 failed: $LASTEXITCODE" }
+          git -C $p log --oneline -1

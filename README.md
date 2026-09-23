@@ -10,24 +10,27 @@
 | **Mandatory skills** | **coding-standards**: SOLID, naming, errors, testing, OWASP Top 10:2025, review checklist · **design-patterns**: a decision gate plus all 23 GoF patterns with examples, architectural patterns, anti-patterns · **ui-ux**: 30 Laws of UX, Nielsen heuristics, WCAG 2.2 AA, Gestalt, DTCG tokens, Material 3, Apple HIG · **seo**: technical SEO, E-E-A-T, schema, Core Web Vitals, AI search (GEO), hreflang, local, a 0–100 audit score |
 | **Path-scoped rules** | coding, tests, security, ui-ux, seo, bash, powershell, ansible, compose/Dockerfile, terraform |
 | **Agents** (all Opus) | `explorer` → `implementor` / `infra-implementor` → `verifier` → `reviewer` (lenses: code, patterns, ux, seo, security) |
-| **Hooks** (pure bash, ~80 ms) | `guard` (enforces Opus, blocks real `.env` files), `prompt-router` and `file-context` (inject mandatory checklists), `session-start`, `post-edit-lint` |
+| **Hooks** (pure bash, ~80–300 ms each) | `guard` (enforces Opus, blocks real `.env` files), `prompt-router` and `file-context` (inject mandatory checklists), `session-start`, `post-edit-lint` |
 | **Settings** | Generated from the harness base plus the project's own `settings.project.json` |
 
 ## Why it is safe to share through git
 
 - **Separate ownership.** Harness files (`.claude/rules/harness/`, harness skills, agents, `.claude/harness/`) and project files (`CLAUDE.md`, `AGENTS.md`, `.claude/rules/project/`, `settings.project.json`, `harness.config`) never share a file.
 - **Transactional sync.** The new state is staged and validated, applied with a journal, and fully rolled back on any failure. The lock is written last.
-- **Drift detection.** `.claude/harness/lock` records the version and content hash of every file. Local edits abort the sync (you choose `--keep` or `--theirs`), and `harness-doctor` reports stale, modified or missing files.
+- **Drift detection.** `.claude/harness/lock` records the version and content hash of every file. Local edits abort the sync (you choose `--keep` or `--theirs`), older sources are refused, and `harness-doctor` reports stale, modified or missing files.
 - **Deterministic lock.** No timestamps, and hashes ignore CRLF differences. The same version produces identical bytes on every machine.
 
 ## Quick start
 
+**New here? Read [GETTING-STARTED.md](./GETTING-STARTED.md).** The repo is private: you need read access and working git credentials.
+
 ```bash
-# Plugin
-/plugin marketplace add Albiee007/quantqbit-claude-rules
-/plugin install quantqbit-claude-rules@quantqbit
-/init-project-rules            # lint tooling + harness, or just ask: "install the harness"
-/init-project-scaffold         # optional: buildable backend / frontend / mobile / android starter
+# Plugin (terminal; or /plugin marketplace add … and /plugin install … inside Claude Code)
+claude plugin marketplace add Albiee007/quantqbit-claude-rules
+claude plugin install quantqbit-claude-rules@quantqbit
+# restart Claude Code, then in a project:
+#   "install the harness"      (or /init-project-rules for lint tooling + harness)
+#   /init-project-scaffold     (optional: buildable backend / frontend / mobile / android starter)
 
 # Without the plugin
 git clone https://github.com/Albiee007/quantqbit-claude-rules ~/.local/share/quantqbit-claude-rules
@@ -74,7 +77,7 @@ bash scaffold/lib/validate-harness.sh   # model policy, frontmatter, size budget
 bash tests/hooks.test.sh; bash tests/validate.test.sh; bash tests/sync.test.sh
 ```
 
-CI runs these tests on Ubuntu, macOS and Windows (`.github/workflows/validate.yml`). See [INSTALL.md](./INSTALL.md) for everything else, [CHANGELOG.md](./CHANGELOG.md) for versions and upgrade notes, and [CREDITS.md](./CREDITS.md) for sources.
+`.github/workflows/validate.yml` runs them on Ubuntu, macOS (including the stock `/bin/bash` 3.2) and Windows, plus `claude plugin validate`. See [INSTALL.md](./INSTALL.md) for everything else, [CHANGELOG.md](./CHANGELOG.md) for versions and upgrade notes, and [CREDITS.md](./CREDITS.md) for sources.
 
 ## License
 

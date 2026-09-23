@@ -3,11 +3,13 @@
   "owner": {
     "name": "QuantQbit"
   },
+  "metadata": {
+    "description": "QuantQbit agent harness: git-vendored agent rules, mandatory skills, Opus agents and hooks for every project."
+  },
   "plugins": [
     {
       "name": "quantqbit-claude-rules",
       "source": "./",
-      "version": "1.0.0",
       "description": "Vendored, transactional agent harness + lint tooling + per-platform project starters."
     }
   ]

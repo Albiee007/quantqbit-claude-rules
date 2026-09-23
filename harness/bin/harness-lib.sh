@@ -7,10 +7,17 @@
 #
 # Hashing is CRLF-normalised: every line has a trailing CR stripped and ends
 # with LF before hashing, so a Windows checkout with core.autocrlf=true never
-# looks "modified" versus the LF source.
+# looks "modified" versus the LF source. (This covers hash comparison only;
+# script line endings in projects are pinned by the shipped .claude/.gitattributes.)
 # ============================================================================
 
 HARNESS_EMPTY_SHA="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+# Canonical upstream recorded in every project lock. Deliberately a constant:
+# the syncing checkout's own remote (a local path, SSH form or tokenised URL)
+# must never leak into a committed lock or vary between developers.
+# shellcheck disable=SC2034  # used by the scripts that source this library
+HARNESS_UPSTREAM_URL="https://github.com/Albiee007/quantqbit-claude-rules"
 
 hc_info() { printf '[INFO] %s\n' "$*" >&2; }
 hc_ok()   { printf '[OK] %s\n'   "$*" >&2; }
@@ -29,17 +36,59 @@ hc_sha_tool() {
   fi
 }
 
-# hc_python — echo a working python interpreter (python3 preferred). Guards
-# against the Windows Store "python" stub, which exists but does not run.
+# hc_python — echo a working python 3 command: python3, python, or the Windows
+# "py -3" launcher. Guards against the Windows Store "python" stub, which
+# exists but does not run. The result may contain a space ("py -3"), so run it
+# through hc_py rather than quoting it.
 hc_python() {
   local py
-  for py in python3 python; do
-    if command -v "$py" >/dev/null 2>&1 && "$py" -c 'import json' >/dev/null 2>&1; then
+  for py in python3 python "py -3"; do
+    # shellcheck disable=SC2086  # intentional word split for "py -3"
+    if command -v ${py%% *} >/dev/null 2>&1 \
+       && $py -c 'import json, sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then
       echo "$py"
       return 0
     fi
   done
   return 1
+}
+
+# hc_py <args…> — run the python found by hc_python.
+hc_py() {
+  local py
+  py="$(hc_python)" || return 127
+  # shellcheck disable=SC2086  # intentional word split for "py -3"
+  $py "$@"
+}
+
+# hc_find_sources — print "<version>\t<path>" for every local harness source
+# found, newest first: $HARNESS_HOME, $CLAUDE_PLUGIN_ROOT, the installed Claude
+# Code plugin copies (${CLAUDE_CONFIG_DIR:-~/.claude}/plugins/cache/quantqbit/…)
+# and ~/.local/share/quantqbit-claude-rules.
+hc_find_sources() {
+  local cfg="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" c v
+  if [[ "$cfg" == *\\* || "$cfg" == [A-Za-z]:* ]] && command -v cygpath >/dev/null 2>&1; then
+    cfg="$(cygpath -u "$cfg")"
+  fi
+  for c in "${HARNESS_HOME:-}" "${CLAUDE_PLUGIN_ROOT:-}" \
+           "$cfg"/plugins/cache/quantqbit/quantqbit-claude-rules/* \
+           "$HOME/.local/share/quantqbit-claude-rules"; do
+    [[ -n "$c" && -f "$c/scaffold/sync.sh" && -f "$c/harness/manifest.tsv" && -f "$c/VERSION" ]] || continue
+    v="$(tr -d '[:space:]' < "$c/VERSION")"
+    printf '%s\t%s\n' "$v" "$c"
+  done | awk -F'\t' '!seen[$2]++' | sort -t. -k1,1nr -k2,2nr -k3,3nr
+}
+
+# hc_ver_lt <a> <b> — true when semver a < b. False when equal, newer, or when
+# either side is not X.Y.Z (so an unknown version never blocks anything).
+hc_ver_lt() {
+  local re='^([0-9]+)\.([0-9]+)\.([0-9]+)$' a1 a2 a3
+  [[ "${1:-}" =~ $re ]] || return 1
+  a1="${BASH_REMATCH[1]}"; a2="${BASH_REMATCH[2]}"; a3="${BASH_REMATCH[3]}"
+  [[ "${2:-}" =~ $re ]] || return 1
+  if (( 10#$a1 != 10#${BASH_REMATCH[1]} )); then (( 10#$a1 < 10#${BASH_REMATCH[1]} )); return; fi
+  if (( 10#$a2 != 10#${BASH_REMATCH[2]} )); then (( 10#$a2 < 10#${BASH_REMATCH[2]} )); return; fi
+  (( 10#$a3 < 10#${BASH_REMATCH[3]} ))
 }
 
 # hc_hash_list <root> — read relative paths (one per line) on stdin and print
@@ -101,31 +150,33 @@ hc_hash_file() {
   printf '%s\n' "$b" | hc_hash_list "$d" | cut -f1
 }
 
-# hc_inject_header <src> <dest> <version> — copy src to dest, adding the
-# harness:managed marker in a format-appropriate place. Files that are data
-# (json, tsv, snippets, dotfiles) are copied verbatim; the lock covers them.
+# hc_inject_header <src> <dest> <version> [rel] — copy src to dest with LF line
+# endings, adding the harness:managed marker in a format-appropriate place.
+# Data files (json, tsv, snippets, dotfiles) get no marker; the lock covers
+# them. The marker is plain ASCII so Windows PowerShell 5.1 renders it cleanly.
 hc_inject_header() {
   local src="$1" dest="$2" ver="$3" rel="${4:-}"
-  local md="<!-- harness:managed v${ver} — do not edit; override in .claude/rules/project/ (see .claude/harness/README.md) -->"
-  local sh="# harness:managed v${ver} — do not edit; re-run harness sync to update"
+  local md="<!-- harness:managed v${ver} - do not edit; override in .claude/rules/project/ (see .claude/harness/README.md) -->"
+  local sh="# harness:managed v${ver} - do not edit; re-run harness sync to update"
   mkdir -p "$(dirname "$dest")"
   case "$rel" in
     snippets/*|*.json|*.tsv|*.txt|dotfiles/*)
-      cp "$src" "$dest"; return 0 ;;
+      tr -d '\r' < "$src" > "$dest"; return 0 ;;
   esac
   case "$src" in
     *.md)
       # After YAML frontmatter if present, else as the first line.
-      awk -v m="$md" '
-        NR == 1 && $0 ~ /^---\r?$/ { fm = 1; print; next }
-        fm == 1 && $0 ~ /^---\r?$/ { print; print m; fm = 2; next }
+      tr -d '\r' < "$src" | awk -v m="$md" '
+        NR == 1 && $0 ~ /^---$/ { fm = 1; print; next }
+        fm == 1 && $0 ~ /^---$/ { print; print m; fm = 2; next }
         NR == 1 && fm != 1 { print m }
         { print }
-      ' "$src" > "$dest" ;;
+      ' > "$dest" ;;
     *.sh)
-      awk -v m="$sh" 'NR == 1 && /^#!/ { print; print m; next } NR == 1 { print m } { print }' "$src" > "$dest" ;;
+      tr -d '\r' < "$src" \
+        | awk -v m="$sh" 'NR == 1 && /^#!/ { print; print m; next } NR == 1 { print m } { print }' > "$dest" ;;
     *.ps1)
-      { printf '%s\n' "$sh"; cat "$src"; } > "$dest" ;;
+      { printf '%s\n' "$sh"; tr -d '\r' < "$src"; } > "$dest" ;;
     *)
       cp "$src" "$dest" ;;
   esac

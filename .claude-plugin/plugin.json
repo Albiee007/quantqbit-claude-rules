@@ -1,13 +1,13 @@
 {
   "name": "quantqbit-claude-rules",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "QuantQbit agent harness: vendors git-tracked, conflict-safe agent rules, mandatory skills (coding-standards, design-patterns, ui-ux, seo), Opus-only agents and hooks into each project via a transactional sync with a versioned lock; plus lint tooling (/init-project-rules) and buildable per-platform starters (/init-project-scaffold).",
+  "author": {
+    "name": "QuantQbit"
+  },
   "license": "MIT",
   "homepage": "https://github.com/Albiee007/quantqbit-claude-rules",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Albiee007/quantqbit-claude-rules.git"
-  },
+  "repository": "https://github.com/Albiee007/quantqbit-claude-rules",
   "keywords": [
     "claude-code",
     "claude-rules",

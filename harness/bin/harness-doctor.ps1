@@ -1,9 +1,15 @@
 #Requires -Version 5.1
-# === harness doctor (PowerShell entrypoint) ===
-# Thin wrapper: forwards all arguments to harness-doctor.sh via Git Bash, so Windows, macOS and
-# Linux run the same logic. Prefers Git for Windows' bash over WSL's bash.exe,
-# which cannot resolve Windows paths.
-# Usage: .$(basename "harness/bin/harness-doctor.ps1") [options]   (same options as harness-doctor.sh)
+# === harness doctor (PowerShell entry point) ===
+# Thin wrapper: runs harness-doctor.sh with Git Bash so Windows, macOS and Linux share one
+# implementation. Git for Windows' bash is preferred over WSL's bash.exe, which
+# cannot resolve Windows paths.
+#
+# Usage:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File .claude\harness\bin\harness-doctor.ps1 [options]
+#   (same options as harness-doctor.sh; run with --help to list them)
+#
+# Note: do NOT set MSYS_NO_PATHCONV here. bash.exe would pass it on to native
+# git.exe / python.exe, which then receive unresolvable /c/... paths.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -26,11 +32,14 @@ if (-not $bash) {
     if ($cmd -and $cmd.Source -notmatch 'System32') { $bash = $cmd.Source }
 }
 if (-not $bash) {
-    Write-Host "[FAIL] Git Bash not found. Install Git for Windows (https://git-scm.com/download/win), or run harness-doctor.sh from WSL, macOS or Linux."
+    Write-Host "[FAIL] Git Bash not found. Install Git for Windows (https://git-scm.com/download/win)."
+    Write-Host "       Or run harness-doctor.sh from WSL, macOS or Linux."
     exit 2
 }
 
-# Stop MSYS from rewriting arguments that look like Unix paths.
-$env:MSYS_NO_PATHCONV = '1'
+# Clear inherited MSYS path-conversion overrides (see note above).
+Remove-Item Env:MSYS_NO_PATHCONV -ErrorAction SilentlyContinue
+Remove-Item Env:MSYS2_ARG_CONV_EXCL -ErrorAction SilentlyContinue
+
 & $bash $sh @args
 exit $LASTEXITCODE

@@ -118,9 +118,9 @@ if command -v shellcheck >/dev/null 2>&1; then
 else
   hc_warn "shellcheck not installed — skipped (CI runs it)"
 fi
-if PY="$(hc_python)"; then
+if hc_python >/dev/null; then
   while IFS= read -r f; do
-    "$PY" -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$f" 2>/dev/null || e "invalid JSON: ${f#"$ROOT"/}"
+    hc_py -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$f" 2>/dev/null || e "invalid JSON: ${f#"$ROOT"/}"
   done < <(find "$H" "$ROOT/.claude-plugin" -name '*.json' 2>/dev/null)
 else
   hc_warn "python not found — JSON parse checks skipped"
@@ -130,8 +130,23 @@ fi
 if [[ $check_release -eq 1 ]]; then
   v="$(tr -d '[:space:]' < "$ROOT/VERSION")"
   grep -q "\"version\": \"$v\"" "$ROOT/.claude-plugin/plugin.json" || e "plugin.json version != VERSION ($v)"
-  if [[ -f "$ROOT/.claude-plugin/marketplace.json" ]]; then
-    grep -q "\"version\": \"$v\"" "$ROOT/.claude-plugin/marketplace.json" || e "marketplace.json version != VERSION ($v)"
+  # Version lives in plugin.json only (a marketplace entry version would silently
+  # lose to it and drift).
+  grep -q '"version"' "$ROOT/.claude-plugin/marketplace.json" 2>/dev/null \
+    && e "marketplace.json must not set a plugin version (keep it in plugin.json)"
+  # Claude Code's manifest schema: repository is a string (an npm-style object
+  # makes 'claude plugin install' fail for everyone).
+  grep -qE '"repository"[[:space:]]*:[[:space:]]*"' "$ROOT/.claude-plugin/plugin.json" \
+    || e "plugin.json repository must be a string URL"
+  if command -v claude >/dev/null 2>&1; then
+    vcfg="$(mktemp -d "${TMPDIR:-/tmp}/harness-validate-cfg.XXXXXX")"
+    for m in "$ROOT" "$ROOT/.claude-plugin/plugin.json"; do
+      CLAUDE_CONFIG_DIR="$vcfg" claude plugin validate --strict "$m" >"$vcfg/out" 2>&1 \
+        || { e "claude plugin validate --strict ${m#"$ROOT"} failed:"; sed 's/^/    /' "$vcfg/out" >&2; }
+    done
+    rm -rf "$vcfg"
+  else
+    hc_warn "claude CLI not found — 'claude plugin validate' skipped"
   fi
   head_v="$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' "$ROOT/CHANGELOG.md" 2>/dev/null | tr -d '#[] ')"
   [[ "$head_v" == "$v" ]] || e "CHANGELOG.md top entry ($head_v) != VERSION ($v)"

@@ -9,7 +9,7 @@ You implement one well-defined change to application code.
 
 ## Before editing
 1. Read the files you will touch, their neighbours, and the related tests. Match the surrounding idiom, naming and structure.
-2. Load the skills that apply. This is mandatory:
+2. Load the skills that apply by reading `.claude/skills/<name>/SKILL.md` (and the references it points to). This is mandatory:
    - `coding-standards`: always.
    - `design-patterns`: before you add any pattern, abstraction, interface, base class or new layer. Answer the decision gate. If any answer is weak, write the simple version.
    - `ui-ux`: for any UI file, component, style, layout or UI copy.
