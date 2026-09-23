@@ -130,11 +130,9 @@ render_should_skip() {
   case "$tmpl_relpath" in
     # v0.2.0 project-scaffold templates — not for init.sh.
     _shared/*|backend/*|frontend/*|mobile/*|android/*) return 0 ;;
-    # Stack-gated rule files.
-    rules/bash.md.tmpl)      [[ "$HAS_BASH"      != "true" ]] && return 0 ;;
-    rules/ansible.md.tmpl)   [[ "$HAS_ANSIBLE"   != "true" ]] && return 0 ;;
-    rules/compose.md.tmpl)   [[ "$HAS_COMPOSE"   != "true" ]] && return 0 ;;
-    rules/terraform.md.tmpl) [[ "$HAS_TERRAFORM" != "true" ]] && return 0 ;;
+    # v1.0: agent rules, hooks, settings and CLAUDE.md are owned by the agent
+    # harness (scaffold/sync.sh); init.sh only stamps lint tooling.
+    seed/*|rules/*|hooks/*|CLAUDE.md.tmpl|settings.json.tmpl) return 0 ;;
   esac
   return 1
 }
@@ -150,18 +148,22 @@ render_should_skip() {
 render_target_path() {
   local tmpl_relpath="$1"
   local stripped="${tmpl_relpath%.tmpl}"
+  # Lint tooling lives with the code it lints: under CODE_SUBDIR ("." = root).
+  local sub="${CODE_SUBDIR:-.}"
+  sub="${sub#./}"; sub="${sub%/}"
+  local pre=""
+  [[ -n "$sub" && "$sub" != "." ]] && pre="${sub}/"
   case "$stripped" in
-    settings.json) echo ".claude/settings.json" ;;
-    hooks/*)       echo ".claude/${stripped}" ;;
-    rules/*)       echo ".claude/${stripped}" ;;
     # Bug 5 fix: lint.sh is invoked by Makefile as `bash scripts/lint.sh`,
     # so route it under scripts/ rather than the project root.
-    lint.sh)       echo "scripts/lint.sh" ;;
+    lint.sh)       echo "${pre}scripts/lint.sh" ;;
+    Makefile)      echo "${pre}Makefile" ;;
     # Bug 4 fix: dotfile templates are stored without the leading dot in the
     # repo (so they don't get mistakenly hidden / picked up by tooling on the
     # rules-package side). Re-add the leading dot when stamping.
-    editorconfig|shellcheckrc|yamllint|ansible-lint)
-      echo ".${stripped}" ;;
+    editorconfig)  echo ".editorconfig" ;;
+    shellcheckrc|yamllint|ansible-lint)
+      echo "${pre}.${stripped}" ;;
     *)             echo "${stripped}" ;;
   esac
 }
@@ -293,6 +295,12 @@ render_all() {
     staged_path="${pair#*$'\t'}"
     out_path="${target}/${out_relpath}"
 
+    # Write-if-absent: existing project files are never overwritten unless
+    # --force (then backed up first).
+    if [[ "${FORCE:-false}" != "true" && -e "$out_path" ]]; then
+      echo "[INFO] kept existing ${out_relpath} (use --force to replace; a backup is made)"
+      continue
+    fi
     if [[ "${FORCE:-false}" == "true" && -e "$out_path" ]]; then
       backup_path="${target}/.claude.bak/${BACKUP_TS}/${out_relpath}"
       mkdir -p "$(dirname "$backup_path")"
@@ -305,9 +313,8 @@ render_all() {
     mkdir -p "$rel_dir"
     cp "$staged_path" "$out_path"
 
-    # Hook scripts must be executable
     case "$out_relpath" in
-      .claude/hooks/*.sh) chmod +x "$out_path" ;;
+      *.sh) chmod +x "$out_path" ;;
     esac
 
     echo "[OK]   wrote ${out_path}"

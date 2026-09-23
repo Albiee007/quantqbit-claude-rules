@@ -244,7 +244,7 @@ render_mobile_stamp_shared() {
       README.md.tmpl)             out_rel="README.md" ;;
       editorconfig.tmpl)          out_rel=".editorconfig" ;;
       gitignore.tmpl)             out_rel=".gitignore" ;;
-      mcp.json.tmpl)              out_rel=".claude/mcp.json" ;;
+      mcp.json.tmpl)              out_rel=".mcp.json" ;;  # Claude Code reads project MCP from root .mcp.json
       docs/*.tmpl)
         out_rel="${rel%.tmpl}"
         ;;
@@ -254,6 +254,20 @@ render_mobile_stamp_shared() {
     esac
 
     out_path="${target}/${out_rel}"
+    # Project-owned instruction files are write-if-absent (never clobbered,
+    # even by --force). CLAUDE.md is also skipped next to an AGENTS.md, since
+    # Claude Code stops reading AGENTS.md once a CLAUDE.md exists.
+    case "$out_rel" in
+      CLAUDE.md|AI_RULES.md|.mcp.json)
+        if [[ -e "$out_path" ]]; then
+          echo "[INFO] kept existing project file: ${out_rel}"
+          continue
+        fi
+        if [[ "$out_rel" == "CLAUDE.md" && -e "${target}/AGENTS.md" ]]; then
+          echo "[INFO] skipped CLAUDE.md: AGENTS.md exists (a CLAUDE.md would stop Claude Code reading it)"
+          continue
+        fi ;;
+    esac
     render_mobile_write_file "$tmpl" "$out_path"
   done < <(find "$shared_dir" -type f -name '*.tmpl' -print0)
 

@@ -1,13 +1,18 @@
 #!/bin/bash
 # ============================================================================
-# Claude Rules Scaffold — Orchestrator
+# Claude Rules Scaffold — Orchestrator (/init-project-rules)
 #
-# Stamps a generic Claude Code rules pack (CLAUDE.md, .claude/settings.json,
-# hooks, lint configs, lint.sh) into a target workspace, parameterised by the
-# workspace's detected stacks (bash, ansible, docker compose, terraform).
+# v1.0: two steps.
+#   1. Stamps lint tooling (.editorconfig, .shellcheckrc, .yamllint,
+#      .ansible-lint, scripts/lint.sh, Makefile) under CODE_SUBDIR, tailored
+#      to the detected stacks. Write-if-absent: existing files are kept.
+#   2. Installs the agent harness via scaffold/sync.sh: core rules, skills,
+#      agents, hooks and generated settings.json. The harness owns these files;
+#      see harness/README.md. CLAUDE.md / AGENTS.md stay project-owned.
 #
 # Pipeline:
-#   detect → check existing → prompt → render → validate → report
+#   detect → check existing → prompt → render lint tooling → validate → report
+#   → project opt-in denies → harness sync
 #
 # Requires: bash, sed (always present); envsubst (gettext-base); jq OR python
 #           (for JSON validate). envsubst is hard-required as of v0.1.1.
@@ -23,12 +28,13 @@
 #                             QQR_OPT_IN_DESTRUCTIVE, QQR_OPT_IN_PUSH_MAIN
 #   --project-name=<name>   Pre-fill project name (overrides env).
 #   --code-subdir=<dir>     Pre-fill code subdir (overrides env).
-#   --force                 Overwrite existing CLAUDE.md / .claude/ files.
-#                           Pre-existing files are FIRST backed up to
-#                           <target>/.claude.bak/<timestamp>/<relative-path>
-#                           so user customisations are never lost silently.
-#                           Without --force, init.sh ERRORS OUT if any target
-#                           file already exists.
+#   --force                 Overwrite existing lint tooling files. They are
+#                           FIRST backed up to
+#                           <target>/.claude.bak/<timestamp>/<relative-path>.
+#                           Without --force, existing files are kept.
+#   --no-harness            Only stamp lint tooling; skip the harness sync.
+#   --uninstall             Remove unmodified stamped lint files (manifest).
+#                           For the harness: bash scaffold/sync.sh --uninstall
 # ============================================================================
 
 set -euo pipefail
@@ -43,6 +49,7 @@ TARGET_DIR="$(pwd)"
 IS_NON_INTERACTIVE="false"
 FORCE="false"
 UNINSTALL="false"
+NO_HARNESS="false"
 PROJECT_NAME="${QQR_PROJECT_NAME:-}"
 CODE_SUBDIR="${QQR_CODE_SUBDIR:-./}"
 OPT_IN_DESTRUCTIVE="${QQR_OPT_IN_DESTRUCTIVE:-n}"
@@ -70,43 +77,8 @@ BACKUP_MADE="false"
 # previous sed-based approach broke whenever the banner changed.
 # ----------------------------------------------------------------------------
 init_print_help() {
-  cat <<'EOF'
-============================================================================
-Claude Rules Scaffold — Orchestrator
-
-Stamps a generic Claude Code rules pack (CLAUDE.md, .claude/settings.json,
-hooks, lint configs, lint.sh) into a target workspace, parameterised by the
-workspace's detected stacks (bash, ansible, docker compose, terraform).
-
-Pipeline:
-  detect → check existing → prompt → render → validate → report
-
-Requires: bash, sed (always present); envsubst (gettext-base); jq OR python
-          (for JSON validate). envsubst is hard-required as of v0.1.1.
-
-Usage:
-  bash init.sh [options]
-
-Options:
-  -h, --help              Print this help and exit.
-  --target=<path>         Target workspace dir (default: current directory).
-  --non-interactive       Skip prompts; read defaults from environment:
-                            QQR_PROJECT_NAME, QQR_CODE_SUBDIR,
-                            QQR_OPT_IN_DESTRUCTIVE, QQR_OPT_IN_PUSH_MAIN
-  --project-name=<name>   Pre-fill project name (overrides env).
-  --code-subdir=<dir>     Pre-fill code subdir (overrides env).
-  --force                 Overwrite existing CLAUDE.md / .claude/ files.
-                          Pre-existing files are FIRST backed up to
-                          <target>/.claude.bak/<timestamp>/<relative-path>
-                          so user customisations are never lost silently.
-                          Without --force, init.sh ERRORS OUT if any target
-                          file already exists.
-  --uninstall             Reverse a previous stamp. Reads the manifest at
-                          <target>/.claude/.scaffold-manifest-rules.txt and removes every
-                          file listed. Backups in .claude.bak/ are preserved.
-                          Empty directories are left behind for manual cleanup.
-============================================================================
-EOF
+  # Print the header comment block (single source of truth for usage).
+  sed -n '2,/^# =====*$/{s/^# \{0,1\}//;p;}' "${BASH_SOURCE[0]}" | sed -n '2,$p'
 }
 
 # ----------------------------------------------------------------------------
@@ -128,6 +100,9 @@ init_parse_args() {
         ;;
       --uninstall)
         UNINSTALL="true"
+        ;;
+      --no-harness)
+        NO_HARNESS="true"
         ;;
       --target=*)
         TARGET_DIR="${arg#*=}"
@@ -178,10 +153,6 @@ init_parse_args() {
 # ----------------------------------------------------------------------------
 init_check_existing() {
   local candidates=(
-    "CLAUDE.md"
-    ".claude/settings.json"
-    ".claude/rules"
-    ".claude/hooks"
     "${CODE_SUBDIR%/}/scripts/lint.sh"
     "${CODE_SUBDIR%/}/Makefile"
     ".editorconfig"
@@ -215,6 +186,8 @@ init_check_existing() {
     echo "[WARN] ${#present[@]} existing path(s) will be backed up to .claude.bak/${BACKUP_TS}/ before overwrite."
     return 0
   fi
+  echo "[INFO] ${#present[@]} existing path(s) will be kept as-is (write-if-absent)."
+  return 0
 
   echo "[FAIL] ${#present[@]} existing path(s) would be overwritten."
   echo "       Re-run with --force (auto-backup), or move them aside first."
@@ -413,3 +386,36 @@ validate_all "$TARGET_DIR"
 
 # Final report
 init_report
+
+# Opt-in deny rules go into the project-owned settings file (never into the
+# generated settings.json). Written only if the project has none yet.
+init_write_project_settings() {
+  local f="${TARGET_DIR}/.claude/settings.project.json" denies=()
+  case "${OPT_IN_DESTRUCTIVE:-}" in y|yes|true|1)
+    denies+=('"Bash(terraform destroy*)"' '"Bash(docker system prune*)"' '"Bash(docker volume prune*)"') ;; esac
+  case "${OPT_IN_PUSH_MAIN:-}" in y|yes|true|1)
+    denies+=('"Bash(git push *main*)"' '"Bash(git push *master*)"') ;; esac
+  [[ ${#denies[@]} -eq 0 ]] && return 0
+  if [[ -e "$f" ]]; then
+    echo "[INFO] ${f} exists; add these to permissions.deny yourself: ${denies[*]}"
+    return 0
+  fi
+  mkdir -p "$(dirname "$f")"
+  local IFS=','
+  printf '{
+  "permissions": {
+    "deny": [%s]
+  }
+}
+' "${denies[*]}" > "$f"
+  echo "[OK]   wrote ${f} (project-owned opt-in deny rules)"
+}
+
+# Agent rules, skills, agents, hooks and settings come from the agent harness.
+if [[ "${NO_HARNESS:-false}" != "true" ]]; then
+  init_write_project_settings
+  echo ""
+  echo "[INFO] Installing the agent harness (scaffold/sync.sh)"
+  trap - EXIT
+  bash "${SCRIPT_DIR}/sync.sh" --target "$TARGET_DIR" --allow-dirty
+fi

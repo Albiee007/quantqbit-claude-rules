@@ -293,9 +293,6 @@ init_scaffold_resolve_platform() {
 # ----------------------------------------------------------------------------
 init_scaffold_check_existing() {
   local candidates=(
-    "CLAUDE.md"
-    "AI_RULES.md"
-    ".claude/mcp.json"
     "package.json"
     "build.gradle.kts"
     "build.gradle"

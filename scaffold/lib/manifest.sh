@@ -37,6 +37,13 @@ set -euo pipefail
 # uninstall reader skips them. Then '--' marks the end of headers and the
 # remaining positional args are the absolute file paths to record.
 # ----------------------------------------------------------------------------
+# manifest_hash <file> — CRLF-normalised sha256 (matches the harness lock).
+manifest_hash() {
+  local sha
+  if command -v sha256sum >/dev/null 2>&1; then sha="sha256sum"; else sha="shasum -a 256"; fi
+  tr -d '\r' < "$1" | $sha | cut -c1-64
+}
+
 manifest_write() {
   local manifest_path="$1"
   shift
@@ -51,8 +58,16 @@ manifest_write() {
     # Consume the '--' separator if present.
     [[ "${1:-}" == "--" ]] && shift
 
+    # v1.0 format: "<sha256>\t<path relative to the target root>". Relative
+    # paths survive moving/cloning the repo; the hash lets --uninstall skip
+    # files the user has since edited.
+    local root f rel h
+    root="$(cd "$(dirname "$manifest_path")/.." && pwd)"
+    printf '# format: sha256<TAB>relative-path\n'
     while [[ $# -gt 0 ]]; do
-      printf '%s\n' "$1"
+      f="$1"; rel="${f#"$root"/}"
+      h="$(manifest_hash "$f")"
+      printf '%s\t%s\n' "$h" "$rel"
       shift
     done
   } > "$manifest_path"
@@ -99,8 +114,24 @@ manifest_uninstall() {
 
   local removed=0
   local skipped=0
-  local f
-  for f in "${files[@]}"; do
+  local kept=0
+  local root entry f want
+  root="$(cd "$(dirname "$manifest_path")/.." && pwd)"
+  local resolved=()
+  for entry in "${files[@]}"; do
+    if [[ "$entry" == *$'\t'* ]]; then
+      # v1.0 format: hash<TAB>relative path — remove only if unmodified.
+      want="${entry%%$'\t'*}"
+      f="${root}/${entry#*$'\t'}"
+      if [[ -f "$f" && "$(manifest_hash "$f")" != "$want" ]]; then
+        echo "[WARN] kept (modified since stamping): ${f}"
+        kept=$((kept + 1))
+        continue
+      fi
+    else
+      f="$entry"   # legacy v0.x format: absolute path, no hash
+    fi
+    resolved+=("$f")
     if [[ -f "$f" ]]; then
       rm -f "$f"
       removed=$((removed + 1))
@@ -108,7 +139,8 @@ manifest_uninstall() {
       skipped=$((skipped + 1))
     fi
   done
-  echo "[OK] Removed ${removed} files (${skipped} already gone)"
+  files=("${resolved[@]+"${resolved[@]}"}")
+  echo "[OK] Removed ${removed} files (${skipped} already gone, ${kept} modified kept)"
 
   # Prune empty parent dirs. Walk up the ancestry of every removed file: for
   # /a/b/c/file.txt we try to rmdir /a/b/c, then /a/b, then /a — sort -r

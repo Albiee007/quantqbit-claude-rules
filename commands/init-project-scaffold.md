@@ -7,10 +7,10 @@ argument-hint: [--platform=backend|frontend|mobile|android] [--project-name=NAME
 
 Initialise a **buildable per-platform project starter** inside the user's current workspace. Companion to `/init-project-rules` — the two scaffolders compose:
 
-1. `/init-project-rules` stamps the operational `.claude/` rules + lint configs layer.
-2. `/init-project-scaffold` stamps the application skeleton on top (per-platform buildable starter).
+1. `/init-project-rules` stamps lint tooling and installs the agent harness (`.claude/` rules, skills, agents, hooks).
+2. `/init-project-scaffold` stamps the application skeleton (per-platform buildable starter).
 
-Recommended order: run `/init-project-rules` first, then `/init-project-scaffold` for the platform of choice.
+Either order works. Project instruction files (`CLAUDE.md`, `AI_RULES.md`, `.mcp.json`) are write-if-absent: they are never overwritten, even with `--force`. `CLAUDE.md` is not created when an `AGENTS.md` exists.
 
 ## What this command does
 
