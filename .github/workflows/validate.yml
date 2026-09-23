@@ -1,0 +1,34 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  harness:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install shellcheck (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - name: Git identity for test repos
+        run: git config --global user.email ci@example.com && git config --global user.name ci
+      - name: Validate harness (policy, frontmatter, budgets, links, release consistency)
+        run: bash scaffold/lib/validate-harness.sh
+      - name: Hook tests
+        run: bash tests/hooks.test.sh
+      - name: Validator tests
+        run: bash tests/validate.test.sh
+      - name: Sync scenario tests
+        run: bash tests/sync.test.sh
