@@ -1,106 +1,80 @@
 # quantqbit-claude-rules
 
-A two-layer Claude Code scaffolder. The **operational layer** ships custom sub-agents, hooks, deterministic guard-rails, and lint configs via `/init-project-rules`. The **project-skeleton layer** stamps buildable per-platform starters (backend / frontend / mobile / android) with strict feature-organised folder discipline via `/init-project-scaffold`. The two compose: run `/init-project-rules` first to get `.claude/`, then `/init-project-scaffold` to stamp the app skeleton on top.
+**QuantQbit agent harness for Claude Code.** One source of truth for agent rules, mandatory skills, agents and hooks. It is **vendored into each project's `.claude/` directory and committed to git**, so every developer and every session behaves the same. Updates are transactional and never conflict with project-owned files.
 
-## What you get
+## What every project gets
 
-### `/init-project-rules` — operational layer
+| Layer | Contents |
+|---|---|
+| **Core rules** (always loaded, ≤150 lines) | Precedence, Opus-only sub-agents, plan mode, the orchestration table, mandatory-skill routing, verification gates, cross-platform scripts, `.env` protection, git branch policy, YAGNI |
+| **Mandatory skills** | **coding-standards**: SOLID, naming, errors, testing, OWASP Top 10:2025, review checklist · **design-patterns**: a decision gate plus all 23 GoF patterns with examples, architectural patterns, anti-patterns · **ui-ux**: 30 Laws of UX, Nielsen heuristics, WCAG 2.2 AA, Gestalt, DTCG tokens, Material 3, Apple HIG · **seo**: technical SEO, E-E-A-T, schema, Core Web Vitals, AI search (GEO), hreflang, local, a 0–100 audit score |
+| **Path-scoped rules** | coding, tests, security, ui-ux, seo, bash, powershell, ansible, compose/Dockerfile, terraform |
+| **Agents** (all Opus) | `explorer` → `implementor` / `infra-implementor` → `verifier` → `reviewer` (lenses: code, patterns, ux, seo, security) |
+| **Hooks** (pure bash, ~80 ms) | `guard` (enforces Opus, blocks real `.env` files), `prompt-router` and `file-context` (inject mandatory checklists), `session-start`, `post-edit-lint` |
+| **Settings** | Generated from the harness base plus the project's own `settings.project.json` |
 
-- Custom sub-agents (`infra-explorer`, `ansible-implementor`, `compose-implementor`, `script-implementor`, `lint-runner`) for read-only exploration, ansible/compose/script implementation, and lint runs.
-- Path-scoped rule files (`bash.md`, `ansible.md`, `compose.md`, `terraform.md`) that load only when matching files are touched.
-- Deterministic `permissions.deny` covering `.env` writes, `git add -A`, and `rm -rf /` by default; `terraform destroy`, `docker system prune`, and push-to-main are opt-in.
-- `SessionStart` and `PostToolUse` hooks for context injection and per-edit lint.
-- Standard lint configs (`.editorconfig`, `.shellcheckrc`, `.yamllint`, `.ansible-lint`) plus a unified `lint.sh` runner.
+## Why it is safe to share through git
 
-### `/init-project-scaffold` — project skeleton layer (v0.2.0)
-
-- Buildable starters for four platforms: **backend** (Node + TS + Express + Mongoose + pg), **frontend** (React + Vite + TS), **mobile** (React Native + Expo + TS), **android** (Kotlin + Compose + Retrofit).
-- Strict feature-organised folder discipline — every feature has the same fixed set of subfolders. Files live inside, never at the feature root.
-- File-size soft cap at 500 lines, **warning-only** by default (upgradable with `--strict`).
-- Naming conventions enforced via suffixes (`*.routes.*`, `*.controller.*`, `*.service.*`, etc.).
-- One working example feature per platform (`/healthz` on backend/frontend, `home` on mobile/android) — intentionally tiny.
-- Shared `docs/` template (system-architecture, api, data-models, business-flows, integrations, background-jobs, repo-structure, runbook) across all platforms.
-
-## Install
-
-Two install paths are supported — a Claude Code plugin (recommended once you have a private package URL) and a standalone scaffolder for workspaces that don't want the plugin layer.
-
-**Plugin (recommended):**
-
-```bash
-claude plugin install <YOUR-GIT-URL-HERE>
-
-# then, inside any workspace, run them in order:
-/init-project-rules         # operational layer (.claude/, hooks, lint)
-/init-project-scaffold      # project skeleton (per-platform buildable starter)
-```
-
-**Standalone:**
-
-```bash
-git clone <your-private-url> ~/.local/share/quantqbit-claude-rules
-
-# operational layer:
-bash ~/.local/share/quantqbit-claude-rules/scaffold/init.sh
-
-# project skeleton:
-bash ~/.local/share/quantqbit-claude-rules/scaffold/init-scaffold.sh \
-  --platform=backend  # or frontend | mobile | android
-```
-
-The curl-pipe-bash one-liner (`bash <(curl -fsSL .../init.sh)`) does **not** work for this scaffolder: `init.sh` resolves its sibling `lib/` and `templates/` directories from `${BASH_SOURCE[0]}`, which under process substitution becomes `/dev/fd/63` — so the script can't find its own dependencies. Clone first, then run.
-
-Replace `<YOUR-GIT-URL-HERE>` and `<your-private-url>` with your private GitLab/GitHub URL after publishing.
+- **Separate ownership.** Harness files (`.claude/rules/harness/`, harness skills, agents, `.claude/harness/`) and project files (`CLAUDE.md`, `AGENTS.md`, `.claude/rules/project/`, `settings.project.json`, `harness.config`) never share a file.
+- **Transactional sync.** The new state is staged and validated, applied with a journal, and fully rolled back on any failure. The lock is written last.
+- **Drift detection.** `.claude/harness/lock` records the version and content hash of every file. Local edits abort the sync (you choose `--keep` or `--theirs`), and `harness-doctor` reports stale, modified or missing files.
+- **Deterministic lock.** No timestamps, and hashes ignore CRLF differences. The same version produces identical bytes on every machine.
 
 ## Quick start
 
-A typical interactive run:
+```bash
+# Plugin
+/plugin marketplace add Albiee007/quantqbit-claude-rules
+/plugin install quantqbit-claude-rules@quantqbit
+/init-project-rules            # lint tooling + harness, or just ask: "install the harness"
+/init-project-scaffold         # optional: buildable backend / frontend / mobile / android starter
 
-```text
-$ /init-project-rules
-Project name? MyApp
-Code subdir? [./] ./infra/
-Block destructive ops (terraform destroy, docker system prune)? [y/N] y
-Block git push to main/master? [y/N] n
-Stamped CLAUDE.md, .claude/, lint configs, and lint.sh into ./infra/. Detected: bash, ansible, terraform.
+# Without the plugin
+git clone https://github.com/Albiee007/quantqbit-claude-rules ~/.local/share/quantqbit-claude-rules
+bash ~/.local/share/quantqbit-claude-rules/scaffold/sync.sh --target . --dry-run
+bash ~/.local/share/quantqbit-claude-rules/scaffold/sync.sh --target . --commit
 ```
 
-## What gets installed
+Inside a project that already has the harness:
 
-```text
-<workspace>/
-├── CLAUDE.md
-├── .claude/
-│   ├── settings.json
-│   ├── hooks/
-│   │   ├── session-start-context.sh
-│   │   └── post-edit-lint.sh
-│   └── rules/
-│       ├── bash.md
-│       ├── ansible.md
-│       ├── compose.md
-│       └── terraform.md
-├── .editorconfig
-└── <code-subdir>/
-    ├── .shellcheckrc
-    ├── .yamllint
-    ├── .ansible-lint
-    ├── scripts/lint.sh
-    └── Makefile
+```bash
+bash .claude/harness/bin/harness-doctor.sh           # health check
+bash .claude/harness/bin/harness-sync.sh --commit    # update to the latest harness
 ```
 
-## Stack detection
+PowerShell users: every entry point has a `.ps1` twin, which uses Git Bash.
 
-The scaffolder auto-detects bash, ansible, docker compose, and terraform from files present in the target workspace. Rule files and lint config sections are emitted only for stacks it detects, so a pure-bash project doesn't get terraform clutter and an ansible-only project doesn't get a compose rule file.
+## Repository layout
 
-## Status
+```text
+harness/                 SOURCE OF TRUTH (vendored into projects)
+  core/00-core.md          always-loaded rules
+  rules/                   path-scoped rules
+  skills/                  coding-standards, design-patterns, ui-ux, seo, harness
+  agents/                  explorer, implementor, infra-implementor, verifier, reviewer
+  hooks/ snippets/ bin/    enforcement hooks, injected checklists, doctor + sync bootstrap
+  settings.base.json       base settings (Opus force, deny rules, hooks)
+  profiles.tsv             which files ship to which profile (web, mobile, backend, infra)
+  manifest.tsv             generated: per-file dest, version, hash, profiles
+scaffold/
+  sync.sh / sync.ps1       transactional sync engine
+  init.sh / init.ps1       /init-project-rules: lint tooling + harness
+  init-scaffold.sh (+ps1)  /init-project-scaffold: per-platform starters
+  lib/                     release.sh, validate-harness.sh, settings_merge.py, renderers
+skills/                  plugin skills: harness-install, project-scaffold
+commands/                /init-project-rules, /init-project-scaffold
+tests/                   sync, hooks and validator test suites
+```
 
-**v0.2.0** — adds `/init-project-scaffold` for buildable per-platform starters (backend / frontend / mobile / android) on top of the existing `/init-project-rules` operational layer.
+## Development
 
-- v0.1.1: `/init-project-rules` tested across three independent projects.
-- v0.2.0: `/init-project-scaffold` tested with end-to-end buildable verification on each of the four platforms.
+```bash
+bash scaffold/lib/release.sh            # regenerate the manifest after editing harness/
+bash scaffold/lib/validate-harness.sh   # model policy, frontmatter, size budgets, hygiene, links, versions
+bash tests/hooks.test.sh; bash tests/validate.test.sh; bash tests/sync.test.sh
+```
 
-See [INSTALL.md](./INSTALL.md) for prompts, substitution variables, env overrides, and customisation guidance for both commands.
+CI runs these tests on Ubuntu, macOS and Windows (`.github/workflows/validate.yml`). See [INSTALL.md](./INSTALL.md) for everything else, [CHANGELOG.md](./CHANGELOG.md) for versions and upgrade notes, and [CREDITS.md](./CREDITS.md) for sources.
 
 ## License
 

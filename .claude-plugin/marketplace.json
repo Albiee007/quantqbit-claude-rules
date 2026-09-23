@@ -1,0 +1,14 @@
+{
+  "name": "quantqbit",
+  "owner": {
+    "name": "QuantQbit"
+  },
+  "plugins": [
+    {
+      "name": "quantqbit-claude-rules",
+      "source": "./",
+      "version": "1.0.0",
+      "description": "Vendored, transactional agent harness + lint tooling + per-platform project starters."
+    }
+  ]
+}

@@ -12,3 +12,11 @@
 
 # Default for everything else.
 *       text=auto
+
+# Harness data files — LF everywhere so hashes and diffs are stable.
+*.py    text eol=lf
+*.tsv   text eol=lf
+*.tmpl  text eol=lf
+harness/**  text eol=lf
+harness/**/*.ps1 text eol=crlf
+harness/manifest.tsv linguist-generated=true

@@ -1,0 +1,19 @@
+# Source material copied from another machine; mined into harness/ (see CREDITS.md).
+/Agent-Harness/
+
+# Python / tooling junk — must never ship in harness/
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+
+# Sync scratch space
+.claude/harness/.tmp/
+harness/.tmp/
+
+# Local / personal
+.env
+.env.*
+!.env.example
+CLAUDE.local.md
+.claude/settings.local.json
