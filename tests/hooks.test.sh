@@ -107,7 +107,7 @@ expect "CRLF lock: kept-local still seen" session-start.sh '{"session_id":"c3"}'
 echo "post-edit-lint"
 printf 'if [ x\n' > "$P/bad.sh"
 expect "bash syntax error reported" post-edit-lint.sh "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P/bad.sh\"}}" 'bash -n'
-printf 'echo ok\n' > "$P/good.sh"
+printf '#!/usr/bin/env bash\necho ok\n' > "$P/good.sh"   # shebang: shellcheck (installed on CI) flags SC2148 without it
 expect "clean file → nothing" post-edit-lint.sh "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P/good.sh\"}}" ''
 
 echo "JSON validity"
