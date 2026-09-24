@@ -182,6 +182,38 @@ hc_inject_header() {
   esac
 }
 
+# hc_inject_headers <list.tsv> — batch form of hc_inject_header: one awk process
+# for every "src<TAB>dest<TAB>version<TAB>rel" row (destination dirs must exist).
+# Same rules: LF output; marker after md frontmatter / sh shebang, first line of
+# ps1; data files (json, tsv, txt, snippets, dotfiles) copied without a marker.
+hc_inject_headers() {
+  awk -F'\t' '
+    function md(v) { return "<!-- harness:managed v" v " - do not edit; override in .claude/rules/project/ (see .claude/harness/README.md) -->" }
+    function sh(v) { return "# harness:managed v" v " - do not edit; re-run harness sync to update" }
+    {
+      src = $1; dest = $2; v = $3; rel = $4; n = 0; fm = 0
+      kind = "data"
+      if (rel !~ /^(snippets|dotfiles)\// && rel !~ /\.(json|tsv|txt)$/) {
+        if (src ~ /\.md$/) kind = "md"; else if (src ~ /\.sh$/) kind = "sh"; else if (src ~ /\.ps1$/) kind = "ps1"
+      }
+      printf "" > dest
+      if (kind == "ps1") print sh(v) > dest
+      while ((getline line < src) > 0) {
+        gsub(/\r/, "", line); n++
+        if (kind == "md") {
+          if (n == 1 && line == "---") { fm = 1; print line > dest; continue }
+          if (fm == 1 && line == "---") { print line > dest; print md(v) > dest; fm = 2; continue }
+          if (n == 1) print md(v) > dest
+        } else if (kind == "sh" && n == 1) {
+          if (line ~ /^#!/) { print line > dest; print sh(v) > dest; continue }
+          print sh(v) > dest
+        }
+        print line > dest
+      }
+      close(src); close(dest)
+    }' "$1"
+}
+
 # hc_profile_match <row_profiles> <selected_profiles> — true if the manifest
 # row applies. "all" on either side matches everything.
 hc_profile_match() {

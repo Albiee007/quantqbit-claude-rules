@@ -7,8 +7,8 @@
 #     the checklist and "load the skill, then retry" — the retry is allowed.
 #     Set checklists=inform in .claude/harness.config to only inform instead.
 #   * security / infra: the checklist is added as context (never blocks).
-# A topic whose checklist was already shown in this agent context (e.g. by the
-# prompt router) is not repeated.
+# The gate has its own marker per agent context and topic, so a checklist the
+# prompt router already showed does not skip it. Checklist text itself is not repeated.
 set -uo pipefail
 # shellcheck source=_lib.sh
 _hd="${BASH_SOURCE[0]%/*}"; [[ "$_hd" == "${BASH_SOURCE[0]}" ]] && _hd=.
@@ -20,17 +20,31 @@ hh_get file_path "$HH_TI"; p="$HH_V"
 p="${p//\\//}"
 shopt -s nocasematch
 
-enforce=()   # topics whose first write is denied
+# hh_gate <topic> <skill> — first write for this topic in this agent context:
+# mark the gate and queue the skill for the deny. If the marker cannot be
+# written, fall back to inform so the gate can never deny forever.
+enforce=(); gate_text=""
+hh_gate() {
+  hh_topic_marker "gate-$1"
+  [[ -e "$HH_V" ]] && return 0
+  : > "$HH_V" 2>/dev/null || return 0
+  enforce+=("$2")
+  hh_snippet_text "$1"; gate_text+="$HH_V"$'\n'
+}
+
+hh_config checklists; mode="$HH_V"
 case "$p" in
   *.tsx|*.jsx|*.vue|*.svelte|*.astro|*.html|*.htm|*.css|*.scss|*.sass|*.less|*.swift|*.xib|*.storyboard|\
   */res/layout/*|*/res/values/*|*Screen.kt|*View.kt|*Component.kt|*Activity.kt|*Fragment.kt|*/tailwind.config.*|\
   */components/*|*/ui/*|*/screens/*|*/views/*|*/theme/*|*/styles/*)
-    hh_add_snippet ui && enforce+=("ui-ux") ;;
+    [[ "$mode" != "inform" ]] && hh_gate ui ui-ux
+    hh_add_snippet ui ;;
 esac
 case "$p" in
   */pages/*|*/app/*/page.*|*/app/page.*|*/app/*layout.*|*/routes/*|*.astro|*.mdx|*/robots.txt|*/robots.ts|*sitemap*|\
   */index.html|*/head.*|*seo*|*metadata*|*/site.webmanifest|*/manifest.json)
-    hh_add_snippet seo && enforce+=("seo") ;;
+    [[ "$mode" != "inform" ]] && hh_gate seo seo
+    hh_add_snippet seo ;;
 esac
 case "$p" in
   */auth/*|*auth*.*|*/api/*|*controller*|*/middleware*|*/migrations/*|*.sql|*/routes/*|*route*.*)
@@ -41,16 +55,15 @@ case "$p" in
     hh_add_snippet infra ;;
 esac
 
-[[ -z "$HH_OUT" ]] && exit 0
-hh_config checklists
-if [[ ${#enforce[@]} -gt 0 && "$HH_V" != "inform" ]]; then
+if [[ ${#enforce[@]} -gt 0 ]]; then
   skills=""
   for s in "${enforce[@]}"; do
     skills+="${skills:+, }.claude/skills/$s/SKILL.md"
   done
-  hh_deny "Harness: ${p##*/} falls under a mandatory skill. Before writing it, read ${skills} (Read tool) and apply this checklist, then retry the same write (it will be allowed):
-$HH_OUT"
+  hh_deny "Harness: ${p##*/} falls under a mandatory skill. Before writing it, load ${skills} (Read tool or Skill tool) and apply this checklist, then retry the same write (it will be allowed):
+$gate_text"
 fi
+[[ -z "$HH_OUT" ]] && exit 0
 hh_emit_context PreToolUse "Harness: this file falls under a mandatory checklist:
 $HH_OUT"
 exit 0

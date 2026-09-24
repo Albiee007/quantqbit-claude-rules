@@ -33,6 +33,8 @@ deny_path() { # path, tool label
   local p="$1" base
   p="${p//\\//}"
   base="${p##*/}"
+  base="${base%%:*}"                                  # NTFS stream suffix (.env:x)
+  while [[ "$base" == *[.\ ] ]]; do base="${base%?}"; done   # Windows drops trailing dots/spaces
   if [[ -n "$base" ]] && is_secret_env_name "$base"; then
     hh_deny "Harness policy: .env files hold secrets and are never read or modified by agents (tried: $base via $2). Use .env.example, or ask the user."
   fi
@@ -59,23 +61,36 @@ case "$tool" in
   Bash|PowerShell)
     hh_get command "$HH_TI"; cmd="$HH_V"
     cmd="${cmd//\\//}"
-    # Read-only metadata commands (a single simple command, no chaining or
-    # substitution) may name .env files: they reveal existence, not content.
+    # Read-only metadata commands (ls, stat, test, git status/check-ignore/ls-files,
+    # Test-Path, Get-Item, Get-ChildItem) may name .env files: they reveal
+    # existence, not content. The exemption applies per command segment: split on
+    # newline, ;, &&, || and &. If the command pipes, redirects, groups or
+    # substitutes anything, nothing is exempt and the whole command is scanned.
     meta_re='^[[:space:]]*(ls|dir|stat|test|\[|git[[:space:]]+(status|check-ignore|ls-files)|Test-Path|Get-Item|Get-ChildItem)([[:space:]]|$)'
-    if [[ "$cmd" =~ $meta_re && ! "$cmd" =~ [\;\&\|\`\<\>] && "$cmd" != *'$('* ]]; then
-      exit 0
+    NL=$'\n'
+    segs="$cmd"
+    segs="${segs//&&/$NL}"; segs="${segs//||/$NL}"; segs="${segs//;/$NL}"
+    segs="${segs//&/$NL}"; segs="${segs//$'\r'/$NL}"
+    grouped='[|`<>(){}]'
+    if [[ "$segs" =~ $grouped || "$cmd" == *'$('* ]]; then
+      scan="$cmd"
+    else
+      scan=""
+      while IFS= read -r seg || [[ -n "$seg" ]]; do
+        [[ "$seg" =~ $meta_re ]] || scan+=" $seg$NL"
+      done <<< "$segs"
     fi
     # Drop exclusion arguments before scanning, so safe searches are not blocked.
     excl_re="(--exclude(-dir)?[= ]|--iglob[= ]!|--glob[= ]!|-g[= ]!|:\\(exclude\\)|:!)['\"]?!?[^[:space:]'\"]*['\"]?"
-    rest="$cmd"
+    rest="$scan"
     while [[ "$rest" =~ $excl_re ]]; do
       rest="${rest/"${BASH_REMATCH[0]}"/ }"
     done
-    re='(^|[[:space:]/=\"'"'"'<>:,(])(\.env([.*?[][A-Za-z0-9_.*?[-]*)?)($|[[:space:]\"'"'"';|&)>,])'
+    re='(^|[[:space:]/=\"'"'"'<>:,({])(\.env([.*?[][A-Za-z0-9_.*?[-]*)?)($|[[:space:]\"'"'"';|&)>,}:])'
     while [[ "$rest" =~ $re ]]; do
       name="${BASH_REMATCH[2]}"
       if is_secret_env_name "$name"; then
-        hh_deny "Harness policy: this command touches a secret .env file ($name). Agents never read, copy, stage or modify .env files. Ask the user to do it."
+        hh_deny "Harness policy: this command touches a secret .env file ($name). Agents never read, copy, stage or modify .env files. Existence checks (ls, test, git check-ignore) are allowed as their own command, not piped or grouped. Ask the user for anything else."
       fi
       rest="${rest#*"${BASH_REMATCH[0]}"}"
     done

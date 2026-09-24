@@ -77,7 +77,7 @@ fi
 
 # Scripts must have LF endings, or non-MSYS bash (Linux, WSL, containers) fails.
 while IFS= read -r f; do
-  warn "CRLF line endings in $f: re-checkout (git rm -r --cached -q .claude && git checkout -- .claude); the shipped .claude/.gitattributes keeps them LF"
+  warn "CRLF line endings in $f: commit or stash .claude edits, then re-checkout (git rm -r --cached -q .claude && git checkout HEAD -- .claude); the shipped .claude/.gitattributes keeps them LF"
 done < <(find "$ROOT/.claude/harness" "$ROOT/.claude/skills" -name '*.sh' -type f 2>/dev/null \
            | while IFS= read -r f; do awk -v BINMODE=3 -v r="${f#"$ROOT"/}" '/\r$/ { print r; exit }' "$f"; done)
 

@@ -204,6 +204,51 @@ check "guard.sh checked out LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit
 check "lock checked out LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$WORK/eolclone/.claude/harness/lock")"
 bash "$WORK/eolclone/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor healthy on autocrlf clone" test $? -eq 0
 
+echo "22. --help prints usage and writes nothing"
+H1="$WORK/helpcwd"; mkdir -p "$H1"
+(cd "$H1" && bash "$SYNC" --help > "$WORK/help.txt" 2>&1); check "help exits 0" test $? -eq 0
+check "help lists --dry-run" grep -q -- '--dry-run' "$WORK/help.txt"
+check "help lists exit codes" grep -q 'Exit codes' "$WORK/help.txt"
+check "help created no .claude" test ! -e "$H1/.claude"
+
+echo "23. --commit does not sweep unrelated settings.project.json edits"
+R16="$(new_repo commitscope)"; mkdir -p "$R16/.claude"
+printf '{"permissions":{"allow":["Bash(npm test)"]}}\n' > "$R16/.claude/settings.project.json"
+git -C "$R16" add -A; git -C "$R16" commit -qm p
+run "$R16" --profiles all --commit
+head_before="$(git -C "$R16" rev-parse HEAD)"
+printf '{"permissions":{"allow":["Bash(npm test)"]} }\n' > "$R16/.claude/settings.project.json"   # whitespace-only edit
+run "$R16" --commit; check "sync ok" test $? -eq 0
+check "no commit created" test "$head_before" = "$(git -C "$R16" rev-parse HEAD)"
+check "edit left uncommitted" test -n "$(git -C "$R16" status --porcelain -- .claude/settings.project.json)"
+
+echo "24. --profiles without harness.config is saved"
+R17="$(new_repo profnocfg)"; run "$R17" --no-seed --commit
+check "no config after --no-seed" test ! -e "$R17/.claude/harness.config"
+run "$R17" --profiles backend --commit; check "profile change ok" test $? -eq 0
+check "config created with profile" grep -qx 'profiles=backend' "$R17/.claude/harness.config"
+run "$R17"; check "plain sync keeps backend" grep -q '0 file(s) changed' "$WORK/out.log"
+
+echo "25. invalid settings.json at migration gets a clear message"
+R18="$(new_repo badjson)"; mkdir -p "$R18/.claude"; printf '{ // comment\n "a": 1, }\n' > "$R18/.claude/settings.json"
+git -C "$R18" add -A; git -C "$R18" commit -qm j
+run "$R18" --profiles all; check "refused (exit 2)" test $? -eq 2
+check "says strict JSON" grep -q 'strict JSON' "$WORK/out.log"
+
+echo "26. dry-run warns about a dirty tree the real run would refuse"
+rm -f "$R16/.claude/harness/README.md"   # dirty but not a conflict (sync would restore it)
+run "$R16" --dry-run; check "dry-run exits 0" test $? -eq 0
+check "dry-run warns" grep -q 'real run will refuse' "$WORK/out.log"
+run "$R16"; check "real run refuses dirty tree (exit 1)" test $? -eq 1
+git -C "$R16" checkout -q -- .claude/harness/README.md
+
+echo "27. doctor's CRLF recovery command works"
+git -c core.autocrlf=false clone -q "$R15" "$WORK/crlffix"
+g="$WORK/crlffix/.claude/harness/hooks/guard.sh"; awk '{ printf "%s\r\n", $0 }' "$g" > "$g.t" && mv "$g.t" "$g"
+(cd "$WORK/crlffix" && git rm -r --cached -q .claude && git checkout HEAD -- .claude); check "command exits 0" test $? -eq 0
+check "guard.sh back to LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$g")"
+check "tree clean afterwards" test -z "$(git -C "$WORK/crlffix" status --porcelain)"
+
 echo
 echo "sync tests: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

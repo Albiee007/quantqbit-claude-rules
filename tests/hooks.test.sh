@@ -51,6 +51,17 @@ expect "allow --exclude=.env*"        guard.sh '{"tool_name":"Bash","tool_input"
 expect "allow rg -g !.env*"           guard.sh '{"tool_name":"Bash","tool_input":{"command":"rg -g \"!.env*\" TODO"}}' ''
 expect "allow git check-ignore .env"  guard.sh '{"tool_name":"Bash","tool_input":{"command":"git check-ignore .env"}}' ''
 expect "allow Grep for process.env"   guard.sh '{"tool_name":"Grep","tool_input":{"pattern":"process.env","path":"src"}}' ''
+expect "deny newline after ls"        guard.sh '{"tool_name":"Bash","tool_input":{"command":"ls -la\ncat .env"}}' 'deny'
+expect "deny newline after git status" guard.sh '{"tool_name":"Bash","tool_input":{"command":"git status\ncp .env /tmp/x"}}' 'deny'
+expect "deny PS newline"              guard.sh '{"tool_name":"PowerShell","tool_input":{"command":"Get-ChildItem\nGet-Content .env"}}' 'deny'
+expect "deny PS subexpression"        guard.sh '{"tool_name":"PowerShell","tool_input":{"command":"Get-Item (Get-Content .env)"}}' 'deny'
+expect "deny meta ; cat"              guard.sh '{"tool_name":"Bash","tool_input":{"command":"git check-ignore .env ; cat .env"}}' 'deny'
+expect "deny brace expansion"         guard.sh '{"tool_name":"Bash","tool_input":{"command":"cat {.env,x}"}}' 'deny'
+expect "deny NTFS stream path"        guard.sh '{"tool_name":"Read","tool_input":{"file_path":"C:\\p\\.env:$DATA"}}' 'deny'
+expect "deny trailing dot path"       guard.sh '{"tool_name":"Read","tool_input":{"file_path":"/p/.env."}}' 'deny'
+expect "allow exclude ; check-ignore" guard.sh '{"tool_name":"Bash","tool_input":{"command":"grep -r --exclude=.env* TODO src ; git check-ignore .env.staging"}}' ''
+expect "allow ls .env"                guard.sh '{"tool_name":"Bash","tool_input":{"command":"ls .env"}}' ''
+expect "allow Test-Path .env"         guard.sh '{"tool_name":"PowerShell","tool_input":{"command":"Test-Path .env"}}' ''
 
 echo "prompt-router"
 expect "UI prompt → ui checklist"      prompt-router.sh '{"session_id":"a1","prompt":"Make the login screen responsive"}' 'ui-ux'
@@ -60,6 +71,10 @@ expect "pattern prompt → gate"         prompt-router.sh '{"session_id":"a3","p
 expect "design pattern ≠ UI"           prompt-router.sh '{"session_id":"a4","prompt":"which design pattern fits?"}' 'design-patterns'
 out="$(run prompt-router.sh '{"session_id":"a5","prompt":"which design pattern fits?"}')"
 grep -q 'ui-ux' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] design pattern prompt injected UI"; } || { pass=$((pass+1)); echo "  [OK] design pattern prompt has no UI checklist"; }
+expect "no security for plain 'session'" prompt-router.sh '{"session_id":"a8","prompt":"summarise this session of work"}' ''
+expect "no infra for 'workflow' in prose" prompt-router.sh '{"session_id":"a9","prompt":"explain the order workflow in checkout.ts"}' ''
+expect "security for session cookie"   prompt-router.sh '{"session_id":"a10","prompt":"set the session cookie flags"}' 'security'
+expect "infra for github actions"      prompt-router.sh '{"session_id":"a11","prompt":"add a github actions workflow"}' 'infra'
 expect "plain prompt → nothing"        prompt-router.sh '{"session_id":"a6","prompt":"what does this function return?"}' ''
 expect "valid JSON escaping"           prompt-router.sh '{"session_id":"a7","prompt":"fix \"auth\" token\nflow"}' '"additionalContext":"Harness'
 
@@ -73,7 +88,7 @@ expect "retry allowed"                     file-context.sh '{"session_id":"b5","
 expect "sub-agent gets its own gate"       file-context.sh '{"session_id":"b5","agent_id":"a-1","agent_type":"implementor","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Card.tsx"}}' 'deny'
 expect "agent_id in tool_input ignored"    file-context.sh '{"session_id":"b5","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/X.tsx","agent_id":"evil"}}' ''
 run prompt-router.sh '{"session_id":"b6","prompt":"restyle the navbar"}' >/dev/null
-expect "prompt checklist satisfies gate"   file-context.sh '{"session_id":"b6","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Nav.tsx"}}' ''
+expect "gate still applies after prompt checklist" file-context.sh '{"session_id":"b6","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Nav.tsx"}}' 'deny'
 printf 'checklists=inform\n' > "$P/.claude/harness.config"
 expect "inform mode adds context only"     file-context.sh '{"session_id":"b7","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Y.tsx"}}' '"additionalContext"'
 rm -f "$P/.claude/harness.config"

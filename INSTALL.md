@@ -11,7 +11,7 @@ It covers the **agent harness** (Part 1), **`/init-project-rules`** lint tooling
 - **Python 3:** needed whenever `.claude/settings.project.json` exists, and to migrate an existing `.claude/settings.json`. `python3`, `python` and the Windows `py` launcher are all found. `jq` is not required.
 - **`envsubst`:** required by `init.sh` and `init-scaffold.sh` only. It ships with Git Bash; on macOS run `brew install gettext`, on Debian/Ubuntu install `gettext-base`.
 - **`make`:** optional; `make lint` just wraps `scripts/lint.sh`. Git Bash has no `make`.
-- **Windows:** run `git config --global core.longpaths true` once (some scaffold template paths are long).
+- **Windows + project-scaffold:** run `git config --global core.longpaths true` once (some starter template paths are long).
 - **Repository access:** the GitHub repo is private, so installing needs read access plus working git credentials.
 - **Optional linters:** used by hooks and `lint.sh` when present. `shellcheck`, `yamllint`, `ansible-lint`, `terraform`, `docker`.
 
@@ -39,7 +39,8 @@ Harness content (under `harness/` in this repo) is **vendored into each project'
 # Plugin, from a terminal (or use /plugin marketplace add … and /plugin install … inside Claude Code):
 claude plugin marketplace add Albiee007/quantqbit-claude-rules
 claude plugin install quantqbit-claude-rules@quantqbit
-# restart Claude Code; then, in a project: "install the harness", or /init-project-rules (lint tooling + harness)
+# restart Claude Code; then, in a project: "install the harness",
+# or /quantqbit-claude-rules:init-project-rules (lint tooling + harness)
 
 # Without the plugin:
 git clone https://github.com/Albiee007/quantqbit-claude-rules ~/.local/share/quantqbit-claude-rules
@@ -75,14 +76,14 @@ To change profiles, edit `profiles=` in `.claude/harness.config` and re-sync, or
 bash .claude/harness/bin/harness-sync.sh --dry-run          # preview
 bash .claude/harness/bin/harness-sync.sh --diff             # preview with diffs
 bash .claude/harness/bin/harness-sync.sh --commit           # apply + commit on the current branch
-bash .claude/harness/bin/harness-sync.sh --ref v1.0.1       # pin a pushed release tag (clones upstream)
+bash .claude/harness/bin/harness-sync.sh --ref vX.Y.Z       # pin a pushed release tag (clones upstream)
 bash .claude/harness/bin/harness-sync.sh --remote            # latest upstream default branch
 ```
 
 The bootstrap picks its source in this order:
 1. `--source DIR`
 2. `--ref TAG` or `--remote`: a shallow clone of upstream (`$HARNESS_SOURCE_URL`, else the lock's https `source`, else the canonical GitHub URL).
-3. Otherwise, the **newest** local source among: `$HARNESS_HOME`, `$CLAUDE_PLUGIN_ROOT`, the installed plugin copy (`~/.claude/plugins/cache/quantqbit/…`), and `~/.local/share/quantqbit-claude-rules`. A local clone is never pulled automatically: run `git -C <clone> pull` first.
+3. Otherwise, the **newest** local source among: `$HARNESS_HOME`, `$CLAUDE_PLUGIN_ROOT`, the installed plugin copy (`~/.claude/plugins/cache/quantqbit/…`, or under `$CLAUDE_CONFIG_DIR` when that is set), and `~/.local/share/quantqbit-claude-rules`. A local clone is never pulled automatically: run `git -C <clone> pull` first.
 4. With no local source, the same upstream clone as in step 2.
 
 A source older than the installed harness is refused (exit 1). Pass `--allow-downgrade` only when you mean to roll back.
@@ -103,7 +104,7 @@ Resolving conflicts:
 - **`--theirs`:** take the harness version. Your previous copy is saved under `.claude/harness/.backup/<time>/` (gitignored).
 - **CONFLICT-UNMANAGED:** one of your files uses a reserved harness name. The agents are `explorer`, `implementor`, `infra-implementor`, `verifier` and `reviewer`. The skills are `coding-standards`, `design-patterns`, `ui-ux`, `seo` and `harness`. The other reserved path is `.claude/.gitattributes`. Rename yours, or use `--theirs`; `--keep` does not apply.
 - **Recommended:** move the intent of your edit into `.claude/rules/project/`, then use `--theirs`.
-- **Git merge conflict inside `.claude/harness/lock`:** keep either side, then re-run sync.
+- **Git merge conflict inside `.claude/harness/lock` or `.claude/settings.json`:** take either side of those files, `git add` them and finish the merge commit, then run `harness-sync.sh --commit`.
 
 ## Customising (without conflicts)
 
@@ -138,12 +139,13 @@ It reports:
 ## Enforcement layers
 
 1. **Rules and skills** (context): the core rule is always loaded. Path-scoped rules load when a matching file is read. Skills load on demand, and the core rule makes them mandatory.
-2. **Hooks** (checklist injection): `prompt-router` matches keywords in your prompt, and `file-context` matches files before they are written. Each injects the relevant checklist once per session.
+2. **Hooks** (checklist injection): `prompt-router` matches keywords in your prompt, and `file-context` matches files before they are written. Each injects the relevant checklist once per agent context (the main thread and each sub-agent).
 3. **Hard enforcement:**
    - `CLAUDE_CODE_SUBAGENT_MODEL=opus` forces Opus: verified on Claude Code 2.1.214, where it overrides agent frontmatter. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` is set as well, for versions that support it.
-   - The `guard` hook denies non-Opus Agent calls. It also denies Read/Edit/Write/Grep calls and Bash/PowerShell commands that name a real `.env` file or a `.env*` glob, in any letter case. `.env.example` and similar templates stay allowed. This is best-effort pattern matching: it cannot see indirect reads such as `grep -r .` or `find -exec cat`, so keep `.env*` gitignored.
-   - `file-context` denies the first UI or SEO file write in each agent context once, with the checklist and the skill to load; the retry is allowed. Set `checklists=inform` in `harness.config` to only add the checklist instead.
-   - Each hook takes about 80–300 ms on Windows (mostly bash start-up), less on macOS and Linux.
+   - The `guard` hook denies non-Opus Agent calls. It also denies Read/Edit/Write/Grep calls and Bash/PowerShell commands that name a real `.env` file or a `.env*` glob, in any letter case. `.env.example` and similar templates stay allowed. This is best-effort pattern matching: it cannot see indirect reads such as `grep -r .` or `find -exec cat`, so add `.env*` and `!.env.example` to your root `.gitignore` (sync does not do this for you). Gitignore does not stop an agent reading a file; it keeps secrets out of commits.
+   - `file-context` denies the first UI or SEO file write in each agent context once (even if the prompt router already showed the checklist), with the checklist and the skill to load; the retry is allowed. Set `checklists=inform` in `harness.config` to only add the checklist instead.
+   - Each hook typically takes 0.1–0.3 s on an idle Windows machine and 1–2 s under load or antivirus scanning (mostly bash start-up); less on macOS and Linux.
+   - `harness:managed vX` stamps show each file's own `file_version`: files unchanged since an earlier release keep the older number. That is expected.
    - `permissions.deny` blocks `git add -A`, force-push and `rm -rf /`.
 
 > **Note:** project settings use `defaultMode: "plan"`, which takes precedence over a personal `bypassPermissions` default. Override it in `.claude/settings.project.json` if your team prefers another mode.

@@ -72,7 +72,7 @@ while [[ $# -gt 0 ]]; do
     --allow-dirty) allow_dirty=1; shift ;;
     --allow-downgrade) allow_downgrade=1; shift ;;
     --force-unlock) force_unlock=1; shift ;;
-    -h|--help) awk 'NR > 1 && /^# =+$/ && ++n == 2 { exit } NR > 1 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) hc_die "unknown option: $1 (see --help)" ;;
   esac
 done
@@ -136,6 +136,8 @@ if [[ -n "$profiles_arg" ]]; then
   PROFILES="$profiles_arg"
 elif [[ -n "$cfg_profiles" ]]; then
   PROFILES="$cfg_profiles"
+elif [[ -f "$LOCK" ]] && lock_profiles="$(tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "profiles" { print $2; exit }')" && [[ -n "$lock_profiles" ]]; then
+  PROFILES="$lock_profiles"
 else
   PROFILES="$(sync_detect_profiles)"
 fi
@@ -144,8 +146,10 @@ PROFILES="${PROFILES// /}"
   || hc_die "invalid profiles '$PROFILES' (allowed: all, or a comma list of web,mobile,backend,infra)"
 # --profiles is persisted to the project-owned harness.config (transactionally).
 cfg_update=0
-if [[ -n "$profiles_arg" && $uninstall -eq 0 && -f "$CFG" && "$cfg_profiles" != "$PROFILES" ]]; then
-  cfg_update=1
+if [[ -n "$profiles_arg" && $uninstall -eq 0 && "$cfg_profiles" != "$PROFILES" ]]; then
+  # Rewrite the profiles= line of an existing config; create a minimal config
+  # when there is none (unless this first install seeds one anyway).
+  if [[ -f "$CFG" || $first_install -eq 0 || $seed -eq 0 ]]; then cfg_update=1; fi
 fi
 
 in_git=0
@@ -154,7 +158,7 @@ if git -C "$T" rev-parse --is-inside-work-tree >/dev/null 2>&1; then in_git=1; f
 # Guard: refuse when any path this sync may write has uncommitted changes, so a
 # rollback or --commit can never mix with unrelated work. Only harness-owned
 # paths are checked (the project's own agents/skills are not).
-if [[ $in_git -eq 1 && $allow_dirty -eq 0 && $dry -eq 0 ]]; then
+if [[ $in_git -eq 1 && $allow_dirty -eq 0 ]]; then
   guard_paths=()
   while IFS= read -r p; do [[ -n "$p" ]] && guard_paths+=("$p"); done < <(
     { tr -d '\r' < "$MANIFEST" | awk -F'\t' '!/^#/ && NF >= 2 { print $2 }'
@@ -163,7 +167,10 @@ if [[ $in_git -eq 1 && $allow_dirty -eq 0 && $dry -eq 0 ]]; then
       [[ $cfg_update -eq 1 ]] && echo ".claude/harness.config"
     } | LC_ALL=C sort -u)
   dirty="$(git -C "$T" status --porcelain -- "${guard_paths[@]}" 2>/dev/null | grep -v '\.claude/harness/\.tmp' || true)"
-  if [[ -n "$dirty" ]]; then
+  if [[ -n "$dirty" && $dry -eq 1 ]]; then
+    hc_warn "harness-managed paths have uncommitted changes; the real run will refuse until they are committed or stashed:"
+    printf '%s\n' "$dirty" >&2
+  elif [[ -n "$dirty" ]]; then
     hc_fail "harness-managed paths have uncommitted changes (commit or stash them first, or pass --allow-dirty):"
     printf '%s\n' "$dirty" >&2
     exit 1
@@ -251,13 +258,19 @@ SEEDS="$W/seeds.tsv"
 migrate_settings=0
 
 if [[ $uninstall -eq 0 ]]; then
+  # Batch staging: one list, one mkdir, one awk (per-file forks are slow on Windows).
+  STAGE_LIST="$W/stage.tsv"; STAGE_DIRS="$W/stage-dirs.txt"
+  : > "$STAGE_LIST"; : > "$STAGE_DIRS"
   while IFS=$'\t' read -r src dest ver _sha prof; do
     [[ -z "$src" || "$src" == \#* ]] && continue
     hc_profile_match "$prof" "$PROFILES" || continue
     [[ -f "$H/$src" ]] || hc_die "manifest lists missing file harness/$src — re-run release.sh"
-    hc_inject_header "$H/$src" "$STAGE/$dest" "$ver" "$src"
+    printf '%s\t%s\t%s\t%s\n' "$H/$src" "$STAGE/$dest" "$ver" "$src" >> "$STAGE_LIST"
+    printf '%s\n' "$STAGE/${dest%/*}" >> "$STAGE_DIRS"
     printf '%s\tmanaged\t%s\n' "$dest" "$ver" >> "$DESIRED"
   done < <(tr -d '\r' < "$MANIFEST")
+  LC_ALL=C sort -u "$STAGE_DIRS" | tr '\n' '\0' | xargs -0 mkdir -p
+  hc_inject_headers "$STAGE_LIST"
 
   # Generated settings.json = base + project overrides.
   has_settings_row=0
@@ -268,9 +281,10 @@ if [[ $uninstall -eq 0 ]]; then
     # by folding it (and any existing settings.project.json) into the
     # project-owned settings.project.json. v0.x harness leftovers are dropped.
     migrate_settings=1
+    hc_python >/dev/null || hc_die "python 3 is required to migrate .claude/settings.json (install Python 3; on Windows the 'py' launcher also works)"
     hc_py "$SYNC_SRC_ROOT/scaffold/lib/settings_merge.py" --migrate "$CL/settings.json" \
       "$( [[ -f "$PROJ" ]] && echo "$PROJ" || echo - )" "$STAGE/.claude/settings.project.json" \
-      || hc_die "python 3 is required to migrate .claude/settings.json (install Python 3; on Windows the 'py' launcher also works)"
+      || hc_die "could not migrate .claude/settings.json: it must be strict JSON (no comments or trailing commas); fix it and re-run"
     printf '.claude/settings.project.json\tseed\n' >> "$SEEDS"
     proj_in="$STAGE/.claude/settings.project.json"
   elif [[ -f "$PROJ" ]]; then
@@ -308,7 +322,9 @@ if [[ $uninstall -eq 0 ]]; then
   fi
 
   # --profiles: rewrite only the profiles= line of the project's harness.config.
-  if [[ $cfg_update -eq 1 ]]; then
+  if [[ $cfg_update -eq 1 && ! -f "$CFG" ]]; then
+    printf '# .claude/harness.config - project-owned (see .claude/harness/README.md)\nprofiles=%s\n' "$PROFILES" > "$STAGE/.claude/harness.config"
+  elif [[ $cfg_update -eq 1 ]]; then
     if grep -qE '^[[:space:]]*profiles[[:space:]]*=' "$CFG"; then
       tr -d '\r' < "$CFG" | sed -E "s/^[[:space:]]*profiles[[:space:]]*=.*/profiles=$PROFILES/" > "$STAGE/.claude/harness.config"
     else
@@ -398,6 +414,15 @@ if [[ ${#legacy[@]} -gt 0 && $uninstall -eq 0 ]]; then
   printf '    %s\n' "${legacy[@]}" >&2
 fi
 
+if [[ $uninstall -eq 0 && -d "$CL/agents" ]]; then
+  while IFS= read -r af; do
+    an="$(awk '/^name:/ { sub(/^name:[[:space:]]*/, ""); print; exit }' "$af")"
+    case "$an" in explorer|implementor|infra-implementor|verifier|reviewer)
+      [[ "${af##*/}" == "$an.md" ]] || hc_warn "${af#"$T"/} declares the reserved agent name '$an'; change its name: field too" ;;
+    esac
+  done < <(find "$CL/agents" -maxdepth 1 -name '*.md' -type f 2>/dev/null)
+fi
+
 conflicts=$(( $(count CONFLICT-MODIFIED) + $(count CONFLICT-UNMANAGED) ))
 if [[ $conflicts -gt 0 ]]; then
   hc_fail "$conflicts conflict(s) — nothing was written."
@@ -413,8 +438,9 @@ EOF
   CONFLICT-UNMANAGED : a file of yours sits at a path the harness owns. Reserved names:
                        agents explorer, implementor, infra-implementor, verifier, reviewer;
                        skills coding-standards, design-patterns, ui-ux, seo, harness.
-                       Rename yours (recommended), or re-run with --theirs (yours is
-                       saved under .claude/harness/.backup/). --keep does not apply.
+                       Rename yours and change its name: field (recommended), commit the
+                       rename, then re-run; or re-run with --theirs (yours is saved under
+                       .claude/harness/.backup/). --keep does not apply.
 EOF
   exit 1
 fi
@@ -441,8 +467,9 @@ sync_apply_one() { # op path
     hc_fail "HARNESS_FAIL_AFTER=${HARNESS_FAIL_AFTER} (test fault injection)"
     return 1
   fi
+  local d="${p%/*}"; [[ "$d" == "$p" ]] && d="."
   if [[ -e "$T/$p" ]]; then
-    mkdir -p "$(dirname "$BACKUP/$p")"
+    [[ -d "$BACKUP/$d" ]] || mkdir -p "$BACKUP/$d"
     cp -p "$T/$p" "$BACKUP/$p"
     printf 'restore\t%s\n' "$p" >> "$JOURNAL"
   else
@@ -454,7 +481,7 @@ sync_apply_one() { # op path
     UNINSTALL-SETTINGS)
       if [[ -f "$PROJ" ]]; then cp "$PROJ" "$T/$p"; else rm -f "$T/$p"; fi ;;
     *)
-      mkdir -p "$(dirname "$T/$p")"
+      [[ -d "$T/$d" ]] || mkdir -p "$T/$d"
       mv -f "$STAGE/$p" "$T/$p" ;;
   esac
   printf '%s\n' "$p" >> "$changed"
@@ -529,6 +556,8 @@ while IFS=$'\t' read -r op p _; do
   done
 done < "$OPS"
 if [[ $uninstall -eq 1 ]]; then
+  rmdir "$TMPD" 2>/dev/null || true
+  [[ -d "$HD/.backup" ]] && hc_info "kept .claude/harness/.backup/ (copies saved by earlier --theirs runs); delete it when no longer needed"
   rmdir "$HD" "$CL/rules/harness" 2>/dev/null || true
   left="$(awk -F'\t' '$1 == "SEED-KEEP" { printf "%s ", $2 }' "$OPS")"
   [[ -n "$left" ]] && hc_info "project-owned files left in place: $left(CLAUDE.md may still mention .claude/rules/harness/)"
@@ -550,8 +579,13 @@ if [[ $commit -eq 1 ]]; then
     paths=()
     while IFS= read -r p; do paths+=("$p"); done < "$changed"
     # Commit the regenerated settings.json together with its project-owned source.
-    if [[ -f "$PROJ" && -n "$(git -C "$T" status --porcelain -- .claude/settings.project.json)" ]]; then
-      paths+=(".claude/settings.project.json")
+    if [[ -f "$PROJ" && -n "$(git -C "$T" status --porcelain -- .claude/settings.project.json)" ]] \
+       && ! grep -qxF '.claude/settings.project.json' "$changed"; then
+      if grep -qxF '.claude/settings.json' "$changed"; then
+        paths+=(".claude/settings.project.json")
+      else
+        hc_warn ".claude/settings.project.json has uncommitted edits that did not change settings.json; not committed"
+      fi
     fi
     if [[ ${#paths[@]} -gt 0 ]]; then
       git -C "$T" add -- "${paths[@]}"

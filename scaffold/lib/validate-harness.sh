@@ -46,6 +46,7 @@ while IFS= read -r hit; do
 done < <(grep -rnE '^[[:space:]]*"?model"?[[:space:]]*[:=][[:space:]]*"?(sonnet|haiku|fable|claude-(sonnet|haiku|fable))' \
            "$H" --include='*.md' --include='*.json' --include='*.sh' 2>/dev/null || true)
 grep -q '"CLAUDE_CODE_SUBAGENT_MODEL": "opus"' "$H/settings.base.json" || e "settings.base.json must set CLAUDE_CODE_SUBAGENT_MODEL=opus"
+grep -q '"Write(' "$H/settings.base.json" && e "settings.base.json: Write(path) deny rules are not effective in Claude Code; Edit(path) rules cover file writes"
 grep -q '"CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"' "$H/settings.base.json" || e "settings.base.json must set CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1"
 
 # ------------------------------------------------------------------ skills

@@ -15,6 +15,7 @@ This skill runs the harness sync engine that ships with this plugin, against the
    bash "${CLAUDE_PLUGIN_ROOT}/scaffold/sync.sh" --target "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" --dry-run
    ```
    Show the user the plan: the operations, detected profiles, and any seeds.
+   Run sync.sh with a long Bash timeout (for example 600000 ms): a first install can take 1–2 minutes on Windows. If a run is moved to the background, wait for it to finish; do not stop it (a killed run leaves a mutex that needs `--force-unlock`). Use `--help` to see the options; never run sync.sh without `--dry-run` just to inspect it, because it applies.
 3. Apply with the user's flags (`$ARGUMENTS`). Add `--commit` only if the user wants a commit. It commits explicit paths on the current branch and never pushes.
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}/scaffold/sync.sh" --target "<root>" $ARGUMENTS

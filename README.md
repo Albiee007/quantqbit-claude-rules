@@ -10,7 +10,7 @@
 | **Mandatory skills** | **coding-standards**: SOLID, naming, errors, testing, OWASP Top 10:2025, review checklist · **design-patterns**: a decision gate plus all 23 GoF patterns with examples, architectural patterns, anti-patterns · **ui-ux**: 30 Laws of UX, Nielsen heuristics, WCAG 2.2 AA, Gestalt, DTCG tokens, Material 3, Apple HIG · **seo**: technical SEO, E-E-A-T, schema, Core Web Vitals, AI search (GEO), hreflang, local, a 0–100 audit score |
 | **Path-scoped rules** | coding, tests, security, ui-ux, seo, bash, powershell, ansible, compose/Dockerfile, terraform |
 | **Agents** (all Opus) | `explorer` → `implementor` / `infra-implementor` → `verifier` → `reviewer` (lenses: code, patterns, ux, seo, security) |
-| **Hooks** (pure bash, ~80–300 ms each) | `guard` (enforces Opus, blocks real `.env` files), `prompt-router` and `file-context` (inject mandatory checklists), `session-start`, `post-edit-lint` |
+| **Hooks** (pure bash) | `guard` (enforces Opus, blocks real `.env` files), `prompt-router` and `file-context` (inject mandatory checklists), `session-start`, `post-edit-lint` |
 | **Settings** | Generated from the harness base plus the project's own `settings.project.json` |
 
 ## Why it is safe to share through git
@@ -29,8 +29,8 @@
 claude plugin marketplace add Albiee007/quantqbit-claude-rules
 claude plugin install quantqbit-claude-rules@quantqbit
 # restart Claude Code, then in a project:
-#   "install the harness"      (or /init-project-rules for lint tooling + harness)
-#   /init-project-scaffold     (optional: buildable backend / frontend / mobile / android starter)
+#   "install the harness"      (or /quantqbit-claude-rules:init-project-rules for lint tooling + harness)
+#   /quantqbit-claude-rules:init-project-scaffold   (optional: buildable backend / frontend / mobile / android starter)
 
 # Without the plugin
 git clone https://github.com/Albiee007/quantqbit-claude-rules ~/.local/share/quantqbit-claude-rules

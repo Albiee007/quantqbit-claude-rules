@@ -31,10 +31,10 @@ fi
 if [[ "$prompt" =~ $B(design[[:space:]]patterns?|patterns?|refactor(ing)?|architect(ure)?|abstract(ion|[[:space:]]class)?|interfaces?|factory|singleton|strategy|observer|decorator|adapter|repository|dependency[[:space:]]injection|di[[:space:]]container|clean[[:space:]]architecture|hexagonal|microservices?|cqrs|event[[:space:]]sourcing|restructure|decouple|layers?|modulari[sz]e)$E ]]; then
   hh_add_snippet patterns
 fi
-if [[ "$prompt" =~ $B(auth(entication|orization)?|login|sign[[:space:]-]?(up|in)|passwords?|tokens?|jwt|oauth|sessions?|cookies?|csrf|xss|sql|injection|uploads?|permissions?|rbac|secrets?|encrypt(ion)?|crypto|api[[:space:]]keys?|webhooks?|cors|pii|gdpr)$E ]]; then
+if [[ "$prompt" =~ $B(auth(entication|orization)?|login|sign[[:space:]-]?(up|in)|passwords?|tokens?|jwt|oauth|session[[:space:]-]?(cookies?|tokens?|fixation|hijack(ing)?|management|storage)|cookies?|csrf|xss|sql|injection|uploads?|permissions?|rbac|secrets?|encrypt(ion)?|crypto|api[[:space:]]keys?|webhooks?|cors|pii|gdpr)$E ]]; then
   hh_add_snippet security
 fi
-if [[ "$prompt" =~ $B(docker|compose|dockerfile|ansible|playbook|terraform|deploy(ment)?|ci|cd|pipeline|github[[:space:]]actions|workflow|bash|shell[[:space:]]script|powershell|ps1|nginx|traefik|kubernetes|k8s|helm|infra(structure)?)$E ]]; then
+if [[ "$prompt" =~ $B(docker|compose|dockerfile|ansible|playbook|terraform|deploy(ment)?|ci/cd|ci[[:space:]](pipeline|workflow|job)|pipeline|github[[:space:]]actions|bash|shell[[:space:]]script|powershell|ps1|nginx|traefik|kubernetes|k8s|helm|infra(structure)?)$E ]]; then
   hh_add_snippet infra
 fi
 

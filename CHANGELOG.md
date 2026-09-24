@@ -8,6 +8,35 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.0.2] - 2026-09-24
+
+A second end-to-end verification of 1.0.1 (clean clone, plugin install and update, a newcomer following GETTING-STARTED.md on Windows and WSL, live headless sessions, an adversarial diff review) found these; each was reproduced independently before fixing.
+
+### Fixed
+- **Guard bypass (security):** in 1.0.1 a newline after an allowed metadata command (`ls`, `git status`, `Get-ChildItem`) let a following `.env` read through. The exemption now applies per command segment (newline, `;`, `&&`, `||`, `&`), and any piping, redirection, grouping or substitution disables it. Brace expansion (`{.env,x}`), NTFS stream names (`.env:x`) and trailing dots are also caught. `grep --exclude=.env* …; git check-ignore .env` is no longer a false positive.
+- **Dangerous CRLF recovery advice:** the command in the 1.0.1 doctor, guide and changelog (`… && git checkout -- .claude`) failed and left every `.claude` file staged for deletion. Corrected to `git rm -r --cached -q .claude && git checkout HEAD -- .claude`.
+- **`--commit` over-reach:** uncommitted `settings.project.json` edits were committed even when the sync changed nothing. It is now committed only when this run regenerated `settings.json` from it; otherwise sync warns.
+- **Slow sync on Windows:** staging now uses one batched awk and one `mkdir` instead of about five forks per file, and the apply loop no longer forks for `dirname`. First installs drop from 70–110 s to well under the 2-minute tool timeout.
+- **`sync.sh --help`** printed only the title line.
+- **Write gate:** it now has its own per-agent marker, so a checklist the prompt router already showed no longer skips it. If the marker cannot be written, the hook falls back to inform, so it can never deny forever.
+- **`--profiles`** is now saved even when `harness.config` does not exist; a plain sync falls back to the lock's profiles before auto-detecting.
+- **Smaller fixes:**
+  - A non-strict-JSON `settings.json` at migration gets a clear message, not "python 3 is required".
+  - `--dry-run` now warns about uncommitted harness paths that the real run would refuse.
+  - A project agent that keeps a reserved `name:` is flagged.
+  - Uninstall mentions a leftover `.claude/harness/.backup/` and removes empty dirs.
+  - `harness.config` is pinned to LF.
+  - The ineffective `Write(path)` deny rules were removed (Edit rules cover writes); the validator rejects them.
+  - Prompt-router false positives for plain "session", "ci", "cd" and "workflow" were removed.
+  - The Makefile recipe works from paths containing spaces again.
+
+### Changed
+- Docs: plugin commands are namespaced (`/quantqbit-claude-rules:init-project-rules`), realistic hook latency, lock/settings merge-conflict steps, the rename-and-commit conflict fix, `.gitignore` advice for `.env*`, a local pre-tag test step, and `vX.Y.Z` placeholders instead of untagged versions.
+
+### Upgrade notes
+- Projects on 1.0.0 or 1.0.1: `bash .claude/harness/bin/harness-sync.sh --dry-run`, then `--commit`.
+- If you ran the 1.0.1 CRLF command and have staged deletions under `.claude/`, run `git restore --staged .claude` first.
+
 ## [1.0.1] - 2026-09-24
 
 End-to-end verification (isolated plugin installs, a standalone clone, Windows PowerShell, a second developer on a CRLF checkout, and live headless Claude Code sessions) found the issues below. Everything listed was reproduced independently before it was fixed.
@@ -46,7 +75,7 @@ End-to-end verification (isolated plugin installs, a standalone clone, Windows P
 - **Projects on v1.0.0:** run `bash .claude/harness/bin/harness-sync.sh --dry-run`, then `--commit`.
   - Expect every managed file to update once (the marker text changed to plain ASCII) and a new `.claude/.gitattributes`.
   - If a project has its own `.claude/.gitattributes`, it conflicts. Merge its rules into a root `.gitattributes`, then re-sync.
-- **Windows clones made before this release:** re-checkout once to pick up LF scripts: `git rm -r --cached -q .claude && git checkout -- .claude`.
+- **Windows clones made before this release:** commit or stash `.claude` edits, then re-checkout once to pick up LF scripts: `git rm -r --cached -q .claude && git checkout HEAD -- .claude`. (The command first published here, ending in `git checkout -- .claude`, fails and stages deletions; see 1.0.2.)
 - **Projects migrated from v0.x under 1.0.0:** remove the v0.x `hooks` entries and the `Edit/Write(**/.env.*)` denies from `.claude/settings.project.json`, delete `.claude/hooks/` and the old `.claude/rules/{bash,ansible,compose,terraform}.md`, then re-sync. The doctor lists these leftovers.
 
 ## [1.0.0] - 2026-09-23

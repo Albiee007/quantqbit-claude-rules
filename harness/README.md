@@ -27,7 +27,7 @@ bash .claude/harness/bin/harness-sync.sh --dry-run  # preview an update
 bash .claude/harness/bin/harness-sync.sh --commit   # update to the latest harness and commit
 ```
 
-In Claude Code you can also ask "sync the harness" (the in-project `harness` skill runs the commands above), or use the plugin's `/harness-install` skill if the plugin is installed.
+In Claude Code you can also ask "sync the harness" (the in-project `harness` skill runs the commands above), or use the plugin's `/quantqbit-claude-rules:harness-install` if the plugin is installed.
 
 The sync uses the newest local harness source it finds (your installed plugin, `$HARNESS_HOME`, or `~/.local/share/quantqbit-claude-rules`), else clones the upstream repo. `--ref vX.Y.Z` pins a release; `--remote` takes the latest upstream.
 

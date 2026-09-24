@@ -5,4 +5,4 @@ help:
 	@echo "  lint   Run the full lint suite (shellcheck, yamllint, ansible-lint, terraform, compose)"
 
 lint:
-	@bash "$(dir $(abspath $(lastword $(MAKEFILE_LIST))))scripts/lint.sh"
+	@bash scripts/lint.sh   # run make from this directory (make -C <dir> lint)
