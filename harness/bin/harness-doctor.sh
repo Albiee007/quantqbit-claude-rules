@@ -6,7 +6,7 @@
 #   kept-local file deliberately kept diverged (sync --keep)
 #   unmanaged  file inside a harness-owned dir that the lock doesn't know
 #   conflict   git merge-conflict markers in the lock
-#   ignore     CLAUDE.local.md / settings.local.json not gitignored
+#   ignore     CLAUDE.local.md / settings.local.json not gitignored, or harness files gitignored
 #   behind     a newer harness version is available (if the source is found)
 # Usage: bash .claude/harness/bin/harness-doctor.sh [--quiet]
 # Exit: 0 healthy, 1 warnings, 2 errors.
@@ -73,6 +73,12 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       warn "$f exists but is not gitignored (personal settings would be committed)"
     fi
   done
+  # Harness files hidden by a .gitignore rule never reach teammates.
+  hidden="$( { cut -f2 "$rows"; echo ".claude/harness/lock"; } | git -C "$ROOT" check-ignore -v --stdin 2>/dev/null || true)"
+  if [[ -n "$hidden" ]]; then
+    err "harness files are gitignored, so teammates never get them — narrow the rule (see harness sync's message):"
+    [[ $quiet -eq 1 ]] || printf '%s\n' "$hidden" | awk -F'\t' '{ printf "    %s (rule %s)\n", $2, $1 }' >&2
+  fi
 fi
 
 # Scripts must have LF endings, or non-MSYS bash (Linux, WSL, containers) fails.

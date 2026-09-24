@@ -8,6 +8,19 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.0.3] - 2026-09-24
+
+Found by piloting 1.0.2 on a real project (`quantqbit-site`).
+
+### Fixed
+- **Harness files hidden by `.gitignore`:** a project rule such as `/.claude/skills/` silently kept the harness skills out of git, so teammates would never get them. Sync now refuses before writing anything, names the rule and suggests the narrower rule (`/.claude/skills/*` plus `!` lines for the harness skills). A dry run warns instead. The doctor reports an error for already-installed harness files that are ignored.
+- **`--commit` failing silently:** when `git add` or `git commit` failed, sync stopped with no message. It now says the sync was applied, shows the commit message to use and exits 1.
+- **Line-ending warnings on Windows:** the shipped `.claude/.gitattributes` asked for CRLF `.ps1` files while sync writes LF, and had no rule for `.gitattributes`/`.gitignore`. All of these are now LF (PowerShell runs LF scripts fine).
+- **CI:** the Ubuntu hook test fixture lacked a shebang, which failed only where shellcheck is installed; the Actions steps moved off Node 20.
+
+### Upgrade notes
+- If sync reports ignored harness files, narrow the named `.gitignore` rule as suggested, commit, and re-run.
+
 ## [1.0.2] - 2026-09-24
 
 A second end-to-end verification of 1.0.1 (clean clone, plugin install and update, a newcomer following GETTING-STARTED.md on Windows and WSL, live headless sessions, an adversarial diff review) found these; each was reproduced independently before fixing.

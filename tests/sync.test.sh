@@ -248,6 +248,26 @@ g="$WORK/crlffix/.claude/harness/hooks/guard.sh"; awk '{ printf "%s\r\n", $0 }' 
 (cd "$WORK/crlffix" && git rm -r --cached -q .claude && git checkout HEAD -- .claude); check "command exits 0" test $? -eq 0
 check "guard.sh back to LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$g")"
 check "tree clean afterwards" test -z "$(git -C "$WORK/crlffix" status --porcelain)"
+check "ps1 checked out LF on autocrlf clone" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$WORK/eolclone/.claude/harness/bin/harness-sync.ps1")"
+
+echo "28. a .gitignore rule hiding harness files is refused before writing"
+R19="$(new_repo ignored)"; printf '/.claude/skills/\n' > "$R19/.gitignore"
+git -C "$R19" add .gitignore; git -C "$R19" commit -qm ignore
+before="$(tree_sum "$R19")"
+run "$R19" --profiles all --dry-run; check "dry-run exits 0" test $? -eq 0
+check "dry-run warns about ignored files" grep -q 'real run will refuse until the rule' "$WORK/out.log"
+run "$R19" --profiles all --commit; check "real run refuses (exit 1)" test $? -eq 1
+check "names the rule" grep -q '.gitignore:1:/.claude/skills/' "$WORK/out.log"
+check "nothing written" test "$before" = "$(tree_sum "$R19")"
+printf '/.claude/skills/*\n!/.claude/skills/coding-standards/\n!/.claude/skills/design-patterns/\n!/.claude/skills/harness/\n!/.claude/skills/seo/\n!/.claude/skills/ui-ux/\n' > "$R19/.gitignore"
+git -C "$R19" commit -qam narrow
+run "$R19" --profiles all --commit; check "suggested fix works (exit 0)" test $? -eq 0
+check "skills committed" test -n "$(git -C "$R19" ls-files .claude/skills/seo/SKILL.md)"
+check "tree clean" test -z "$(git -C "$R19" status --porcelain)"
+R20="$(new_repo ignoredlater)"; run "$R20" --profiles all
+printf '/.claude/skills/\n' > "$R20/.gitignore"
+bash "$R20/.claude/harness/bin/harness-doctor.sh" > "$WORK/doc.log" 2>&1; check "doctor flags ignored harness files (exit 2)" test $? -eq 2
+check "doctor names the path" grep -q '.claude/skills/' "$WORK/doc.log"
 
 echo
 echo "sync tests: $pass passed, $fail failed"

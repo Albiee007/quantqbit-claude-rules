@@ -1,6 +1,6 @@
 {
   "name": "quantqbit-claude-rules",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "QuantQbit agent harness: vendors git-tracked, conflict-safe agent rules, mandatory skills (coding-standards, design-patterns, ui-ux, seo), Opus-only agents and hooks into each project via a transactional sync with a versioned lock; plus lint tooling (/init-project-rules) and buildable per-platform starters (/init-project-scaffold).",
   "author": {
     "name": "QuantQbit"

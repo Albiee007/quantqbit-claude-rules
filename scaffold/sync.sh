@@ -445,6 +445,35 @@ EOF
   exit 1
 fi
 
+# Guard: a harness file hidden by the project's .gitignore never reaches
+# teammates (and breaks --commit), so refuse before writing anything.
+if [[ $in_git -eq 1 && $uninstall -eq 0 ]]; then
+  ignored="$( { awk -F'\t' '$1 !~ /^(REMOVE|GONE|LEAVE-MODIFIED|SEED-KEEP|ORPHAN-KEPT)$/ { print $2 }' "$OPS"
+                echo ".claude/harness/lock"; } \
+              | git -C "$T" check-ignore -v --stdin 2>/dev/null || true)"
+  if [[ -n "$ignored" ]]; then
+    if [[ $dry -eq 1 ]]; then
+      hc_warn "these harness files are ignored by git; the real run will refuse until the rule is changed:"
+    else
+      hc_fail "these harness files are ignored by git, so teammates would never get them — nothing was written:"
+    fi
+    printf '%s\n' "$ignored" | awk -F'\t' '{ printf "    %-50s (rule %s)\n", $2, $1 }' >&2
+    cat >&2 <<'EOF'
+  Fix: narrow that rule so the harness paths are not ignored. For example, replace
+         /.claude/skills/
+       with
+         /.claude/skills/*
+         !/.claude/skills/coding-standards/
+         !/.claude/skills/design-patterns/
+         !/.claude/skills/harness/
+         !/.claude/skills/seo/
+         !/.claude/skills/ui-ux/
+       then re-run.
+EOF
+    [[ $dry -eq 1 ]] || exit 1
+  fi
+fi
+
 if [[ $dry -eq 1 ]]; then
   if [[ $diffmode -eq 1 ]]; then
     while IFS=$'\t' read -r op p _; do
@@ -588,9 +617,12 @@ if [[ $commit -eq 1 ]]; then
       fi
     fi
     if [[ ${#paths[@]} -gt 0 ]]; then
-      git -C "$T" add -- "${paths[@]}"
       if [[ $uninstall -eq 1 ]]; then msg="chore(harness): uninstall agent harness"; else msg="chore(harness): sync agent harness to v$VERSION"; fi
-      git -C "$T" commit -q -m "$msg" -- "${paths[@]}"
+      if ! git -C "$T" add -- "${paths[@]}" || ! git -C "$T" commit -q -m "$msg" -- "${paths[@]}"; then
+        hc_fail "the sync was applied, but the git commit failed (see git's message above)."
+        hc_fail "fix the cause, then commit the .claude/ changes yourself with: $msg"
+        exit 1
+      fi
       hc_ok "committed on $(git -C "$T" rev-parse --abbrev-ref HEAD): $(git -C "$T" log -1 --format='%h %s')"
     fi
   fi
