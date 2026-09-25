@@ -13,5 +13,9 @@ The harness knowledge base is our own synthesis. It draws on, and credits, these
 | [OWASP Top 10:2025](https://owasp.org/Top10/), [ASVS 5.0](https://github.com/OWASP/ASVS) | CC BY-SA | Security checklists (paraphrased). |
 | Gamma et al., *Design Patterns* (1994); [Refactoring.Guru](https://refactoring.guru/design-patterns) | book / site | Pattern intents (paraphrased); the examples are our own. |
 | Google Search Central, web.dev | CC BY 4.0 (docs) | SEO and Core Web Vitals facts, re-verified September 2026. |
+| Apple App Store Connect help and App Review Guidelines; Google Play Console help and policy centre | public docs | Store asset sizes, text limits and review rules in `store-submission-precheck/references/store-specs.md` (last reviewed September 2026). |
+| [Ionicons](https://ionic.io/ionicons) | MIT | Not vendored. `render_frames.py` copies the font from the target project's `node_modules` at render time. |
+| [Material Symbols](https://fonts.google.com/icons), [Roboto](https://fonts.google.com/specimen/Roboto), [Inter](https://fonts.google.com/specimen/Inter) | Apache 2.0 / OFL | Loaded from Google Fonts by the mockup and brand templates at render time. |
+| QuantQbit `mobile-app-screen-capture` Codex skill | own work | The capture workflow, ADB reference and `capture_adb_screenshot.py`, ported into `mobile-screen-capture`. |
 
 Each reference file lists the exact URLs consulted under **Sources**.

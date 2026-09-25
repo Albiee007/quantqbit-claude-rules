@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # === harness prompt router (UserPromptSubmit) ===
 # Keyword-routes the user's prompt to the mandatory skill checklists
-# (ui, seo, patterns, security, infra). Each checklist is injected at most
+# (ui, seo, patterns, security, store, infra). Each checklist is injected at most
 # once per session. Pure bash; no subprocesses on the hot path.
 set -uo pipefail
 # shellcheck source=_lib.sh
@@ -33,6 +33,10 @@ if [[ "$prompt" =~ $B(design[[:space:]]patterns?|patterns?|refactor(ing)?|archit
 fi
 if [[ "$prompt" =~ $B(auth(entication|orization)?|login|sign[[:space:]-]?(up|in)|passwords?|tokens?|jwt|oauth|session[[:space:]-]?(cookies?|tokens?|fixation|hijack(ing)?|management|storage)|cookies?|csrf|xss|sql|injection|uploads?|permissions?|rbac|secrets?|encrypt(ion)?|crypto|api[[:space:]]keys?|webhooks?|cors|pii|gdpr)$E ]]; then
   hh_add_snippet security
+fi
+# Store / brand work (the snippet ships only to mobile projects, so this is a no-op elsewhere).
+if [[ "$prompt" =~ $B(app[[:space:]]store|play[[:space:]]store|google[[:space:]]play|store[[:space:]]listing|store[[:space:]]screenshots?|app[[:space:]]screenshots?|mockups?|aso|testflight|feature[[:space:]]graphic|app[[:space:]]icons?|adaptive[[:space:]]icons?|launcher[[:space:]]icons?|notification[[:space:]]icons?|splash([[:space:]]screen)?|logos?|adb|release[[:space:]]notes|data[[:space:]]safety|app[[:space:]]review)$E ]]; then
+  hh_add_snippet store
 fi
 if [[ "$prompt" =~ $B(docker|compose|dockerfile|ansible|playbook|terraform|deploy(ment)?|ci/cd|ci[[:space:]](pipeline|workflow|job)|pipeline|github[[:space:]]actions|bash|shell[[:space:]]script|powershell|ps1|nginx|traefik|kubernetes|k8s|helm|infra(structure)?)$E ]]; then
   hh_add_snippet infra

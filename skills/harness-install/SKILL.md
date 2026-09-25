@@ -26,7 +26,7 @@ This skill runs the harness sync engine that ships with this plugin, against the
 - `0`: done.
 - `1`: nothing was written. Explain the cause, then let the user choose:
   - **CONFLICT-MODIFIED:** a harness file was edited locally. Recommend moving the change into `.claude/rules/project/`, then re-running with `--theirs`. `--keep` keeps the local version (doctor keeps flagging it).
-  - **CONFLICT-UNMANAGED:** a project file uses a reserved harness name (agents explorer, implementor, infra-implementor, verifier, reviewer; skills coding-standards, design-patterns, ui-ux, seo, harness). Rename it (recommended), or use `--theirs`; the user's copy is saved under `.claude/harness/.backup/`. `--keep` does not apply.
+  - **CONFLICT-UNMANAGED:** a project file uses a reserved harness name (agents explorer, implementor, infra-implementor, verifier, reviewer, and in mobile projects screen-capturer, store-creative, listing-copywriter, store-precheck-auditor, icon-creator, brand-asset-creator; skills coding-standards, design-patterns, ui-ux, seo, harness, and mobile-screen-capture, store-mockups, store-listing, store-submission-precheck, app-icons, brand-assets). Rename it (recommended), or use `--theirs`; the user's copy is saved under `.claude/harness/.backup/`. `--keep` does not apply.
   - **Older source:** "v<X> is older than the installed v<Y>". The plugin copy is stale: run `claude plugin marketplace update quantqbit` and `claude plugin update quantqbit-claude-rules@quantqbit`, restart Claude Code, then sync again. `--allow-downgrade` only on purpose.
   - **Dirty tree:** commit or stash the changes under the harness paths, or pass `--allow-dirty`.
 - `2`: error. Everything was rolled back automatically. Show the error.

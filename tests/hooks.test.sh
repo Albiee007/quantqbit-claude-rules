@@ -75,6 +75,9 @@ expect "no security for plain 'session'" prompt-router.sh '{"session_id":"a8","p
 expect "no infra for 'workflow' in prose" prompt-router.sh '{"session_id":"a9","prompt":"explain the order workflow in checkout.ts"}' ''
 expect "security for session cookie"   prompt-router.sh '{"session_id":"a10","prompt":"set the session cookie flags"}' 'security'
 expect "infra for github actions"      prompt-router.sh '{"session_id":"a11","prompt":"add a github actions workflow"}' 'infra'
+expect "store prompt → store checklist" prompt-router.sh '{"session_id":"a12","prompt":"refresh the play store listing and screenshots"}' 'Load skill: store-submission-precheck'
+expect "app icon prompt → store checklist" prompt-router.sh '{"session_id":"a13","prompt":"fix the adaptive icon"}' 'store-creative'
+expect "no store for plain storage prompt" prompt-router.sh '{"session_id":"a14","prompt":"explain how the storage cache works"}' ''
 expect "plain prompt → nothing"        prompt-router.sh '{"session_id":"a6","prompt":"what does this function return?"}' ''
 expect "valid JSON escaping"           prompt-router.sh '{"session_id":"a7","prompt":"fix \"auth\" token\nflow"}' '"additionalContext":"Harness'
 
@@ -82,6 +85,8 @@ echo "file-context"
 expect "new .tsx → ui"       file-context.sh '{"session_id":"b1","tool_name":"Write","tool_input":{"file_path":"/p/src/components/Card.tsx"}}' 'ui-ux'
 expect "robots.txt → seo"    file-context.sh '{"session_id":"b2","tool_name":"Write","tool_input":{"file_path":"/p/public/robots.txt"}}' 'seo'
 expect "auth route → security" file-context.sh '{"session_id":"b3","tool_name":"Edit","tool_input":{"file_path":"/p/src/auth/login.ts"}}' 'security'
+expect "app.json → store checklist" file-context.sh '{"session_id":"b8","tool_name":"Edit","tool_input":{"file_path":"/p/mobile/app.json"}}' 'store-submission-precheck'
+expect "store-assets file → store checklist" file-context.sh '{"session_id":"b9","tool_name":"Write","tool_input":{"file_path":"C:\\p\\mobile\\store-assets\\LISTING.md"}}' 'store'
 expect "plain .go → nothing" file-context.sh '{"session_id":"b4","tool_name":"Edit","tool_input":{"file_path":"/p/internal/math/add.go"}}' ''
 expect "first UI write denied (enforce)"   file-context.sh '{"session_id":"b5","tool_name":"Write","tool_input":{"file_path":"C:\\p\\src\\ui\\Chip.tsx"}}' '"permissionDecision":"deny"'
 expect "retry allowed"                     file-context.sh '{"session_id":"b5","tool_name":"Write","tool_input":{"file_path":"C:\\p\\src\\ui\\Chip.tsx"}}' ''
@@ -103,6 +108,11 @@ run session-start.sh '{"session_id":"c2","source":"compact"}' >/dev/null
 expect "compact resets dedupe" prompt-router.sh '{"session_id":"c2","prompt":"style the navbar"}' 'ui-ux'
 printf 'harness_version\t9.9.9\r\nprofiles\tweb\r\nmanaged\tx\t1\th\tkept-local\r\n' > "$P/.claude/harness/lock"
 expect "CRLF lock: kept-local still seen" session-start.sh '{"session_id":"c3"}' 'kept-local'
+out="$(run session-start.sh '{"session_id":"c4"}')"
+grep -q 'store-creative' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] store roster shown without store agents"; } || { pass=$((pass+1)); echo "  [OK] no store roster when store agents absent"; }
+mkdir -p "$P/.claude/agents" && : > "$P/.claude/agents/store-creative.md"
+expect "store roster when installed" session-start.sh '{"session_id":"c5"}' 'store-precheck-auditor'
+rm -f "$P/.claude/agents/store-creative.md"
 
 echo "post-edit-lint"
 printf 'if [ x\n' > "$P/bad.sh"

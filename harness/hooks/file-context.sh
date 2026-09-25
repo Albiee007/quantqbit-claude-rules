@@ -6,7 +6,7 @@
 #   * ui / seo (topics with a mandatory skill): the first write is DENIED with
 #     the checklist and "load the skill, then retry" — the retry is allowed.
 #     Set checklists=inform in .claude/harness.config to only inform instead.
-#   * security / infra: the checklist is added as context (never blocks).
+#   * security / store / infra: the checklist is added as context (never blocks).
 # The gate has its own marker per agent context and topic, so a checklist the
 # prompt router already showed does not skip it. Checklist text itself is not repeated.
 set -uo pipefail
@@ -49,6 +49,10 @@ esac
 case "$p" in
   */auth/*|*auth*.*|*/api/*|*controller*|*/middleware*|*/migrations/*|*.sql|*/routes/*|*route*.*)
     hh_add_snippet security ;;
+esac
+case "$p" in
+  */app.json|*/app.config.*|*/eas.json|*/store-assets/*|*/fastlane/*|*.xcassets/*|*/res/mipmap-*|*LISTING.md|*listing-guardrails.txt)
+    hh_add_snippet store ;;
 esac
 case "$p" in
   *.sh|*.bash|*.ps1|*.psm1|*.tf|*docker-compose*|*/compose*.y*ml|*Dockerfile*|*/ansible/*|*/playbooks/*|*/roles/*|*/.github/workflows/*)

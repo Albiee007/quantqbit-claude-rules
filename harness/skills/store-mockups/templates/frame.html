@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Store frame</title>
+<!-- Store-mockup frame. Rendered by render_frames.py as frame.html?f=<index|fg>&s=<size-key>.
+     Config comes from frames.generated.js, which render_frames.py writes from frames.json. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  html, body { margin: 0; overflow: hidden; }
+  #canvas { position: relative; overflow: hidden; }
+  .glyph { position: absolute; font-family: Inter, sans-serif; font-weight: 800; color: rgba(255,255,255,.07); line-height: 1; user-select: none; }
+  #cap { position: absolute; left: 0; right: 0; text-align: center; color: #fff; font-family: Inter, sans-serif; }
+  #cap h1 { font-weight: 800; letter-spacing: -0.025em; line-height: 1.08; margin: 0 auto; }
+  #cap p { font-weight: 600; line-height: 1.3; margin: 0 auto; }
+  .device { position: absolute; background: #0e0f1c; box-shadow: 0 50px 90px rgba(8,6,40,.45), inset 0 0 0 3px #2b2d42; }
+  .device .glass { position: absolute; overflow: hidden; background: var(--bg); }
+  .chipf { position: absolute; background: #fff; border-radius: 999px; font-family: Inter, sans-serif; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 30px rgba(10,8,60,.35); }
+</style>
+</head>
+<body>
+<div id="canvas"></div>
+<script src="frames.generated.js"></script>
+<script src="icons.generated.js"></script>
+<script>
+/* Icon helper shared by screens.js. A name may be "ion-name|material_name": the half that
+   matches the configured family is used (frames.json "icons": "ionicons" | "material"). */
+function I(name, size, color, extra) {
+  const [ion, ms] = String(name).includes('|') ? String(name).split('|') : [name, name];
+  const style = `font-size:${size}px;${color ? `color:${color};` : ''}${extra || ''}`;
+  if (window.ION && window.ION[ion] !== undefined) return `<span class="ion" style="${style}">${String.fromCodePoint(window.ION[ion])}</span>`;
+  return `<span class="ms" style="${style}">${ms}</span>`;
+}
+</script>
+<script src="demo-data.js"></script>
+<script src="screens.js"></script>
+<script>
+const CFG = window.FRAMES;
+const B = Object.assign({ bg1: '#2a1bb0', bg2: '#3525cd', bg3: '#5b4ff0', accent: '#9ff3cf', sub: '#dcd9ff', glyphs: [] }, CFG.brand || {});
+const q = new URLSearchParams(location.search);
+const sizeKey = q.get('s');
+const [W, H, platform] = CFG.sizes[sizeKey];
+const canvas = document.getElementById('canvas');
+Object.assign(canvas.style, { width: W + 'px', height: H + 'px',
+  background: `radial-gradient(120% 60% at 85% 0%, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 60%), linear-gradient(165deg, ${B.bg1} 0%, ${B.bg2} 45%, ${B.bg3} 100%)` });
+const style = document.createElement('style');
+style.textContent = `#cap h1 em { font-style: normal; color: ${B.accent}; } #cap p { color: ${B.sub}; } .chipf { color: ${B.bg2}; }`;
+document.head.appendChild(style);
+
+const SW = 900, SH = platform === 'ios' ? 1950 : 2000;
+
+function screenHTML(name) {
+  if (!SCREENS[name]) throw new Error(`screens.js has no screen named "${name}"`);
+  return `<div class="screen ${platform}" style="height:${SH}px">${statusBar(platform)}${SCREENS[name](platform)}<div class="homebar"></div></div>`;
+}
+
+function device(name, s, x, y) {
+  const Bz = 26 * s, R = 118 * s;
+  const d = document.createElement('div');
+  d.className = 'device';
+  Object.assign(d.style, { left: x + 'px', top: y + 'px', width: SW * s + 2 * Bz + 'px', height: SH * s + 2 * Bz + 'px', borderRadius: R + 'px' });
+  d.innerHTML = `<div class="glass" style="left:${Bz}px;top:${Bz}px;width:${SW * s}px;height:${SH * s}px;border-radius:${R - Bz}px">
+    <div style="transform:scale(${s});transform-origin:0 0;width:${SW}px;height:${SH}px;position:relative">${screenHTML(name)}</div></div>`;
+  canvas.appendChild(d);
+}
+
+function glyphs(list) {
+  list.forEach((ch, i) => {
+    const spots = [[-0.06, 0.30, 0.42], [0.78, 0.46, 0.36], [0.70, 0.02, 0.22], [-0.04, 0.78, 0.30], [0.82, 0.84, 0.26]];
+    const [x, y, size] = spots[i % spots.length];
+    const g = document.createElement('div');
+    g.className = 'glyph'; g.textContent = ch;
+    Object.assign(g.style, { left: x * W + 'px', top: y * H + 'px', fontSize: size * W + 'px' });
+    canvas.appendChild(g);
+  });
+}
+
+function storeFrame(fr) {
+  glyphs(B.glyphs);
+  const wide = W / H > 0.6;
+  const hs = Math.min(W * (wide ? 0.066 : 0.074), H * 0.04);
+  const cap = document.createElement('div');
+  cap.id = 'cap';
+  cap.style.top = H * 0.045 + 'px';
+  cap.innerHTML = `<h1 style="font-size:${hs}px;max-width:${W * 0.86}px">${fr.head}</h1>
+    <p style="font-size:${hs * 0.44}px;max-width:${W * 0.8}px;margin-top:${hs * 0.36}px">${fr.sub || ''}</p>`;
+  canvas.appendChild(cap);
+  const top = cap.getBoundingClientRect().bottom + H * 0.03;
+  const availH = H - top - H * 0.025;
+  const devH = SH + 52, devW = SW + 52;
+  const s = Math.min(availH / devH, (W * (wide ? 0.66 : 0.8)) / devW);
+  device(fr.screen, s, (W - devW * s) / 2, top);
+}
+
+function featureGraphic(fg) {
+  glyphs(B.glyphs.slice(0, 2));
+  const cap = document.createElement('div');
+  cap.id = 'cap';
+  Object.assign(cap.style, { left: '64px', right: 'auto', width: '520px', textAlign: 'left', top: '0', bottom: '0', display: 'flex', flexDirection: 'column', justifyContent: 'center' });
+  cap.innerHTML = `<div style="display:flex;align-items:center;gap:16px;margin-bottom:22px">
+      ${fg.icon ? `<img src="${fg.icon}" style="width:64px;height:64px;border-radius:16px;box-shadow:0 6px 16px rgba(0,0,0,.25)">` : ''}
+      <span style="font-size:34px;font-weight:800;letter-spacing:-.01em">${fg.title || ''}</span></div>
+    <h1 style="font-size:50px;margin:0;text-align:left">${fg.tagline || ''}</h1>
+    <p style="font-size:21px;margin:18px 0 0;text-align:left;max-width:470px">${fg.sub || ''}</p>`;
+  canvas.appendChild(cap);
+  device(fg.screen, 0.36, 650, 46);
+  (fg.chips || []).slice(0, 4).forEach((c, i) => {
+    const [x, y, d] = [[604, 92, 62], [952, 150, 54], [606, 330, 54], [948, 380, 50]][i];
+    const el = document.createElement('div');
+    el.className = 'chipf'; el.textContent = c;
+    Object.assign(el.style, { left: x + 'px', top: y + 'px', width: d + 'px', height: d + 'px', fontSize: d * 0.5 + 'px' });
+    canvas.appendChild(el);
+  });
+}
+
+// Load every face first: the caption is measured to place the phone.
+Promise.all(['800 40px Inter', '400 20px Roboto', '500 20px Roboto', '700 20px Roboto', '400 20px Inter', '600 20px Inter',
+  '700 20px Inter', '24px "Material Symbols Rounded"', '20px Ionicons'].map((f) => document.fonts.load(f).catch(() => null))).then(() => {
+  if (q.get('f') === 'fg') featureGraphic(CFG.featureGraphic); else storeFrame(CFG.frames[Number(q.get('f'))]);
+  document.title = 'ready';
+});
+</script>
+</body>
+</html>

@@ -8,6 +8,38 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.1.0] - 2026-09-25
+
+Mobile app-store and brand personas, distilled from a real store refresh of an Expo app (device capture → mockups → listing copy → pre-submission checks). Each persona is an Opus agent with its own skill, so they can run on their own or in parallel.
+
+### Added
+- **Agents (mobile profile; `brand-asset-creator` also web):**
+  - `screen-capturer`: read-only real-device walkthroughs (ADB, or iOS through a connector or the Simulator) into a dated, indexed screenshot folder.
+  - `store-creative`: storyboard, captions, demo-data ledger, faithful HTML rebuilds of real screens, every Play and App Store size, the feature graphic, and a contact sheet.
+  - `listing-copywriter`: a code-verified claims truth table, then Play and iOS listing fields checked by script.
+  - `store-precheck-auditor`: a read-only release gate with a severity-ranked READY / NOT READY report.
+  - `icon-creator`: icon audit and generation across iOS, Android adaptive, monochrome, notification, Play and web, plus Expo wiring.
+  - `brand-asset-creator`: brief, three logo directions, SVG masters, tokens, splash and social exports.
+- **Skills:**
+  - `mobile-screen-capture`: workflow, an ADB and an iOS reference, `capture_adb_screenshot.py` (binary-safe PNGs), `ui_dump.py` (tappable elements and their centres), `dedupe_index.py` (exact-hash dedupe plus an INDEX.md skeleton).
+  - `store-mockups`: an HTML kit (`frame.html`, `app.css`, example screens, demo data, `frames.json`), `render_frames.py` (headless Chrome/Edge, RGB flatten, exact-size and < 8 MB checks, Ionicons copied from the project's `node_modules`), `contact_sheet.py`, storyboard and demo-data references, and a worked example.
+  - `store-listing`: a LISTING template with field markers, and `check_listing.py` (limits, iOS keyword hygiene, common banned claims, project `listing-guardrails.txt`). References for field limits, claims guardrails and ASO.
+  - `store-submission-precheck`: `store-specs.md` (the single source of truth for store sizes and limits), App Store and Play checklists, cross-document consistency checks, `check_store_assets.py` and `check_public_urls.sh`.
+  - `app-icons`: `make_icon_set.py` (`generate` from one master glyph; `check` for an Expo `app.json`), icon specs, in-app icon rules.
+  - `brand-assets`: `export_svg.py` (SVG/HTML to exact-size PNGs), a logo master template, an Open Graph template, logo principles, the asset matrix.
+- **Routing:** a `store` checklist snippet (mobile only), prompt-router keywords (store, ASO, screenshots, icons, logo, splash, ADB, Data safety), and file-context paths (`app.json`, `eas.json`, `store-assets/`, `fastlane/`, `*.xcassets`, `res/mipmap-*`). Session start shows the store roster where it's installed.
+- **Validator:** rejects binary files under `harness/` (sync would corrupt them), checks CRLF in `html/css/js/svg/template/txt` files, and compiles every harness `*.py`.
+- **Tests:** mobile and web profile installs, backend exclusion, the new prompt and file routes, the session roster, and the new validator failures.
+
+### Changed
+- The `.gitignore` fix that sync suggests now lists the harness skills the project's profile actually installs, instead of a fixed list.
+- Reserved names (sync's conflict message and reserved-agent check, harness README, harness skill, INSTALL) include the six new agents and skills.
+
+### Upgrade notes
+- **Mobile projects** receive six new agents under `.claude/agents/` and six skills under `.claude/skills/` on the next sync. If a `.gitignore` rule hides `.claude/skills/`, sync names the rule and prints the exceptions to add.
+- If a project already has its own agent or skill with one of the new names, sync reports CONFLICT-UNMANAGED. Rename yours, then re-run.
+- The new scripts need **Python 3.9+ with Pillow** (`pip install pillow`). Rendering also needs **Chrome, Chromium or Edge**.
+
 ## [1.0.3] - 2026-09-24
 
 Found by piloting 1.0.2 on a real project (`quantqbit-site`).

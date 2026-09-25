@@ -1,0 +1,11 @@
+<!-- Logo master template. Copy to brand/mark.svg and replace every {{…}} placeholder.
+     - The mark lives in a 1024 x 1024 viewBox with about 10% clear space on every side.
+     - Use flat shapes and the brand colour tokens only. No text inside the mark, no raster images,
+       no filters (export and launcher masks mangle them).
+     - Keep a mono variant (fill="#000000") and a reverse variant (fill="#FFFFFF") alongside this one. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>{{BRAND}} mark</title>
+  <!-- Replace this placeholder geometry with the real mark. -->
+  <circle cx="512" cy="512" r="400" fill="{{PRIMARY}}"/>
+  <path d="M352 560 L472 680 L704 376" fill="none" stroke="{{ON_PRIMARY}}" stroke-width="96" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

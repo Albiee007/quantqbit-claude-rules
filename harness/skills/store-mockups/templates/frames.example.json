@@ -1,0 +1,25 @@
+{
+  "out": "out",
+  "icons": "material",
+  "brand": {
+    "bg1": "#2a1bb0",
+    "bg2": "#3525cd",
+    "bg3": "#5b4ff0",
+    "accent": "#9ff3cf",
+    "sub": "#dcd9ff",
+    "glyphs": ["$", "€", "¥"]
+  },
+  "sizes": ["play-phone", "play-tab7", "play-tab10", "ios-69", "ios-65"],
+  "frames": [
+    { "id": "01-home", "screen": "home", "head": "All your spending, <em>at a glance</em>", "sub": "Personal and shared expenses in one place" },
+    { "id": "02-activity", "screen": "activity", "head": "Every item, <em>by day</em>", "sub": "Search and filter your history", "platforms": ["android", "ios"] }
+  ],
+  "featureGraphic": {
+    "screen": "home",
+    "title": "YourApp",
+    "tagline": "Your money, <em>clearly.</em>",
+    "sub": "Track spending and share costs, wherever you are.",
+    "icon": "",
+    "chips": ["$", "€", "¥", "£"]
+  }
+}

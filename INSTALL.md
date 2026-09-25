@@ -29,6 +29,7 @@ Harness content (under `harness/` in this repo) is **vendored into each project'
 | `.claude/rules/harness/*.md` | Path-scoped rules: coding, tests, security, ui-ux, seo, bash, powershell, ansible, compose, terraform |
 | `.claude/skills/{coding-standards,design-patterns,ui-ux,seo,harness}/` | Mandatory knowledge skills, with progressive-disclosure references |
 | `.claude/agents/{explorer,implementor,infra-implementor,verifier,reviewer}.md` | The coordinated agent roster. All run on Opus. |
+| `.claude/agents/{screen-capturer,store-creative,listing-copywriter,store-precheck-auditor,icon-creator,brand-asset-creator}.md` and their skills `.claude/skills/{mobile-screen-capture,store-mockups,store-listing,store-submission-precheck,app-icons,brand-assets}/` | Mobile store and brand personas (mobile profile; `brand-*` also web). Scripts need Python 3.9+ with Pillow, and Chrome/Edge for rendering |
 | `.claude/harness/hooks/*.sh` | `guard` (Opus + `.env` enforcement), `prompt-router` and `file-context` (mandatory checklists), `session-start`, `post-edit-lint` |
 | `.claude/settings.json` | **Generated**: harness base settings merged with `.claude/settings.project.json` |
 | `.claude/harness/lock` | Version and content hash of every harness file |
@@ -63,8 +64,8 @@ On first install, sync:
 | Profile | Adds |
 |---|---|
 | (always) | core, coding/tests/security rules, coding-standards, design-patterns, harness skills, all agents and hooks, bash/powershell rules |
-| `web` | ui-ux + seo skills and rules |
-| `mobile` | ui-ux skill and rule |
+| `web` | ui-ux + seo skills and rules, brand-assets skill and brand-asset-creator agent |
+| `mobile` | ui-ux skill and rule, the six store and brand agents and their skills |
 | `backend` | compose/Dockerfile rule |
 | `infra` | ansible, terraform, compose rules |
 
@@ -102,7 +103,7 @@ A source older than the installed harness is refused (exit 1). Pass `--allow-dow
 Resolving conflicts:
 - **`--keep`** (CONFLICT-MODIFIED only): keep your local version. It is marked `kept-local` in the lock, and the doctor keeps reporting it.
 - **`--theirs`:** take the harness version. Your previous copy is saved under `.claude/harness/.backup/<time>/` (gitignored).
-- **CONFLICT-UNMANAGED:** one of your files uses a reserved harness name. The agents are `explorer`, `implementor`, `infra-implementor`, `verifier` and `reviewer`. The skills are `coding-standards`, `design-patterns`, `ui-ux`, `seo` and `harness`. The other reserved path is `.claude/.gitattributes`. Rename yours, or use `--theirs`; `--keep` does not apply.
+- **CONFLICT-UNMANAGED:** one of your files uses a reserved harness name. The agents are `explorer`, `implementor`, `infra-implementor`, `verifier` and `reviewer`, plus `screen-capturer`, `store-creative`, `listing-copywriter`, `store-precheck-auditor`, `icon-creator` and `brand-asset-creator`. The skills are `coding-standards`, `design-patterns`, `ui-ux`, `seo` and `harness`, plus `mobile-screen-capture`, `store-mockups`, `store-listing`, `store-submission-precheck`, `app-icons` and `brand-assets`. The other reserved path is `.claude/.gitattributes`. Rename yours, or use `--theirs`; `--keep` does not apply.
 - **Recommended:** move the intent of your edit into `.claude/rules/project/`, then use `--theirs`.
 - **Git merge conflict inside `.claude/harness/lock` or `.claude/settings.json`:** take either side of those files, `git add` them and finish the merge commit, then run `harness-sync.sh --commit`.
 

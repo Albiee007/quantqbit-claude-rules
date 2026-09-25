@@ -417,7 +417,7 @@ fi
 if [[ $uninstall -eq 0 && -d "$CL/agents" ]]; then
   while IFS= read -r af; do
     an="$(awk '/^name:/ { sub(/^name:[[:space:]]*/, ""); print; exit }' "$af")"
-    case "$an" in explorer|implementor|infra-implementor|verifier|reviewer)
+    case "$an" in explorer|implementor|infra-implementor|verifier|reviewer|screen-capturer|store-creative|listing-copywriter|store-precheck-auditor|icon-creator|brand-asset-creator)
       [[ "${af##*/}" == "$an.md" ]] || hc_warn "${af#"$T"/} declares the reserved agent name '$an'; change its name: field too" ;;
     esac
   done < <(find "$CL/agents" -maxdepth 1 -name '*.md' -type f 2>/dev/null)
@@ -436,8 +436,12 @@ if [[ $conflicts -gt 0 ]]; then
 EOF
   [[ $(count CONFLICT-UNMANAGED) -gt 0 ]] && cat >&2 <<'EOF'
   CONFLICT-UNMANAGED : a file of yours sits at a path the harness owns. Reserved names:
-                       agents explorer, implementor, infra-implementor, verifier, reviewer;
-                       skills coding-standards, design-patterns, ui-ux, seo, harness.
+                       agents explorer, implementor, infra-implementor, verifier, reviewer,
+                       screen-capturer, store-creative, listing-copywriter,
+                       store-precheck-auditor, icon-creator, brand-asset-creator;
+                       skills coding-standards, design-patterns, ui-ux, seo, harness,
+                       mobile-screen-capture, store-mockups, store-listing,
+                       store-submission-precheck, app-icons, brand-assets.
                        Rename yours and change its name: field (recommended), commit the
                        rename, then re-run; or re-run with --theirs (yours is saved under
                        .claude/harness/.backup/). --keep does not apply.
@@ -458,18 +462,14 @@ if [[ $in_git -eq 1 && $uninstall -eq 0 ]]; then
       hc_fail "these harness files are ignored by git, so teammates would never get them — nothing was written:"
     fi
     printf '%s\n' "$ignored" | awk -F'\t' '{ printf "    %-50s (rule %s)\n", $2, $1 }' >&2
-    cat >&2 <<'EOF'
-  Fix: narrow that rule so the harness paths are not ignored. For example, replace
-         /.claude/skills/
-       with
-         /.claude/skills/*
-         !/.claude/skills/coding-standards/
-         !/.claude/skills/design-patterns/
-         !/.claude/skills/harness/
-         !/.claude/skills/seo/
-         !/.claude/skills/ui-ux/
-       then re-run.
-EOF
+    # The suggested exceptions name the harness skills this profile actually installs.
+    {
+      printf '  Fix: narrow that rule so the harness paths are not ignored. For example, replace\n'
+      printf '         /.claude/skills/\n       with\n         /.claude/skills/*\n'
+      awk -F'\t' '$2 ~ /^\.claude\/skills\/[^\/]+\// { split($2, a, "/"); print a[3] }' "$OPS" \
+        | LC_ALL=C sort -u | while IFS= read -r sk; do printf '         !/.claude/skills/%s/\n' "$sk"; done
+      printf '       then re-run.\n'
+    } >&2
     [[ $dry -eq 1 ]] || exit 1
   fi
 fi

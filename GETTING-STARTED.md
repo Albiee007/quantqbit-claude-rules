@@ -3,7 +3,7 @@
 The harness gives every project the same Claude Code setup:
 - **Core rules**, always loaded.
 - **Mandatory skills:** coding standards, design patterns, UI/UX and SEO.
-- **Five Opus agents.**
+- **Five core Opus agents**, plus six store and brand agents in mobile projects (screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets).
 - **Safety hooks** that block `.env` access and non-Opus agents.
 
 The harness is **copied into each project's `.claude/` folder and committed to git**, so teammates get it with a normal `git pull`.
@@ -113,7 +113,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\.local\share\quantqbi
 ```
 
 **What happens on first install:**
-- **Profiles are detected** from your files: `web` (React/Vue/Svelte/…), `mobile`, `backend`, `infra`. They are saved in `.claude/harness.config`. Web projects get the UI/UX and SEO skills; backend-only projects don't.
+- **Profiles are detected** from your files: `web` (React/Vue/Svelte/…), `mobile`, `backend`, `infra`. They are saved in `.claude/harness.config`. Web projects get the UI/UX and SEO skills; mobile projects get UI/UX plus the store and brand agents; backend-only projects get neither.
 - **Your files are kept.**
   - `CLAUDE.md`, `AGENTS.md` and `AI_RULES.md` are never touched.
   - A `CLAUDE.md` stub is created only if you have neither `CLAUDE.md` nor `AGENTS.md`. A new `CLAUDE.md` would stop Claude Code reading `AGENTS.md`.
