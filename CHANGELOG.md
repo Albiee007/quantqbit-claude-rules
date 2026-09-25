@@ -23,6 +23,10 @@ Mobile app-store and brand personas, distilled from a real store refresh of an E
 - **Skills:**
   - `mobile-screen-capture`: workflow, an ADB and an iOS reference, `capture_adb_screenshot.py` (binary-safe PNGs), `ui_dump.py` (tappable elements and their centres), `dedupe_index.py` (exact-hash dedupe plus an INDEX.md skeleton).
   - `store-mockups`: an HTML kit (`frame.html`, `app.css`, example screens, demo data, `frames.json`), `render_frames.py` (headless Chrome/Edge, RGB flatten, exact-size and < 8 MB checks, Ionicons copied from the project's `node_modules`), `contact_sheet.py`, storyboard and demo-data references, and a worked example.
+    - **Optional continuous (panorama) style,** chosen per project with `init --style continuous` or `"layout": "continuous"`. The gallery is built as one strip, so a ribbon, coins, receipts, calendar tiles and tilted phones flow across frame edges.
+    - It's fully configurable: per-frame backgrounds, caption position and tone, device position and tilt, and an object library in `objects.js` (ribbon, coin, chip, receipt, calendar, toast, card, phone, brand, image, text, html). Projects add their own types in `custom-objects.js`.
+    - Guardrails, checked by `render --check-only`: text never crosses a seam; each frame's main phone stays inside it; brand-only frames are Android-only and not first (App Store 2.3.3); every photo needs a `license`.
+    - `contact_sheet.py --strip --check-seams` previews the strip the way stores show it and measures continuity at each seam.
   - `store-listing`: a LISTING template with field markers, and `check_listing.py` (limits, iOS keyword hygiene, common banned claims, project `listing-guardrails.txt`). References for field limits, claims guardrails and ASO.
   - `store-submission-precheck`: `store-specs.md` (the single source of truth for store sizes and limits), App Store and Play checklists, cross-document consistency checks, `check_store_assets.py` and `check_public_urls.sh`.
   - `app-icons`: `make_icon_set.py` (`generate` from one master glyph; `check` for an Expo `app.json`), icon specs, in-app icon rules.

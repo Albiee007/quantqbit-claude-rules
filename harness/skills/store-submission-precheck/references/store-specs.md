@@ -36,6 +36,7 @@ The other store skills (`store-mockups`, `store-listing`, `app-icons`, `brand-as
 - **Apple 2.3.7, Google metadata policy:** no other apps' names, trademarks or prices; no fake ranking claims ("#1"); no misleading badges.
 - **Both stores:** no real customer data in screenshots. Use fictional, internally consistent demo data.
 - **Platform-gated features** (e.g. Android-only SMS import) must not appear in the other platform's images or copy.
+- **Galleries draw gaps between frames,** and search results show frames one at a time. In continuous (panorama) sets, only decoration may cross a frame edge. Text and a frame's main phone stay inside one frame.
 
 ## Official references
 - Play: [Store listing assets](https://support.google.com/googleplay/android-developer/answer/9866151), [Metadata policy](https://support.google.com/googleplay/android-developer/answer/9898842)

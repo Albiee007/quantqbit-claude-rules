@@ -25,3 +25,9 @@ Use the same order on both stores, dropping frames of platform-gated features on
 - **End the scroll on something meaningful.** A clipped half-row at the bottom reads as "there's more". A clipped headline or amount reads as a bug.
 - **One focal point per frame.** If a frame needs two captions, it's two frames.
 - **Tablets reuse the phone screens** on a wider canvas; the kit does this automatically. Make real tablet layouts only if the app has them.
+
+## Continuous strips (optional style)
+The same order applies, but the set is designed as one strip; see [continuous-panorama](continuous-panorama.md).
+- Keep **one hero motif** (a ribbon or one prop family), and at most 1–2 crossing objects per seam.
+- **Text never crosses a seam,** and each frame still works when cropped out of the strip.
+- Put any brand-only frame **last**, and on Android only.

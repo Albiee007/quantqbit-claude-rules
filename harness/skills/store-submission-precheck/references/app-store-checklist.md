@@ -28,6 +28,8 @@ Each item says **how to verify** it. Mark every item PASS, FAIL, NOT-VERIFIABLE 
 - [ ] **Screenshots:** 6.9″ (plus iPad 13″ if the app supports iPad), with sizes and no alpha per [store-specs](store-specs.md). Run `python .claude/skills/store-submission-precheck/scripts/check_store_assets.py <folder>`.
 - [ ] **Screenshots match the submitted build** (2.3.3); recapture if the UI changed. Mockups must be faithful rebuilds of real screens.
 - [ ] **No Android-only features, Google Play wording or Android frames** in iOS assets.
+- [ ] **Every screenshot shows the app in use.** A brand-only, logo-only or photo-only frame in the iOS set is a BLOCKER (2.3.3). Continuous (panorama) sets must still show app UI in every frame.
+- [ ] **Photos in screenshots are licensed,** with model releases for recognisable people; the `license` field in the mockup config is filled in.
 - [ ] **Name, subtitle and keywords** within their limits; no competitor trademarks in keywords (2.3.7).
 - [ ] **Age rating, DSA trader status, pricing and territories** complete.
 

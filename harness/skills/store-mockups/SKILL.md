@@ -1,6 +1,6 @@
 ---
 name: store-mockups
-description: Creative direction and production of app-store screenshots and the Play feature graphic — storyboard, captions, internally consistent demo data, faithful HTML rebuilds of the app's real screens, then headless-Chrome renders at every Play and App Store size with dimension/alpha checks and a contact sheet. Use when creating or refreshing store screenshots, mockups, feature graphics or promo frames, when real captures contain personal or test data, or when new features need to be shown on the store page.
+description: Creative direction and production of app-store screenshots and the Play feature graphic — classic self-contained frames or an optional continuous panorama style (ribbons, props and phones flowing across frame edges), storyboard, captions, internally consistent demo data, faithful HTML rebuilds of the app's real screens, then headless-Chrome renders at every Play and App Store size with dimension/alpha checks and a contact sheet. Use when creating or refreshing store screenshots, mockups, feature graphics or promo frames, when real captures contain personal or test data, or when new features need to be shown on the store page.
 ---
 
 # Store Mockups
@@ -19,15 +19,24 @@ Produce store frames that **sell the app and are faithful to it**. Each frame is
 - The positioning, and which features to lead with. Ask the owner if they aren't given.
 
 ## Workflow
+0. **Style.** Ask the user which style they want:
+   - **classic** (the default): each frame is self-contained;
+   - **continuous**: the set is one strip, and a ribbon, props and tilted phones flow across frame edges. See [continuous-panorama](references/continuous-panorama.md).
+
+   Continuous adds a motif choice and a seam plan, and uses `init --style continuous`. Every other step stays the same.
 1. **Storyboard.** Plan 8 frames following [storyboard-and-captions](references/storyboard-and-captions.md): the promise, the differentiator, its payoff, the core action, the resolution, the pillars, breadth. Each frame gets a headline (at most 6 words), a sub-caption (at most 12 words) and the screen it shows. Show it to the owner if the positioning is new.
 2. **Ledger.** Write the demo-data ledger first: every figure that appears twice, and how it's derived. Then write `demo-data.js` from it.
-3. **Kit.** Run `python .claude/skills/store-mockups/scripts/render_frames.py init <project>/store-assets/mockup-kit`. It copies `frame.html`, `app.css`, `screens.js`, `demo-data.js` and `frames.json` into that folder. Keep the kit in a gitignored folder if the project doesn't want generated assets in git.
+3. **Kit.** Run `python .claude/skills/store-mockups/scripts/render_frames.py init <project>/store-assets/mockup-kit [--style continuous]`.
+   - It copies the content files, which are yours to edit: `app.css`, `screens.js`, `demo-data.js`, `frames.json`, plus an optional `custom-objects.js`.
+   - The engine files (`frame.html`, `objects.js`) are refreshed from the harness on every render. Keep the kit in a gitignored folder if the project doesn't want generated assets in git.
 4. **Tokens.** Replace the `:root` variables in `app.css` with the app's light-theme tokens. The kit uses Roboto for Android and Inter for iOS, which are close to the system faces. Keep any signature UI the app has, e.g. a raised active tab (`tabBar(..., raised = true)`).
 5. **Rebuild the screens** in `screens.js`, one function per screen:
    - Open the real screen component and copy its labels word for word, in its section order.
    - Read sizes off the captures. The kit's logical width of 900 px equals a 1080 px capture scaled to 83%.
    - Use the app's icon family through `I('ion-name|material_name', size, color)`. Set `"icons": "ionicons"` in `frames.json` to use the project's own Ionicons font, which is copied from `node_modules` at render time.
-6. **Configure** `frames.json`: `brand` colours (the app's brand gradient and an accent for `<em>`), faint `glyphs`, `sizes`, `frames` (id, screen, head, sub, optional `platforms`) and `featureGraphic`.
+6. **Configure** `frames.json`: `brand` colours (the app's brand gradient and an accent for `<em>`), faint `glyphs`, `sizes`, `frames` (id, screen, head, sub, optional `platforms`, `caption`, `device`) and `featureGraphic`.
+   - Continuous also sets `background` and `objects`: ribbon, coin, chip, receipt, calendar, toast, card, phone, brand, image, text, html, or your own types in `custom-objects.js`.
+   - Check the config with `render_frames.py render <kit> --check-only`. It rejects text crossing a seam, a primary phone off its frame, brand-only frames on iOS, and photos without a `license`.
 7. **Render:**
    - Run `python .claude/skills/store-mockups/scripts/render_frames.py render <kit> --project <app dir>`.
    - Use `--frames 03-x --sizes play-phone` for quick checks while iterating.
@@ -39,7 +48,9 @@ Produce store frames that **sell the app and are faithful to it**. Each frame is
    - The iOS frames have no Android-only UI.
    - Captions are readable at thumbnail size.
    - Fix, re-render, and look again.
-9. **Contact sheet.** Run `python .claude/skills/store-mockups/scripts/contact_sheet.py <out>/play/phone --feature <out>/play/feature_graphic_1024x500.png -o <out>/contact-sheet.png`. Send it to the owner for sign-off.
+9. **Contact sheet.** Run `python .claude/skills/store-mockups/scripts/contact_sheet.py <out>/play/phone --feature <out>/play/feature_graphic_1024x500.png -o <out>/contact-sheet.png`.
+   - For continuous sets, add `--strip --check-seams` to preview the gallery the way stores show it, and to confirm objects line up at each seam.
+   - Send it to the owner for sign-off.
 
 ## Rules
 - **Iterate one frame at a time;** render every size only at the end.
@@ -56,5 +67,6 @@ Produce store frames that **sell the app and are faithful to it**. Each frame is
 - [storyboard-and-captions](references/storyboard-and-captions.md): frame order, caption rules, composition lessons.
 - [demo-data-rules](references/demo-data-rules.md): personas, ledger, formats, what never to show.
 - [worked-example-splitexpenz](references/worked-example-splitexpenz.md): a full real run, including the QA catches.
-- Templates: [frame.html](templates/frame.html), [app.css](templates/app.css), [screens.example.js](templates/screens.example.js), [demo-data.example.js](templates/demo-data.example.js), [frames.example.json](templates/frames.example.json).
+- [continuous-panorama](references/continuous-panorama.md): the continuous style: rules, strip design, the full config and object reference, custom objects.
+- Templates: [frame.html](templates/frame.html), [app.css](templates/app.css), [screens.example.js](templates/screens.example.js), [demo-data.example.js](templates/demo-data.example.js), [frames.example.json](templates/frames.example.json), [frames.continuous.example.json](templates/frames.continuous.example.json), [objects.js](templates/objects.js).
 - Scripts: [render_frames.py](scripts/render_frames.py), [contact_sheet.py](scripts/contact_sheet.py).

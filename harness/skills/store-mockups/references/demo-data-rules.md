@@ -7,6 +7,7 @@ Store screenshots are read closely: people zoom in, and reviewers compare frames
 - **Test artefacts:** "(replica)", "Test new", "U4", placeholder avatars like "U(", absurd totals (₹2.80 Cr, "13611% of income spent").
 - **Stock photos of faces** as avatars. Use initial circles (what most apps show when there's no photo) or neutral illustrations.
 - **Other brands' logos or trademarks** inside the UI (payment apps, banks). Use plain-text names where the app itself does.
+- **Unlicensed photos.** Lifestyle photos (continuous style `image` objects) must be the owner's own or licensed, with model releases for recognisable people. Record this in the object's `license` field; the renderer refuses an image without one. Never use real users' photos without written consent.
 
 ## Always
 - **One persona per set:** first name, last initial or surname, one home currency and one locale. Give the friends and household names from several cultures when the positioning is global.

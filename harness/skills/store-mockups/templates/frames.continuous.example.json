@@ -1,0 +1,55 @@
+{
+  "layout": "continuous",
+  "out": "out",
+  "icons": "material",
+  "gutter": 0,
+  "brand": {
+    "bg1": "#2a1bb0",
+    "bg2": "#3525cd",
+    "bg3": "#5b4ff0",
+    "accent": "#9ff3cf",
+    "sub": "#dcd9ff",
+    "ink": "#131b2e",
+    "ribbon1": "#7c6cf6",
+    "ribbon2": "#3525cd",
+    "headFont": "Inter",
+    "glyphs": ["$", "€"]
+  },
+  "background": {
+    "mode": "per-frame",
+    "glyphs": false,
+    "frames": [
+      { "type": "gradient" },
+      { "type": "solid", "color": "#f6f5ff" },
+      { "type": "gradient" },
+      { "type": "solid", "color": "#f6f5ff" },
+      { "type": "solid", "color": "#ffffff" }
+    ]
+  },
+  "sizes": ["play-phone", "ios-69"],
+  "frames": [
+    { "id": "01-home", "screen": "home", "head": "All your spending, <em>at a glance</em>", "sub": "Personal and shared expenses in one place" },
+    { "id": "02-activity", "screen": "activity", "head": "Every item, <em>by day</em>", "sub": "Search and filter your history",
+      "caption": { "tone": "dark" } },
+    { "id": "03-home-tilt", "screen": "home", "head": "Split it <em>your way</em>", "sub": "Equal, exact or by percentage",
+      "device": { "x": 0.58, "rotate": 8, "scale": 0.92 } },
+    { "id": "04-activity-bottom", "screen": "activity", "head": "Know <em>who owes what</em>", "sub": "Settle up in one tap",
+      "caption": { "pos": "bottom", "tone": "dark" } },
+    { "id": "05-brand", "screen": null, "platforms": ["android"] }
+  ],
+  "objects": [
+    { "type": "ribbon", "points": [[-0.2, 0.86], [0.55, 0.93], [1.1, 0.55], [1.6, 0.2], [2.3, 0.35], [3.0, 0.7], [3.6, 0.55], [4.3, 0.14], [5.2, 0.3]], "w": 0.2 },
+    { "type": "coin", "x": 1.0, "y": 0.31, "w": 0.2, "glyph": "€", "rotate": -18, "tilt": 35 },
+    { "type": "coin", "x": 2.0, "y": 0.82, "w": 0.24, "glyph": "$", "rotate": 12, "metal": "gold" },
+    { "type": "phone", "screen": "activity", "x": 1.97, "y": 0.62, "w": 0.46, "rotate": -14, "z": "back" },
+    { "type": "receipt", "x": 3.0, "y": 0.34, "w": 0.34, "rotate": 14, "title": "CITY MARKET", "sub": "18 Sept 2026 · 12:50",
+      "lines": [["Groceries", "$42.10"], ["Coffee", "$7.50"], ["Tax", "$3.02"]], "total": ["TOTAL", "$52.62"], "footer": "Thank you!" },
+    { "type": "toast", "x": 0.5, "y": 0.74, "w": 0.66, "title": "Leo paid you back", "body": "$42.10 for Lunch with Leo", "icon": "checkmark|check" },
+    { "type": "card", "x": 3.5, "y": 0.2, "w": 0.52, "label": "You're owed", "value": "$212.46", "tone": "positive", "avatars": ["LE", "AI"] },
+    { "type": "calendar", "x": 3.94, "y": 0.8, "w": 0.2, "day": "18", "weekday": "Friday", "month": "SEPT", "rotate": -10 },
+    { "type": "brand", "x": 4.5, "y": 0.46, "w": 0.8, "text": "YourApp", "size": 2.2, "gradient": ["#7c6cf6", "#3525cd"] },
+    { "type": "text", "x": 4.5, "y": 0.56, "w": 0.7, "text": "Track · Split · Settle", "size": 0.9, "weight": 700, "color": "#464555" },
+    { "type": "chip", "x": 4.25, "y": 0.72, "w": 0.16, "glyph": "¥" },
+    { "type": "chip", "x": 4.78, "y": 0.28, "w": 0.13, "glyph": "£" }
+  ]
+}
