@@ -45,6 +45,8 @@ R2="$(new_repo agents)"; echo "# agents" > "$R2/AGENTS.md"; git -C "$R2" add AGE
 run "$R2" --profiles backend; check "install ok" test $? -eq 0
 check "CLAUDE.md NOT created" test ! -e "$R2/CLAUDE.md"
 check "backend profile skips ui-ux skill" test ! -e "$R2/.claude/skills/ui-ux"
+check "backend profile skips store agents" test ! -e "$R2/.claude/agents/store-creative.md"
+check "backend profile skips store skills" test ! -e "$R2/.claude/skills/store-mockups"
 
 echo "3. locally modified harness file aborts, nothing written"
 echo "local tweak" >> "$R/.claude/rules/harness/coding.md"; git -C "$R" commit -qam tweak
@@ -259,7 +261,8 @@ check "dry-run warns about ignored files" grep -q 'real run will refuse until th
 run "$R19" --profiles all --commit; check "real run refuses (exit 1)" test $? -eq 1
 check "names the rule" grep -q '.gitignore:1:/.claude/skills/' "$WORK/out.log"
 check "nothing written" test "$before" = "$(tree_sum "$R19")"
-printf '/.claude/skills/*\n!/.claude/skills/coding-standards/\n!/.claude/skills/design-patterns/\n!/.claude/skills/harness/\n!/.claude/skills/seo/\n!/.claude/skills/ui-ux/\n' > "$R19/.gitignore"
+{ printf '/.claude/skills/*\n'; sed -n 's#^ *\(!/.claude/skills/[a-z-]*/\)$#\1#p' "$WORK/out.log"; } > "$R19/.gitignore"
+check "suggestion lists store skills too" grep -q '!/.claude/skills/store-mockups/' "$R19/.gitignore"
 git -C "$R19" commit -qam narrow
 run "$R19" --profiles all --commit; check "suggested fix works (exit 0)" test $? -eq 0
 check "skills committed" test -n "$(git -C "$R19" ls-files .claude/skills/seo/SKILL.md)"
@@ -268,6 +271,23 @@ R20="$(new_repo ignoredlater)"; run "$R20" --profiles all
 printf '/.claude/skills/\n' > "$R20/.gitignore"
 bash "$R20/.claude/harness/bin/harness-doctor.sh" > "$WORK/doc.log" 2>&1; check "doctor flags ignored harness files (exit 2)" test $? -eq 2
 check "doctor names the path" grep -q '.claude/skills/' "$WORK/doc.log"
+
+echo "29. mobile profile installs the store and brand agents and skills"
+R21="$(new_repo mobile)"
+run "$R21" --profiles mobile; check "mobile install exits 0" test $? -eq 0
+for a in screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator; do
+  check "agent $a installed" test -f "$R21/.claude/agents/$a.md"
+done
+for s in mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets; do
+  check "skill $s installed" test -f "$R21/.claude/skills/$s/SKILL.md"
+done
+check "store snippet installed" test -f "$R21/.claude/harness/snippets/store.md"
+check "kit template copied verbatim" grep -q 'window.FRAMES' "$R21/.claude/skills/store-mockups/templates/frame.html"
+check "seo skill not in mobile" test ! -e "$R21/.claude/skills/seo"
+R22="$(new_repo webonly)"
+run "$R22" --profiles web; check "web install exits 0" test $? -eq 0
+check "web gets brand-assets" test -f "$R22/.claude/skills/brand-assets/SKILL.md"
+check "web skips store-mockups" test ! -e "$R22/.claude/skills/store-mockups"
 
 echo
 echo "sync tests: $pass passed, $fail failed"

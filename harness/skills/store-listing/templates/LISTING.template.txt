@@ -1,0 +1,97 @@
+# <App> store listing — <YYYY-MM-DD>
+
+Positioning: <one line: who it is for and the one job it does best>.
+
+Every field is a `text` block you can paste as-is. Check it with:
+`python .claude/skills/store-listing/scripts/check_listing.py LISTING.md`
+Project-specific banned claims go in `listing-guardrails.txt` next to this file.
+
+---
+
+## Google Play
+
+<!-- field: play.title | max 30 -->
+```text
+<Brand>: <short descriptor>
+```
+
+<!-- field: play.short | max 80 -->
+```text
+<benefit-first sentence with 1-2 search terms>
+```
+
+<!-- field: play.full | max 4000 -->
+```text
+<Hook paragraph: what the app is, for whom, the outcome.>
+
+<EMOJI> <FEATURE PILLAR 1 IN CAPS>
+<2-3 sentences, concrete, using the app's own labels.>
+
+<EMOJI> <FEATURE PILLAR 2>
+• <bullet>
+• <bullet>
+
+<Android-only extras, marked (Premium) where gated.>
+
+<PRIVACY line: sign-in methods that exist, data not sold, in-app deletion.>
+
+FREE & PREMIUM
+<What is free; what Premium adds. No fixed prices.>
+
+<Closing line that restates who it is for.>
+```
+
+<!-- field: play.whatsnew | max 500 -->
+```text
+<Headline of the release>
+• <change>
+• <change>
+```
+
+---
+
+## Apple App Store
+
+<!-- field: ios.name | max 30 -->
+```text
+<Brand>: <descriptor>
+```
+
+<!-- field: ios.subtitle | max 30 -->
+```text
+<benefit, different words from the name>
+```
+
+<!-- field: ios.promo | max 170 -->
+```text
+<timely message; can change without a new version>
+```
+
+<!-- field: ios.keywords | max 100 bytes -->
+```text
+<keyword>,<keyword>,<keyword>
+```
+
+<!-- field: ios.description | max 4000 -->
+```text
+<Same structure as play.full, WITHOUT Android-only features, and without Premium lines unless IAP ships on iOS.>
+```
+
+<!-- field: ios.whatsnew | max 4000 -->
+```text
+<Headline of the release>
+• <change>
+```
+
+---
+
+## Screenshot captions (same order on both stores)
+
+| # | File | Headline | Sub-caption | What the screen shows |
+|---|---|---|---|---|
+| 1 | 01-<name> | <≤6 words> | <≤12 words> | <screen + state> |
+
+---
+
+## Check before you publish
+1. <anything the copy promises that can't be verified from the repo: server flags, console forms, IAP availability>

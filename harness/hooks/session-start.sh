@@ -41,6 +41,9 @@ msg="QuantQbit agent harness v$ver (profiles: $profiles).
 Agents (all Opus): explorer → implementor / infra-implementor → verifier → reviewer (lens: code|patterns|ux|seo|security).
 Mandatory skills: ui-ux (UI work), seo (public web pages), design-patterns (before any abstraction), coding-standards (always).
 Project overrides: .claude/rules/project/ and CLAUDE.md. Do not edit harness:managed files."
+# The store and brand roster ships to mobile projects only; mention it only where installed.
+[[ -f "$HH_ROOT/.claude/agents/store-creative.md" ]] && msg+="
+Store agents: screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator → store-precheck-auditor (skills: mobile-screen-capture, store-mockups, store-listing, app-icons, brand-assets, store-submission-precheck)."
 [[ -f "$lock" ]] || msg+="
 WARNING: .claude/harness/lock is missing, so harness files are untracked. Run harness sync."
 [[ $conflict -eq 1 ]] && msg+="

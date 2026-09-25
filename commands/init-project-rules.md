@@ -8,7 +8,7 @@ argument-hint: "[--non-interactive] [--project-name=NAME] [--code-subdir=DIR] [-
 Set up the current project in two steps:
 
 1. **Lint tooling**, tailored to the detected stacks: `.editorconfig`, `.shellcheckrc`, `.yamllint`, `.ansible-lint`, `scripts/lint.sh` and `Makefile`, placed under the code subdirectory. Existing files are kept unless `--force` is passed, in which case they are backed up first.
-2. **The agent harness**, installed transactionally. It adds the core rules, the mandatory skills (coding-standards, design-patterns, ui-ux, seo), the Opus agents, the hooks and a generated `settings.json`.
+2. **The agent harness**, installed transactionally. It adds the core rules, the mandatory skills (coding-standards, design-patterns, ui-ux, seo), the Opus agents (plus six store and brand agents with their skills in mobile projects), the hooks and a generated `settings.json`.
 
 ## Run
 

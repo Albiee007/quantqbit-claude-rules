@@ -11,9 +11,10 @@
 #              rules: only 00-core.md may omit paths:
 #   budgets    core <= 150 lines, SKILL.md <= 250, rules <= 100, snippets <= 15
 #   hygiene    LF only, no absolute user paths, no .venv/__pycache__,
+#              no binaries (png/ttf/…; sync would corrupt them),
 #              no harness:managed marker in source (sync injects it),
 #              every relative markdown link resolves
-#   syntax     bash -n (+ shellcheck if installed), JSON parses
+#   syntax     bash -n (+ shellcheck if installed), JSON parses, Python compiles
 #   release    VERSION == plugin.json == marketplace.json == CHANGELOG head;
 #              manifest.tsv up to date
 # Usage: bash scaffold/lib/validate-harness.sh [--no-release]
@@ -86,13 +87,19 @@ done
 # BINMODE makes gawk read raw bytes; other awks ignore it.
 while IFS= read -r f; do e "CRLF line endings: ${f#"$ROOT"/}"; done \
   < <(find "$H" "$ROOT/skills" "$ROOT/scaffold/sync.sh" "$ROOT/scaffold/lib" -type f \
-        \( -name '*.md' -o -name '*.sh' -o -name '*.json' -o -name '*.tsv' -o -name '*.py' \) 2>/dev/null \
+        \( -name '*.md' -o -name '*.sh' -o -name '*.json' -o -name '*.tsv' -o -name '*.py' \
+           -o -name '*.html' -o -name '*.css' -o -name '*.js' -o -name '*.svg' -o -name '*.template' -o -name '*.txt' \) 2>/dev/null \
       | while IFS= read -r f; do awk -v BINMODE=3 '/\r/ { print FILENAME; exit }' "$f"; done)
 while IFS= read -r hit; do e "absolute user path: $hit"; done \
   < <(grep -rnIE '[A-Za-z]:\\\\?Users\\\\?[A-Za-z]|/Users/[a-z][a-z0-9_-]+/|/home/[a-z][a-z0-9_-]+/' "$H" "$ROOT/skills" 2>/dev/null \
         | grep -vE '/home/user/|/Users/you/|/home/<' || true)
 while IFS= read -r f; do e "junk in harness: ${f#"$ROOT"/}"; done \
   < <(find "$H" \( -name .venv -o -name __pycache__ -o -name node_modules -o -name '*.pyc' \) 2>/dev/null)
+# Sync copies every file as text (CRs stripped), which corrupts binaries. Fonts and images
+# are copied from the target project at run time instead (see skills/store-mockups).
+while IFS= read -r f; do e "binary file in harness (sync would corrupt it): ${f#"$ROOT"/}"; done \
+  < <(find "$H" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.webp' \
+        -o -iname '*.ico' -o -iname '*.ttf' -o -iname '*.otf' -o -iname '*.woff' -o -iname '*.woff2' -o -iname '*.zip' -o -iname '*.pdf' \) 2>/dev/null)
 while IFS= read -r f; do e "source file must not carry a harness:managed marker (sync injects it): ${f#"$ROOT"/}"; done \
   < <(grep -rl 'harness:managed v[0-9]' "$H" --include='*.md' --include='*.sh' --include='*.ps1' 2>/dev/null \
         | grep -v '/bin/harness-lib.sh$' || true)
@@ -123,8 +130,13 @@ if hc_python >/dev/null; then
   while IFS= read -r f; do
     hc_py -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$f" 2>/dev/null || e "invalid JSON: ${f#"$ROOT"/}"
   done < <(find "$H" "$ROOT/.claude-plugin" -name '*.json' 2>/dev/null)
+  # Skill scripts: syntax only (compile in memory; no __pycache__ is written).
+  while IFS= read -r f; do
+    hc_py -c 'import sys; compile(open(sys.argv[1], encoding="utf-8").read(), sys.argv[1], "exec")' "$f" 2>/dev/null \
+      || e "python syntax error: ${f#"$ROOT"/}"
+  done < <(find "$H" -name '*.py' 2>/dev/null)
 else
-  hc_warn "python not found — JSON parse checks skipped"
+  hc_warn "python not found — JSON parse and Python syntax checks skipped"
 fi
 
 # ------------------------------------------------------------------ release consistency

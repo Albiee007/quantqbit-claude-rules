@@ -30,7 +30,7 @@ On Windows PowerShell, use the matching `.ps1` scripts. They need Git Bash.
 - **Doctor says modified:**
   1. Move the intent of the local edit into `.claude/rules/project/`.
   2. Run `harness-sync.sh --theirs`. The old copy is saved under `.claude/harness/.backup/`.
-- **CONFLICT-UNMANAGED:** a project file uses a reserved harness name (agents `explorer`, `implementor`, `infra-implementor`, `verifier`, `reviewer`; skills `coding-standards`, `design-patterns`, `ui-ux`, `seo`, `harness`). Rename it. `--keep` does not apply here.
+- **CONFLICT-UNMANAGED:** a project file uses a reserved harness name (agents `explorer`, `implementor`, `infra-implementor`, `verifier`, `reviewer`, plus the mobile store agents `screen-capturer`, `store-creative`, `listing-copywriter`, `store-precheck-auditor`, `icon-creator`, `brand-asset-creator`; skills `coding-standards`, `design-patterns`, `ui-ux`, `seo`, `harness`, plus `mobile-screen-capture`, `store-mockups`, `store-listing`, `store-submission-precheck`, `app-icons`, `brand-assets`). Rename it. `--keep` does not apply here.
 - **A write was denied with "falls under a mandatory skill":** read the named `.claude/skills/<skill>/SKILL.md`, apply its checklist, and retry the same write. It is allowed the second time. Set `checklists=inform` in `.claude/harness.config` to disable the gate.
 - **"older than the installed" refusal:** the source is stale. Update the plugin (`claude plugin marketplace update quantqbit`, then `claude plugin update quantqbit-claude-rules@quantqbit`) or `git pull` your clone, then sync again.
 - **Lock merge conflict:** keep either side (`git checkout --ours .claude/harness/lock`), then run sync. Sync re-derives the lock.
