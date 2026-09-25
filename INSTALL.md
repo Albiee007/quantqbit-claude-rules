@@ -255,6 +255,16 @@ The dispatcher auto-detects an existing project shape when no `--platform=` is s
 --help, -h                                     Print usage and exit.
 ```
 
+Backend, frontend and mobile source directories may use simple relative names
+such as `src`, `source` or `packages/app`. Absolute paths, traversal components
+and scaffold-owned top-level directories are rejected. Project names must start
+with a letter or number and contain only letters, numbers, spaces, dots,
+underscores or hyphens, so they can be safely embedded in the generated files.
+
+The JavaScript starters use TypeScript checking plus file-size reporting for
+`npm run lint`. Type errors fail the command. Add a dedicated style linter when
+the generated project needs one.
+
 ## Environment variables (`--non-interactive`)
 
 | Variable | Purpose |

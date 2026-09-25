@@ -55,10 +55,13 @@ hc_python() {
 
 # hc_py <args…> — run the python found by hc_python.
 hc_py() {
-  local py
-  py="$(hc_python)" || return 127
+  # Cache the interpreter for this shell; probing Windows Store aliases for
+  # every JSON/Python file makes validation needlessly expensive.
+  if [[ -z "${HC_PYTHON_COMMAND:-}" ]]; then
+    HC_PYTHON_COMMAND="$(hc_python)" || return 127
+  fi
   # shellcheck disable=SC2086  # intentional word split for "py -3"
-  $py "$@"
+  $HC_PYTHON_COMMAND "$@"
 }
 
 # hc_find_sources — print "<version>\t<path>" for every local harness source
@@ -135,7 +138,7 @@ hc_hash_list() {
   done > "$tmp/.keys"
   # sums line: "<hash>  <N>" (sha256sum may prefix '*' in binary mode)
   awk -F'\t' -v empty="$HARNESS_EMPTY_SHA" '
-    FNR == NR { split($0, a, /[ \t]+/); f = a[2]; sub(/^\*/, "", f); h[f] = a[1]; next }
+    FILENAME == ARGV[1] { split($0, a, /[ \t]+/); f = a[2]; sub(/^\*/, "", f); h[f] = a[1]; next }
     $1 == "-" { print "-\t" $2; next }
     $1 == "E" { print empty "\t" $2; next }
     { print h[$1] "\t" $2 }

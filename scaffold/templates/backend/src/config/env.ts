@@ -6,11 +6,11 @@ import { z } from 'zod';
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(3000),
+  PORT: z.coerce.number().int().positive().max(65535).default(3000),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   MONGO_URI: z.string().optional().default(''),
   POSTGRES_HOST: z.string().optional().default(''),
-  POSTGRES_PORT: z.coerce.number().int().positive().default(5432),
+  POSTGRES_PORT: z.coerce.number().int().positive().max(65535).default(5432),
   POSTGRES_DB: z.string().optional().default(''),
   POSTGRES_USER: z.string().optional().default(''),
   POSTGRES_PASSWORD: z.string().optional().default(''),

@@ -92,6 +92,24 @@ MANIFEST="$H/manifest.tsv"
 [[ -f "$MANIFEST" ]] || hc_die "harness/manifest.tsv missing — run scaffold/lib/release.sh in the harness repo"
 
 # ---------------------------------------------------------------- preflight (no writes)
+source "$SYNC_SRC_ROOT/scaffold/lib/safe-path.sh"
+for p in .claude/harness/.tmp .claude/harness/.backup .claude/harness/lock .claude/harness.config .claude/settings.project.json .claude/settings.json .claude/rules/project/README.md CLAUDE.md; do
+  safe_relative_path "$T" "$p" || hc_die "unsafe or symlinked target path: $p"
+done
+while IFS=$'\t' read -r src dest _; do
+  [[ -z "$src" || "$src" == \#* ]] && continue
+  safe_relative_path "$H" "$src" || hc_die "unsafe manifest source: $src"
+  [[ "$dest" == .claude/* ]] && safe_relative_path "$T" "$dest" \
+    || hc_die "unsafe manifest destination: $dest"
+done < <(tr -d '\r' < "$MANIFEST")
+if [[ -f "$LOCK" ]]; then
+  while IFS=$'\t' read -r kind p _; do
+    case "$kind" in managed|generated|seed)
+      [[ "$p" == .claude/* || "$p" == CLAUDE.md ]] && safe_relative_path "$T" "$p" \
+        || hc_die "unsafe lock path: $p" ;;
+    esac
+  done < <(tr -d '\r' < "$LOCK")
+fi
 old_ver=""
 [[ -f "$LOCK" ]] && old_ver="$(tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "harness_version" { print $2; exit }')"
 first_install=0
@@ -562,11 +580,9 @@ else
     printf '%s\n' ".claude/harness/lock" >> "$changed"
   fi
 fi
-applying=0
-
 # Keep overwritten files (--theirs) beyond the transaction: .claude/harness/.backup/
 if [[ $(count OVERWRITE) -gt 0 ]]; then
-  keep_dir="$HD/.backup/$(date -u +%Y%m%dT%H%M%SZ)"
+  keep_dir="$HD/.backup/$(date -u +%Y%m%dT%H%M%SZ).$$"
   while IFS=$'\t' read -r op p _; do
     [[ "$op" == OVERWRITE && -f "$BACKUP/$p" ]] || continue
     mkdir -p "$(dirname "$keep_dir/$p")"
@@ -574,6 +590,8 @@ if [[ $(count OVERWRITE) -gt 0 ]]; then
   done < "$OPS"
   hc_info "previous versions of overwritten files saved in ${keep_dir#"$T"/} (gitignored)"
 fi
+# A failed persistent-backup copy must still roll back the applied changes.
+applying=0
 
 # Tidy directories emptied by removals (never above .claude/).
 while IFS=$'\t' read -r op p _; do

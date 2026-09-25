@@ -1,0 +1,20 @@
+/**
+ * jest.config.cjs — kept as CommonJS so Jest can read it without ts-node.
+ * The ts-jest preset handles transpilation of *.spec.ts at run time.
+ */
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/${SRC_DIR}'],
+  testMatch: ['**/*.spec.ts', '**/*.test.ts'],
+  moduleNameMapper: {
+    '^@/config/(.*)$': '<rootDir>/${SRC_DIR}/config/$1',
+    '^@/lib/(.*)$': '<rootDir>/${SRC_DIR}/lib/$1',
+    '^@/api/(.*)$': '<rootDir>/${SRC_DIR}/api/$1',
+    '^@/middlewares/(.*)$': '<rootDir>/${SRC_DIR}/middlewares/$1',
+    '^@/models/(.*)$': '<rootDir>/${SRC_DIR}/models/$1',
+    '^@/types/(.*)$': '<rootDir>/${SRC_DIR}/types/$1',
+  },
+  clearMocks: true,
+  collectCoverage: false,
+};

@@ -13,10 +13,14 @@ export function errorHandler(
   err: HttpError,
   req: Request,
   res: Response,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _next: NextFunction,
+  next: NextFunction,
 ): void {
-  const status = err.status ?? 500;
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  const status = Number.isInteger(err.status) && err.status! >= 400 && err.status! <= 599
+    ? err.status! : 500;
   logger.error('request_error', {
     requestId: req.id,
     method: req.method,
@@ -25,8 +29,8 @@ export function errorHandler(
     message: err.message,
   });
   res.status(status).json({
-    error: err.name || 'InternalServerError',
-    message: err.message || 'Internal server error',
+    error: status >= 500 ? 'InternalServerError' : err.name || 'RequestError',
+    message: status >= 500 ? 'Internal server error' : err.message || 'Request failed',
     requestId: req.id,
   });
 }

@@ -22,12 +22,13 @@ export async function apiFetch<T>(
   options: ApiClientOptions = {},
 ): Promise<T> {
   const url = buildUrl(path, options.baseUrl);
+  const headers = new Headers(init.headers);
+  if (!headers.has('content-type') && !(init.body instanceof FormData)) {
+    headers.set('content-type', 'application/json');
+  }
   const res = await fetch(url, {
     ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
+    headers,
   });
 
   if (!res.ok) {

@@ -15,7 +15,7 @@ agents/store-precheck-auditor.md	.claude/agents/store-precheck-auditor.md	1.1.0	
 agents/verifier.md	.claude/agents/verifier.md	1.0.0	24fc3dcbb611183a7fecc33f4d930ab8f6f50bd58c85b2a3d00bf304c2e22168	all
 bin/harness-doctor.ps1	.claude/harness/bin/harness-doctor.ps1	1.0.1	b836f5fce08521aab82e3dc5f4dd6407c71d2e135714e2a5044b99817c8d5149	all
 bin/harness-doctor.sh	.claude/harness/bin/harness-doctor.sh	1.0.3	8213cfebdb3cb2355c3da8e058474219e431c4095b844f619fcba95b482ceb23	all
-bin/harness-lib.sh	.claude/harness/bin/harness-lib.sh	1.0.2	7699ee2e3cb87a5a2fcd63dea85c744ded22dd0b32c2c509463884b6cd448f81	all
+bin/harness-lib.sh	.claude/harness/bin/harness-lib.sh	1.1.0	4a25ea1e14285fa199c1ad3da4324e3ae4226e2a3c030765e45c393f9cbedb5c	all
 bin/harness-sync.ps1	.claude/harness/bin/harness-sync.ps1	1.0.1	efadaa21761aac9db314405ac44f3f9d5f4e2a98f741c784c35ca1e2c402290f	all
 bin/harness-sync.sh	.claude/harness/bin/harness-sync.sh	1.0.1	fdb8358cc62737ee63ac7d4a552b1e46a68c1e40b6c78ef3ae9e471d40aa633a	all
 core/00-core.md	.claude/rules/harness/00-core.md	1.1.0	cc7b362e55771f51c6790152eaea79714ea42eaf1b30e83e072b4d1d11a40f94	all

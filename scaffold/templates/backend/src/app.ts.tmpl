@@ -10,8 +10,8 @@ import { getHealth } from './api/${API_VERSION}/health/controllers/health.contro
 
 export const app: Express = express();
 
-app.use(express.json());
 app.use(requestId);
+app.use(express.json());
 
 // Mount each feature's router under /api/${API_VERSION}/<feature>. As new
 // features land, add them here — each feature's routes file exports a router.

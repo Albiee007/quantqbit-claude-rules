@@ -4,8 +4,8 @@ Framework-agnostic primitives for ${PROJECT_NAME}.
 
 ## What lives here
 
-- [`ttl-cache.ts`](ttl-cache.ts) — in-process TTL Map.
-- [`retry.ts`](retry.ts) — exponential-backoff retry helper.
+- [`ttl-cache.ts`](ttl-cache.ts) — in-process TTL Map with FIFO eviction (1,000 entries by default). Pass a second constructor argument to change capacity. Zero TTL invalidates a key.
+- [`retry.ts`](retry.ts) — capped exponential-backoff retry helper. Use only for operations that are safe to repeat; options are validated before calling the operation.
 - [`stringUtils.ts`](stringUtils.ts) — string helpers (slug, truncate).
 
 ## What does NOT live here

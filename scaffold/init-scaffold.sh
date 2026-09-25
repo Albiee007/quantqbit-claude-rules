@@ -482,6 +482,24 @@ init_scaffold_check_existing
 #    honours IS_NON_INTERACTIVE on its own.
 prompt_scaffold_collect "$PLATFORM"
 
+# Keep generated paths inside the target, and values safe in JSON/TS templates.
+if [[ ! "$SRC_DIR" =~ ^[A-Za-z_][A-Za-z0-9_-]*(/[A-Za-z_][A-Za-z0-9_-]*)*$ ]]; then
+  echo '[FAIL] Source directory must be a relative path of simple directory names.' >&2
+  exit 1
+fi
+case "$SRC_DIR/" in
+  app/*)
+    if [[ "$PLATFORM" != android ]]; then
+      echo "[FAIL] Source directory overlaps a reserved scaffold directory." >&2; exit 1
+    fi ;;
+  node_modules/*|dist/*|scripts/*|docs/*|migrations/*|android/*|ios/*|assets/*)
+    echo '[FAIL] Source directory overlaps a reserved scaffold directory.' >&2; exit 1 ;;
+esac
+if [[ ! "$PROJECT_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]*$ ]]; then
+  echo '[FAIL] Project name must contain only letters, numbers, spaces, dots, underscores or hyphens.' >&2
+  exit 1
+fi
+
 # Re-export everything renderers need (idempotent; covers both paths).
 export PROJECT_NAME PROJECT_SLUG SRC_DIR API_VERSION FEATURES_CSV \
        ANDROID_PACKAGE WITH_I18N WITH_AUTH TIMESTAMP \

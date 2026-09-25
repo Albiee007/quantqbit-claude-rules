@@ -14,15 +14,15 @@ export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const url = path.startsWith('http')
+  const url = /^https?:\/\//i.test(path)
     ? path
-    : `${env.EXPO_PUBLIC_API_BASE_URL}${path}`;
+    : `${env.EXPO_PUBLIC_API_BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-    ...((init.headers as Record<string, string> | undefined) ?? {}),
-  };
+  const headers = new Headers(init.headers);
+  if (!headers.has('Content-Type') && !(init.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
 
   const res = await fetch(url, { ...init, headers });
   const text = await res.text();

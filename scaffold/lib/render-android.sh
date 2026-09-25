@@ -165,6 +165,11 @@ render_android_write_file() {
   local src="$1"
   local out_path="$2"
 
+  if [[ -e "$out_path" && "${FORCE:-false}" != "true" ]]; then
+    echo "[INFO] kept existing ${out_path}"
+    return 0
+  fi
+
   if [[ "${FORCE:-false}" == "true" && -e "$out_path" ]]; then
     local rel="${out_path#${TARGET_DIR}/}"
     local backup_path="${TARGET_DIR}/.claude.bak/${BACKUP_TS}/${rel}"

@@ -80,9 +80,14 @@ tests/                   sync, hooks and validator test suites
 bash scaffold/lib/release.sh            # regenerate the manifest after editing harness/
 bash scaffold/lib/validate-harness.sh   # model policy, frontmatter, size budgets, hygiene, links, versions
 bash tests/hooks.test.sh; bash tests/validate.test.sh; bash tests/sync.test.sh
+bash tests/helpers.test.sh; bash tests/scaffold.test.sh
+# Also install, type-check, test and build the generated JavaScript starters:
+SCAFFOLD_BUILD=1 bash tests/scaffold.test.sh
 ```
 
 `.github/workflows/validate.yml` runs them on Ubuntu, macOS (including the stock `/bin/bash` 3.2) and Windows, plus `claude plugin validate`. See [INSTALL.md](./INSTALL.md) for everything else, [CHANGELOG.md](./CHANGELOG.md) for versions and upgrade notes, and [CREDITS.md](./CREDITS.md) for sources.
+
+Generated-starter checks run separately on Ubuntu, on changes and weekly to detect dependency drift. Android checks currently validate rendering only; a native build requires the Android SDK and a generated Gradle wrapper. See [REVIEW.md](./REVIEW.md) for the review findings, verification scope and remaining maintenance work.
 
 ## License
 

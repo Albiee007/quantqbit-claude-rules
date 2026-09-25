@@ -29,6 +29,7 @@
 # ============================================================================
 
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/safe-path.sh"
 
 # ----------------------------------------------------------------------------
 # manifest_write <manifest-path> <header-1> [<header-N>...] -- <file-1> [<file-N>...]
@@ -117,6 +118,18 @@ manifest_uninstall() {
   local kept=0
   local root entry f want
   root="$(cd "$(dirname "$manifest_path")/.." && pwd)"
+  # Validate the complete list before deleting even one file. Legacy absolute
+  # entries must also remain within this workspace.
+  local rel
+  for entry in "${files[@]}"; do
+    if [[ "$entry" == *$'\t'* ]]; then
+      rel="${entry#*$'\t'}"
+    else
+      [[ "$entry" == "$root/"* ]] || { echo "[FAIL] Manifest path is outside target: $entry" >&2; return 1; }
+      rel="${entry#"$root"/}"
+    fi
+    safe_relative_path "$root" "$rel" || { echo "[FAIL] Unsafe manifest path: $rel" >&2; return 1; }
+  done
   local resolved=()
   for entry in "${files[@]}"; do
     if [[ "$entry" == *$'\t'* ]]; then
@@ -151,7 +164,7 @@ manifest_uninstall() {
   local f d
   for f in "${files[@]}"; do
     d="$(dirname "$f")"
-    while [[ -n "$d" && "$d" != "." && "$d" != "/" ]]; do
+    while [[ "$d" == "$root/"* ]]; do
       ancestor_dirs+=("$d")
       d="$(dirname "$d")"
     done

@@ -7,6 +7,7 @@ set -uo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SYNC="$SRC/scaffold/sync.sh"
+source "$SRC/harness/bin/harness-lib.sh"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/harness-tests.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 pass=0; fail=0
@@ -24,8 +25,23 @@ new_repo() { # name [extra setup cmd]
   printf '%s' "$r"
 }
 tree_sum() { # repo -> checksum of every file except .git
-  (cd "$1" && find . -path ./.git -prune -o -type f -print | LC_ALL=C sort | while IFS= read -r f; do
-     printf '%s  %s\n' "$(sha256sum < "$f" | cut -c1-64)" "$f"; done) | sha256sum | cut -c1-64
+  hc_py - "$1" <<'PY'
+import hashlib
+import os
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+files = []
+for directory, dirs, names in os.walk(root):
+    dirs[:] = [d for d in dirs if d != '.git']
+    files.extend(Path(directory) / name for name in names)
+digest = hashlib.sha256()
+for file in sorted(files, key=lambda f: f.relative_to(root).as_posix()):
+    digest.update(file.relative_to(root).as_posix().encode('utf-8'))
+    digest.update(b'\0')
+    digest.update(hashlib.sha256(file.read_bytes()).digest())
+print(digest.hexdigest())
+PY
 }
 run() { bash "$SYNC" --target "$1" "${@:2}" >"$WORK/out.log" 2>&1; }
 
@@ -190,6 +206,17 @@ git -C "$R12" add -A; git -C "$R12" commit -qm own
 run "$R12" --profiles all --theirs; check "theirs ok" test $? -eq 0
 check "backup exists" test -n "$(grep -rl 'my reviewer' "$R12/.claude/harness/.backup" 2>/dev/null)"
 check "backup dir is gitignored" git -C "$R12" check-ignore -q "$R12/.claude/harness/.backup/x"
+
+echo "19b. failed persistent backup rolls back local files and the lock"
+RB="$(new_repo backupfail)"
+mkdir -p "$RB/.claude/agents" "$RB/.claude/harness"
+echo 'local reviewer' > "$RB/.claude/agents/reviewer.md"
+echo 'blocks backup directory creation' > "$RB/.claude/harness/.backup"
+git -C "$RB" add -A; git -C "$RB" commit -qm own
+before="$(tree_sum "$RB")"
+run "$RB" --profiles backend --theirs; check "backup failure exits 2" test $? -eq 2
+check "backup failure rolls back" grep -q 'rollback complete' "$WORK/out.log"
+check "local files unchanged" test "$before" = "$(tree_sum "$RB")"
 
 echo "20. lock is identical from different source checkouts"
 R13="$(new_repo lockA)"; R14="$(new_repo lockB)"

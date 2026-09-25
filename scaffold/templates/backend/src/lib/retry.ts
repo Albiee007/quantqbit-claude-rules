@@ -14,7 +14,14 @@ export async function retry<T>(fn: () => Promise<T>, opts: RetryOptions = {}): P
   const initialDelayMs = opts.initialDelayMs ?? 100;
   const maxDelayMs = opts.maxDelayMs ?? 5_000;
 
-  let delay = initialDelayMs;
+  if (!Number.isSafeInteger(attempts) || attempts < 1) {
+    throw new RangeError('attempts must be a positive integer');
+  }
+  if (![initialDelayMs, maxDelayMs].every((n) => Number.isFinite(n) && n >= 0 && n <= 2_147_483_647)) {
+    throw new RangeError('delays must be finite and within the timer range');
+  }
+
+  let delay = Math.min(initialDelayMs, maxDelayMs);
   let lastErr: unknown;
 
   for (let i = 0; i < attempts; i++) {

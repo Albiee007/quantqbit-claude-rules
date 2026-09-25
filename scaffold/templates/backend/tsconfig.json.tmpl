@@ -4,7 +4,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "lib": ["ES2022"],
-    "rootDir": "./src",
+    "rootDir": "./${SRC_DIR}",
     "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -19,15 +19,15 @@
     "removeComments": false,
     "baseUrl": ".",
     "paths": {
-      "@/config/*": ["src/config/*"],
-      "@/lib/*": ["src/lib/*"],
-      "@/api/*": ["src/api/*"],
-      "@/middlewares/*": ["src/middlewares/*"],
-      "@/models/*": ["src/models/*"],
-      "@/types/*": ["src/types/*"]
+      "@/config/*": ["${SRC_DIR}/config/*"],
+      "@/lib/*": ["${SRC_DIR}/lib/*"],
+      "@/api/*": ["${SRC_DIR}/api/*"],
+      "@/middlewares/*": ["${SRC_DIR}/middlewares/*"],
+      "@/models/*": ["${SRC_DIR}/models/*"],
+      "@/types/*": ["${SRC_DIR}/types/*"]
     },
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "src/tests/**/*", "**/*.spec.ts", "**/*.test.ts"]
+  "include": ["${SRC_DIR}/**/*.ts"],
+  "exclude": ["node_modules", "dist", "${SRC_DIR}/tests/**/*", "**/*.spec.ts", "**/*.test.ts"]
 }

@@ -19,16 +19,16 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/config/*": ["src/config/*"],
-      "@/components/*": ["src/components/*"],
-      "@/features/*": ["src/features/*"],
-      "@/hooks/*": ["src/hooks/*"],
-      "@/lib/*": ["src/lib/*"],
-      "@/routes/*": ["src/routes/*"],
-      "@/types/*": ["src/types/*"]
+      "@/config/*": ["${SRC_DIR}/config/*"],
+      "@/components/*": ["${SRC_DIR}/components/*"],
+      "@/features/*": ["${SRC_DIR}/features/*"],
+      "@/hooks/*": ["${SRC_DIR}/hooks/*"],
+      "@/lib/*": ["${SRC_DIR}/lib/*"],
+      "@/routes/*": ["${SRC_DIR}/routes/*"],
+      "@/types/*": ["${SRC_DIR}/types/*"]
     },
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "vitest.config.ts"],
+  "include": ["${SRC_DIR}/**/*.ts", "${SRC_DIR}/**/*.tsx", "vite.config.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
