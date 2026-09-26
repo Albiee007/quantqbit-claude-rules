@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "node16",
+    "moduleResolution": "node16",
     "lib": ["ES2022"],
     "rootDir": "./${SRC_DIR}",
     "outDir": "./dist",
@@ -17,17 +17,16 @@
     "declaration": false,
     "sourceMap": true,
     "removeComments": false,
-    "baseUrl": ".",
     "paths": {
-      "@/config/*": ["${SRC_DIR}/config/*"],
-      "@/lib/*": ["${SRC_DIR}/lib/*"],
-      "@/api/*": ["${SRC_DIR}/api/*"],
-      "@/middlewares/*": ["${SRC_DIR}/middlewares/*"],
-      "@/models/*": ["${SRC_DIR}/models/*"],
-      "@/types/*": ["${SRC_DIR}/types/*"]
+      "@/config/*": ["./${SRC_DIR}/config/*"],
+      "@/lib/*": ["./${SRC_DIR}/lib/*"],
+      "@/api/*": ["./${SRC_DIR}/api/*"],
+      "@/middlewares/*": ["./${SRC_DIR}/middlewares/*"],
+      "@/models/*": ["./${SRC_DIR}/models/*"],
+      "@/types/*": ["./${SRC_DIR}/types/*"]
     },
     "types": ["node", "jest"]
   },
-  "include": ["${SRC_DIR}/**/*.ts"],
+  "include": ["./${SRC_DIR}/**/*.ts"],
   "exclude": ["node_modules", "dist", "${SRC_DIR}/tests/**/*", "**/*.spec.ts", "**/*.test.ts"]
 }

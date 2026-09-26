@@ -14,6 +14,7 @@ Starter platform baselines move to current releases, verified by installing, typ
 
 ### Changed
 - **Frontend starter:** React 19.3, React Router 8 (the `react-router` package replaces `react-router-dom`), Vite 8, Vitest 5, jsdom 30, Testing Library 16 with `@testing-library/dom` declared, Zod 4 and TypeScript 6.0. The tsconfig drops the deprecated `baseUrl` (paths are `./`-relative), the Vite configs use `import.meta.dirname`, components import the `JSX` type from React, and the Dockerfile builds on `node:24-alpine`. `engines.node` is `>=22.22`.
+- **Backend starter:** Express 5.2, Mongoose 9, Zod 4, Jest 30 with ts-jest 29.4, supertest 7.3 and TypeScript 6.0 with `node16` module resolution (no deprecated `baseUrl`). `validate()` no longer assigns `req.query`, which is a getter in Express 5 and threw at runtime; a new unit test covers query and body parsing. Dockerfile stages use `node:24-alpine`; `engines.node` is `>=22.22`.
 
 ### Upgrade notes
 - Only newly stamped projects change. Existing projects keep their dependencies; to follow, apply the same bumps and run the project's checks.

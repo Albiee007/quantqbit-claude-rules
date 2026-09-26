@@ -21,7 +21,7 @@ if (!parsed.success) {
   // Surface the violation cleanly. We don't use the logger here because the
   // logger module depends on env.LOG_LEVEL — circular wake-up problem.
   // eslint-disable-next-line no-console
-  console.error('[FAIL] Invalid environment:', parsed.error.flatten().fieldErrors);
+  console.error('[FAIL] Invalid environment:', z.flattenError(parsed.error).fieldErrors);
   process.exit(1);
 }
 

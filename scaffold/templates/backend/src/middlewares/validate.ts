@@ -4,20 +4,29 @@
 // `next(err)` on failure.
 
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
-import type { ZodSchema } from 'zod';
+import type { ZodType } from 'zod';
 
 interface ValidationConfig {
-  body?: ZodSchema;
-  query?: ZodSchema;
-  params?: ZodSchema;
+  body?: ZodType;
+  query?: ZodType;
+  params?: ZodType;
 }
 
 export function validate(config: ValidationConfig): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (config.body) req.body = config.body.parse(req.body);
-      if (config.query) req.query = config.query.parse(req.query);
-      if (config.params) req.params = config.params.parse(req.params);
+      // Express 5 exposes req.query through a getter; shadow it with the
+      // parsed value instead of assigning.
+      if (config.query) {
+        Object.defineProperty(req, 'query', {
+          value: config.query.parse(req.query),
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+      }
+      if (config.params) req.params = config.params.parse(req.params) as Request['params'];
       next();
     } catch (err) {
       const error = err as Error & { status?: number };
