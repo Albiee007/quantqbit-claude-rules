@@ -8,8 +8,8 @@ import { render, screen } from '@testing-library/react-native';
 import { HomeHeader } from '../../screens/home/components/HomeHeader';
 
 describe('HomeHeader', () => {
-  it('renders the title', () => {
-    render(<HomeHeader title="Hello" />);
+  it('renders the title', async () => {
+    await render(<HomeHeader title="Hello" />);
     expect(screen.getByText('Hello')).toBeTruthy();
   });
 });

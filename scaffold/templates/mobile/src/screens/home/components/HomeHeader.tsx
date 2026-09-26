@@ -9,7 +9,7 @@ export interface HomeHeaderProps {
   title: string;
 }
 
-export function HomeHeader({ title }: HomeHeaderProps): JSX.Element {
+export function HomeHeader({ title }: HomeHeaderProps): React.JSX.Element {
   return (
     <View style={styles.root} accessibilityRole="header">
       <Text style={styles.title}>{title}</Text>

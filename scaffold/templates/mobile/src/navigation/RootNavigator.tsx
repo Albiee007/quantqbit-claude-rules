@@ -9,7 +9,7 @@ import { HomeScreen } from '../screens/home/HomeScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export function RootNavigator(): JSX.Element {
+export function RootNavigator(): React.JSX.Element {
   return (
     <Stack.Navigator initialRouteName="Home">
       <Stack.Screen

@@ -29,7 +29,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scaffold/init-scaffold.sh" $ARGUMENTS
 | --- | --- | --- |
 | `--platform=backend` | Node + TypeScript + Express + Mongoose + pg | `npm install && npm run build && npm test && curl /healthz` |
 | `--platform=frontend` | React + Vite + TypeScript | `npm install && npm run build && npm test` |
-| `--platform=mobile` | React Native + Expo + TypeScript | `npm install && npx expo prebuild --no-install && npx tsc --noEmit` |
+| `--platform=mobile` | React Native + Expo + TypeScript | `npm install && npm run lint && npm test && npm run doctor && npm run native:prebuild` |
 | `--platform=android` | Kotlin + Compose + Retrofit (no Hilt/Room — see Stack non-goals) | `./gradlew assembleDebug && ./gradlew testDebugUnitTest && ./gradlew ktlintCheck` |
 
 If `--platform=` is omitted, the dispatcher auto-detects by sniffing `build.gradle.kts`, `app.json`/Expo, Vite config, or Express/Fastify deps. Empty dir → interactive prompt.

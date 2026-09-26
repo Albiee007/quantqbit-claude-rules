@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { HomeHeader } from './components/HomeHeader';
 import { useHomeData } from './hooks/useHomeData';
 
-export function HomeScreen(): JSX.Element {
+export function HomeScreen(): React.JSX.Element {
   const { data, isLoading, isError } = useHomeData();
 
   return (

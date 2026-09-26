@@ -9,20 +9,19 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
-      "@/config/*": ["${SRC_DIR}/config/*"],
-      "@/navigation/*": ["${SRC_DIR}/navigation/*"],
-      "@/screens/*": ["${SRC_DIR}/screens/*"],
-      "@/features/*": ["${SRC_DIR}/features/*"],
-      "@/components/*": ["${SRC_DIR}/components/*"],
-      "@/hooks/*": ["${SRC_DIR}/hooks/*"],
-      "@/lib/*": ["${SRC_DIR}/lib/*"],
-      "@/api/*": ["${SRC_DIR}/api/*"],
-      "@/types/*": ["${SRC_DIR}/types/*"]
+      "@/config/*": ["./${SRC_DIR}/config/*"],
+      "@/navigation/*": ["./${SRC_DIR}/navigation/*"],
+      "@/screens/*": ["./${SRC_DIR}/screens/*"],
+      "@/features/*": ["./${SRC_DIR}/features/*"],
+      "@/components/*": ["./${SRC_DIR}/components/*"],
+      "@/hooks/*": ["./${SRC_DIR}/hooks/*"],
+      "@/lib/*": ["./${SRC_DIR}/lib/*"],
+      "@/api/*": ["./${SRC_DIR}/api/*"],
+      "@/types/*": ["./${SRC_DIR}/types/*"]
     },
-    "types": ["jest", "node"]
+    "types": ["jest"]
   },
-  "include": ["${SRC_DIR}/**/*.ts", "${SRC_DIR}/**/*.tsx", "App.tsx"],
+  "include": ["./${SRC_DIR}/**/*.ts", "${SRC_DIR}/**/*.tsx", "App.tsx", "index.ts"],
   "exclude": ["node_modules", ".expo", "ios", "android", "dist", "build"]
 }

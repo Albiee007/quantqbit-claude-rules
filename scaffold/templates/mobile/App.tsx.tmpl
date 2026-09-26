@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from './${SRC_DIR}/navigation/RootNavigator';
 import { queryClient } from './${SRC_DIR}/config/queryClient';
 
-export default function App(): JSX.Element {
+export default function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>

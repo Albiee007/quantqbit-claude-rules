@@ -215,7 +215,7 @@ Stamps a **buildable per-platform starter** on top of the operational rules laye
 | --- | --- | --- |
 | `backend` | Node + TypeScript + Express + Mongoose + pg | `npm install && npm run build && npm test && curl localhost:3000/healthz` |
 | `frontend` | React + Vite + TypeScript | `npm install && npm run build && npm test` |
-| `mobile` | React Native + Expo + TypeScript | `npm install && npx expo prebuild --no-install && npx tsc --noEmit` |
+| `mobile` | React Native + Expo + TypeScript | `npm install && npm run lint && npm test && npm run doctor && npm run native:prebuild` |
 | `android` | Kotlin + Compose + Retrofit (no Hilt/Room) | `./gradlew :app:assembleDebug :app:testDebugUnitTest ktlintCheck` |
 
 The dispatcher auto-detects an existing project shape when no `--platform=` is supplied:

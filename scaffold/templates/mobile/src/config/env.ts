@@ -8,7 +8,7 @@ import Constants from 'expo-constants';
 import { z } from 'zod';
 
 const EnvSchema = z.object({
-  EXPO_PUBLIC_API_BASE_URL: z.string().url().default('http://localhost:3000'),
+  EXPO_PUBLIC_API_BASE_URL: z.url().default('http://localhost:3000'),
   EXPO_PUBLIC_FEATURE_DEBUG: z
     .union([z.literal('true'), z.literal('false')])
     .default('false')
@@ -30,7 +30,7 @@ function readEnv(): Env {
   const parsed = EnvSchema.safeParse(raw);
   if (!parsed.success) {
     // eslint-disable-next-line no-console
-    console.error('[env] invalid environment:', parsed.error.flatten());
+    console.error('[env] invalid environment:', z.flattenError(parsed.error).fieldErrors);
     throw new Error('Invalid environment configuration');
   }
   return parsed.data;

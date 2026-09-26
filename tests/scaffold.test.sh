@@ -23,7 +23,7 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) msys=1 ;; *) msys=0 ;; esac
 
 ok()    { pass=$((pass + 1)); printf '  [OK] %s\n' "$*"; }
 bad()   { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$*"; }
-check() { local d="$1"; shift; if "$@"; then ok "$d"; else bad "$d"; fi; }
+check() { local d="$1"; shift; if "$@"; then ok "$d"; else bad "$d"; return 1; fi; }
 
 # tree_sum <dir> [exclude-top-level-name] — every directory and file (with
 # contents) under dir; empty string for a missing dir.
@@ -85,11 +85,24 @@ for platform in ${SCAFFOLD_PLATFORM:-backend frontend mobile android}; do
   fi
   if [[ "${SCAFFOLD_BUILD:-0}" == 1 && "$platform" != android ]]; then
     (
-      cd "$T" || exit 1
+      set -e  # every step must pass, not just the last one
+      cd "$T"
       npm install --no-audit --no-fund
       npm run lint
       if [[ "$platform" == frontend ]]; then npm test; else npm test -- --runInBand; fi
       if [[ "$platform" != mobile ]]; then npm run build; fi
+      if [[ "$platform" == mobile ]]; then
+        # SDK consistency, Metro bundles for both platforms, and native project
+        # generation (no native toolchain needed).
+        export EXPO_NO_TELEMETRY=1 CI=1
+        npm run doctor
+        npx expo export --platform android --output-dir "$W/export-android"
+        npx expo export --platform ios --output-dir "$W/export-ios"
+        npm run native:prebuild -- --platform android --clean
+        grep -q "applicationId 'com.example.regression'" android/app/build.gradle
+        npm run native:prebuild -- --platform ios --clean
+        grep -q 'PRODUCT_BUNDLE_IDENTIFIER = "com.example.regression"' ios/*.xcodeproj/project.pbxproj
+      fi
     ) > "$W/build.log" 2>&1
     check "$platform: install, lint, test, build" test $? -eq 0 || tail -40 "$W/build.log"
   fi
