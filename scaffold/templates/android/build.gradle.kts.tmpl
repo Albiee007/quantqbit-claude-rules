@@ -1,12 +1,11 @@
 // build.gradle.kts (root) — top-level plugin declarations for ${PROJECT_NAME}.
-// Plugins are declared `apply false` here and applied per-module in
-// app/build.gradle.kts. AGP/Kotlin/ktlint versions chosen to be stable on
-// Android Studio Koala/Jellyfish + Gradle 8.7. See `gradle.properties` for
-// shared Gradle JVM args.
+// Versions live in gradle/libs.versions.toml; plugins are applied per-module
+// in app/build.gradle.kts. AGP 9 compiles Kotlin itself (built-in Kotlin), so
+// there is no org.jetbrains.kotlin.android plugin; the Compose compiler
+// plugin's version selects the Kotlin version.
 
 plugins {
-    id("com.android.application") version "8.5.0" apply false
-    id("org.jetbrains.kotlin.android") version "2.0.0" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.0.0" apply false
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.1" apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.ktlint) apply false
 }

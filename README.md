@@ -90,7 +90,7 @@ SCAFFOLD_BUILD=1 bash tests/scaffold.test.sh
 
 `.github/workflows/validate.yml` runs them on Ubuntu, macOS (including the stock `/bin/bash` 3.2) and Windows, plus `claude plugin validate`. See [INSTALL.md](./INSTALL.md) for everything else, [CHANGELOG.md](./CHANGELOG.md) for versions and upgrade notes, and [CREDITS.md](./CREDITS.md) for sources.
 
-Generated-starter checks run separately on Ubuntu, on changes and weekly to detect dependency drift. Android checks currently validate rendering only; a native build requires the Android SDK and a generated Gradle wrapper. See [REVIEW.md](./REVIEW.md) for the review findings, verification scope and remaining maintenance work.
+Generated-starter checks run separately on Ubuntu (Node 22 and 24), on changes and weekly to detect dependency drift. The mobile job also runs `expo-doctor`, Metro exports and `expo prebuild`; the Android job validates the committed Gradle wrapper, then assembles, unit-tests, ktlints and lints the generated app. Locally, `SCAFFOLD_BUILD=1` runs the Android build when `ANDROID_HOME` and a JDK 17+ are available. See [REVIEW.md](./REVIEW.md) for the review findings, verification scope and remaining maintenance work.
 
 ## License
 

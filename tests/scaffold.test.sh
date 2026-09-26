@@ -106,6 +106,15 @@ for platform in ${SCAFFOLD_PLATFORM:-backend frontend mobile android}; do
     ) > "$W/build.log" 2>&1
     check "$platform: install, lint, test, build" test $? -eq 0 || tail -40 "$W/build.log"
   fi
+  if [[ "${SCAFFOLD_BUILD:-0}" == 1 && "$platform" == android ]]; then
+    if [[ -n "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}" ]] && command -v java >/dev/null 2>&1; then
+      ( set -e; cd "$T"; ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest ktlintCheck :app:lintDebug ) \
+        > "$W/build.log" 2>&1
+      check "android: assemble, unit tests, ktlint, lint" test $? -eq 0 || tail -60 "$W/build.log"
+    else
+      echo "  [SKIP] android native build: set ANDROID_HOME and put a JDK 17+ on PATH"
+    fi
+  fi
 done
 
 echo "2. files in the way: refused, nothing written"

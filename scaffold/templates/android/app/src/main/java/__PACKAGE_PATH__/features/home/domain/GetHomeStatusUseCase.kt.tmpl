@@ -6,6 +6,8 @@ package ${ANDROID_PACKAGE}.features.home.domain
  * orchestration (cache → network fallback, retry, multi-repo aggregation)
  * without changing the ViewModel call site.
  */
-class GetHomeStatusUseCase(private val repository: HomeRepository) {
+class GetHomeStatusUseCase(
+    private val repository: HomeRepository,
+) {
     suspend operator fun invoke(): Status = repository.fetchStatus()
 }

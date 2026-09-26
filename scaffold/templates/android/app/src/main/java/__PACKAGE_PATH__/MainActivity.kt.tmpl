@@ -3,10 +3,11 @@ package ${ANDROID_PACKAGE}
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.fillMaxSize
 import ${ANDROID_PACKAGE}.core.ui.theme.AppTheme
 import ${ANDROID_PACKAGE}.navigation.AppNavGraph
 
@@ -17,6 +18,9 @@ import ${ANDROID_PACKAGE}.navigation.AppNavGraph
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Android 15+ always draws edge to edge for targetSdk 35+; screens
+        // pad themselves for the system bars (see HomeScreen).
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             AppTheme {

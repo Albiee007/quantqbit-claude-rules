@@ -1,5 +1,8 @@
 package ${ANDROID_PACKAGE}
 
+import ${ANDROID_PACKAGE}.features.home.domain.HomeRepository
+import ${ANDROID_PACKAGE}.features.home.domain.Status
+import ${ANDROID_PACKAGE}.features.home.viewmodel.HomeViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -11,9 +14,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
-import ${ANDROID_PACKAGE}.features.home.domain.HomeRepository
-import ${ANDROID_PACKAGE}.features.home.domain.Status
-import ${ANDROID_PACKAGE}.features.home.viewmodel.HomeViewModel
 
 /**
  * Placeholder unit test — verifies the ViewModel resolves its status off a
@@ -21,21 +21,27 @@ import ${ANDROID_PACKAGE}.features.home.viewmodel.HomeViewModel
  * version bumps. Replace once real features land.
  */
 class HomeViewModelTest {
-
     private val testDispatcher = StandardTestDispatcher()
 
-    @Before fun setUp() { Dispatchers.setMain(testDispatcher) }
-    @After fun tearDown() { Dispatchers.resetMain() }
+    @Before fun setUp() {
+        Dispatchers.setMain(testDispatcher)
+    }
+
+    @After fun tearDown() {
+        Dispatchers.resetMain()
+    }
 
     @Test
-    fun `loads status from repository`() = runTest(testDispatcher) {
-        val fake = object : HomeRepository {
-            override suspend fun fetchStatus(): Status = Status.OK
+    fun `loads status from repository`() =
+        runTest(testDispatcher) {
+            val fake =
+                object : HomeRepository {
+                    override suspend fun fetchStatus(): Status = Status.OK
+                }
+            val vm = HomeViewModel(fake)
+            advanceUntilIdle()
+            val state = vm.uiState.value
+            assertFalse(state.isLoading)
+            assertEquals(Status.OK, state.status)
         }
-        val vm = HomeViewModel(fake)
-        advanceUntilIdle()
-        val state = vm.uiState.value
-        assertFalse(state.isLoading)
-        assertEquals(Status.OK, state.status)
-    }
 }

@@ -7,25 +7,27 @@
 //     version drift.
 //   - No multi-module split. Single `:app` only.
 //
-// Compose compiler is auto-managed by the Kotlin 2.0 plugin (no explicit
-// kotlinCompilerExtensionVersion needed). Retrofit + Moshi stay because they
-// don't need an annotation processor when used with the reflective converter.
+// Built-in Kotlin (AGP 9) compiles the Kotlin sources; the Compose compiler
+// plugin comes from Kotlin. Retrofit + Moshi stay because they don't need an
+// annotation processor when used with the reflective converter. Versions
+// live in gradle/libs.versions.toml.
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ktlint)
 }
 
 android {
     namespace = "${ANDROID_PACKAGE}"
-    compileSdk = 34
+    // compileSdk follows the AndroidX libraries (they need 37); targetSdk is
+    // what Google Play requires: 36 for new apps and updates from 2026-08-31.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "${ANDROID_PACKAGE}"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
 
@@ -37,18 +39,15 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
 
+    // Kotlin's jvmTarget follows targetCompatibility under built-in Kotlin.
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -64,59 +63,66 @@ android {
 
 dependencies {
     // AndroidX core.
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
-    implementation("androidx.activity:activity-compose:1.9.1")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.activity.compose)
 
     // Compose BOM pins every compose artifact to one tested set.
-    val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
-    implementation(composeBom)
-    androidTestImplementation(composeBom)
-
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.material3:material3")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    implementation(platform(libs.compose.bom))
+    androidTestImplementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.material3)
+    debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
 
     // Navigation.
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation(libs.androidx.navigation.compose)
 
     // Retrofit + Moshi (reflective — no KSP needed).
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-moshi:2.11.0")
-    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.moshi)
+    implementation(libs.moshi.kotlin)
+    implementation(libs.okhttp.logging.interceptor)
 
     // Coroutines.
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation(libs.kotlinx.coroutines.android)
 
     // Unit tests.
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     // Instrumented tests.
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.espresso)
+    androidTestImplementation(libs.compose.ui.test.junit4)
 }
 
 // ----------------------------------------------------------------------------
-// checkFileSize — bash scan that WARNS (never fails) on Kotlin files over the
-// 500-line cap. Wired after ktlintCheck so it surfaces during normal lint
-// runs. Warning-only by design (see project CLAUDE.md).
+// checkFileSize — WARNS (never fails) on Kotlin files over the 500-line cap.
+// Plain Gradle, so it needs no shell and works with the configuration cache.
+// Runs after ktlintCheck. Warning-only by design (see project CLAUDE.md).
 // ----------------------------------------------------------------------------
-tasks.register<Exec>("checkFileSize") {
-    description = "Warns on Kotlin files exceeding the 500-line soft cap."
-    group = "verification"
-    workingDir = rootProject.projectDir
-    commandLine("bash", "scripts/check-file-size.sh")
-    isIgnoreExitValue = true
-}
+val checkFileSize =
+    tasks.register("checkFileSize") {
+        description = "Warns on Kotlin files exceeding the 500-line soft cap."
+        group = "verification"
+        val sources = fileTree("src") { include("**/*.kt", "**/*.kts") }
+        val base = projectDir
+        inputs.files(sources)
+        doLast {
+            sources.files.sorted().forEach { file ->
+                val lines = file.readLines().size
+                if (lines > 500) {
+                    logger.warn("[WARN] ${file.relativeTo(base)}: $lines lines (soft cap 500)")
+                }
+            }
+        }
+    }
 
 tasks.named("ktlintCheck") {
-    finalizedBy("checkFileSize")
+    finalizedBy(checkFileSize)
 }

@@ -23,22 +23,29 @@ class NetworkClient private constructor(
         private const val BASE_URL = "https://example.com/"
 
         fun create(): NetworkClient {
-            val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BASIC
-            }
-            val ok = OkHttpClient.Builder()
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .addInterceptor(logging)
-                .build()
-            val moshi = Moshi.Builder()
-                .add(KotlinJsonAdapterFactory())
-                .build()
-            val retrofit = Retrofit.Builder()
-                .baseUrl(BASE_URL)
-                .client(ok)
-                .addConverterFactory(MoshiConverterFactory.create(moshi))
-                .build()
+            val logging =
+                HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BASIC
+                }
+            val ok =
+                OkHttpClient
+                    .Builder()
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .addInterceptor(logging)
+                    .build()
+            val moshi =
+                Moshi
+                    .Builder()
+                    .add(KotlinJsonAdapterFactory())
+                    .build()
+            val retrofit =
+                Retrofit
+                    .Builder()
+                    .baseUrl(BASE_URL)
+                    .client(ok)
+                    .addConverterFactory(MoshiConverterFactory.create(moshi))
+                    .build()
             return NetworkClient(retrofit)
         }
     }

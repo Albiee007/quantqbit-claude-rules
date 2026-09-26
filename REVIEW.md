@@ -49,15 +49,20 @@ as part of this local review.
 
 ## Remaining gaps and next maintenance work
 
-1. **Modernize platform baselines as tested migrations.** The templates still
-   declare Expo 51, React Native 0.74, Vite 5, Jest 29 and Android SDK 34.
-   Package installation reports several deprecated dependencies. Passing tests
-   does not establish current store eligibility or absence of vulnerabilities.
-   Upgrade each platform with native/build verification and release notes;
-   avoid independently bumping Expo and React Native versions.
-2. **Add native CI.** Bootstrap a verified Gradle wrapper, provision the Android
-   SDK, and run Kotlin tests and an APK build. Add Expo prebuild/native checks
-   before advertising the mobile starter as release-ready.
+1. **Modernize platform baselines as tested migrations.** *Done (2026-09-26):*
+   frontend React 19 / Vite 8, backend Express 5 / Jest 30, mobile Expo SDK 57
+   (versions from `expo install`), Android AGP 9.4 / Kotlin 2.4 / targetSdk 36
+   (Play's current requirement) / compileSdk 37. Each starter was installed,
+   type-checked, tested and built on Node 22.23 and 24.21 (WSL); the backend
+   server answered `/healthz`; the Android APK ran on an API 37 emulator.
+   `npm audit` is clean except a moderate `uuid` advisory inside Expo's build
+   tooling (see CHANGELOG). Re-run this for every baseline bump.
+2. **Add native CI.** *Done:* the committed Gradle wrapper matches Gradle's
+   published checksum and is validated in CI; the `android-native` job builds,
+   unit-tests, ktlints and lints the generated app, and the mobile starter
+   job runs `expo-doctor`, Metro exports and `expo prebuild` for both platforms.
+   Still open: an APK or iOS build from the Expo prebuild (needs NDK/Xcode;
+   a scheduled job is the natural home) and on-device checks in CI.
 3. **Make application scaffolding transactional.** *Done:* `init-scaffold.sh`
    stages and validates the full tree, plans against the project (refusing
    before any write), applies through the journal in `scaffold/lib/txn.sh`, and

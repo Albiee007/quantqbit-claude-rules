@@ -28,9 +28,11 @@ indent_style = space
 indent_size = 4
 end_of_line = lf
 
-[*.kt]
+[*.{kt,kts}]
 indent_style = space
 indent_size = 4
+# Compose convention: @Composable functions are PascalCase.
+ktlint_function_naming_ignore_when_annotated_with = Composable
 
 [*.{xml,gradle,gradle.kts}]
 indent_style = space

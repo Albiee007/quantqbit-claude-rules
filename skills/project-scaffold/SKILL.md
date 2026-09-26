@@ -12,7 +12,7 @@ Stamps a **buildable per-platform project skeleton** with strict feature-organis
 | `backend` | Node + TypeScript + Express + Mongoose + pg | `npm install && npm run build && npm test && curl /healthz` |
 | `frontend` | React + Vite + TypeScript | `npm install && npm run build && npm test` |
 | `mobile` | React Native + Expo + TypeScript | `npm install && npm run lint && npm test && npm run doctor && npm run native:prebuild` |
-| `android` | Kotlin + Compose + Retrofit (no Hilt/Room) | `./gradlew :app:assembleDebug :app:testDebugUnitTest ktlintCheck` |
+| `android` | Kotlin + Compose + Retrofit (no Hilt/Room) | `./gradlew :app:assembleDebug :app:testDebugUnitTest ktlintCheck :app:lintDebug` |
 
 ## When this skill activates
 

@@ -216,7 +216,7 @@ Stamps a **buildable per-platform starter** on top of the operational rules laye
 | `backend` | Node + TypeScript + Express + Mongoose + pg | `npm install && npm run build && npm test && curl localhost:3000/healthz` |
 | `frontend` | React + Vite + TypeScript | `npm install && npm run build && npm test` |
 | `mobile` | React Native + Expo + TypeScript | `npm install && npm run lint && npm test && npm run doctor && npm run native:prebuild` |
-| `android` | Kotlin + Compose + Retrofit (no Hilt/Room) | `./gradlew :app:assembleDebug :app:testDebugUnitTest ktlintCheck` |
+| `android` | Kotlin + Compose + Retrofit (no Hilt/Room) | `./gradlew :app:assembleDebug :app:testDebugUnitTest ktlintCheck :app:lintDebug` |
 
 The dispatcher auto-detects an existing project shape when no `--platform=` is supplied:
 - `build.gradle.kts`/`build.gradle` → android
@@ -314,7 +314,7 @@ Every platform produces (from `templates/_shared/` + the per-platform tree):
 
 - `CLAUDE.md`, `AI_RULES.md` and root `.mcp.json`, each **only if absent** (never overwritten, even with `--force`; `CLAUDE.md` is skipped when an `AGENTS.md` exists), plus `README.md`, `.editorconfig`, `.gitignore` and `.env.example`.
 - `docs/` (9 files: system-architecture, api, data-models, business-flows, integrations, background-jobs, repo-structure, runbook, index README).
-- Platform-specific build config: `package.json` and `tsconfig.json`, plus `jest.config.cjs` (backend) or `vite.config.ts`/`vitest.config.ts` (frontend); `build.gradle.kts`, `settings.gradle.kts` and `gradle/wrapper/...` for Android.
+- Platform-specific build config: `package.json` and `tsconfig.json`, plus `jest.config.cjs` (backend) or `vite.config.ts`/`vitest.config.ts` (frontend); `build.gradle.kts`, `settings.gradle.kts`, the `gradle/libs.versions.toml` version catalog and the official Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`, checksum-pinned) for Android.
 - `${SRC_DIR}/` (or `app/` for Android) with the strict feature-organised layout. See `scaffold/templates/<platform>/` for the per-platform tree.
 - One working example feature (`health` on backend/frontend; `home` on mobile/android) — tiny, do not expand.
 - One `_feature_template/` (or `_screen_template/`) with the canonical subfolders + `.gitkeep`.
@@ -332,5 +332,5 @@ The starters are **buildable but minimal**. Replace the example feature with you
 
 - **"renderer lib not found"** — your install is incomplete. Ensure the plugin or clone includes `scaffold/lib/render-<platform>.sh`.
 - **`npm install` fails after stamp** — usually network or registry issues unrelated to the scaffolder. Re-run with a fresh terminal; check `npm config get registry`.
-- **`./gradlew assembleDebug` fails on first run** — confirm `ANDROID_HOME` is set and the platform tools matching the stamped `compileSdk` are installed. Create `local.properties` with `sdk.dir=<path to your Android SDK>` if Gradle cannot find the SDK.
+- **`./gradlew assembleDebug` fails on first run** — it needs a JDK 17+ (`JAVA_HOME`) and an Android SDK (`ANDROID_HOME`); AGP installs the stamped `compileSdk` platform itself once the SDK licences are accepted (`sdkmanager --licenses`). Create `local.properties` with `sdk.dir=<path to your Android SDK>` if Gradle cannot find the SDK.
 - **Auto-detect picked the wrong platform** — pass `--platform=` explicitly to override.

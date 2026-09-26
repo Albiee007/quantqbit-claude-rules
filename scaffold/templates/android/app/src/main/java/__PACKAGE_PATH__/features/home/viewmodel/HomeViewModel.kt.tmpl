@@ -3,13 +3,13 @@ package ${ANDROID_PACKAGE}.features.home.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import ${ANDROID_PACKAGE}.features.home.domain.GetHomeStatusUseCase
+import ${ANDROID_PACKAGE}.features.home.domain.HomeRepository
+import ${ANDROID_PACKAGE}.features.home.domain.Status
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import ${ANDROID_PACKAGE}.features.home.domain.GetHomeStatusUseCase
-import ${ANDROID_PACKAGE}.features.home.domain.HomeRepository
-import ${ANDROID_PACKAGE}.features.home.domain.Status
 
 /** UI state surfaced by [HomeViewModel]. */
 data class HomeUiState(
@@ -23,8 +23,9 @@ data class HomeUiState(
  * Constructor takes a [HomeRepository] from [${ANDROID_PACKAGE}.core.di.AppGraph]
  * — no Hilt by design. Use [HomeViewModel.Factory] when calling viewModel().
  */
-class HomeViewModel(repository: HomeRepository) : ViewModel() {
-
+class HomeViewModel(
+    repository: HomeRepository,
+) : ViewModel() {
     private val getStatus = GetHomeStatusUseCase(repository)
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -42,8 +43,7 @@ class HomeViewModel(repository: HomeRepository) : ViewModel() {
         fun factory(repository: HomeRepository): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    HomeViewModel(repository) as T
+                override fun <T : ViewModel> create(modelClass: Class<T>): T = HomeViewModel(repository) as T
             }
     }
 }
