@@ -63,8 +63,9 @@ _validate_scaffold_required_var() {
 # Args: $1 = absolute target dir
 #       $2 = platform (backend|frontend|mobile|android)
 #
-# Exits non-zero if any required directory is missing OR if the target dir
-# is empty (i.e. the renderer did nothing).
+# Returns non-zero if any required directory is missing OR if the target dir
+# is empty (i.e. the renderer did nothing). init-scaffold.sh runs it against
+# the staged tree, before anything is written to the project.
 # ----------------------------------------------------------------------------
 validate_scaffold_all() {
   local target="$1"
@@ -73,7 +74,7 @@ validate_scaffold_all() {
 
   if [[ ! -d "$target" ]]; then
     echo "[FAIL] validate_scaffold_all: target dir not found: ${target}" >&2
-    exit 1
+    return 1
   fi
 
   echo "[INFO] Validating scaffold at ${target}"
@@ -128,7 +129,7 @@ validate_scaffold_all() {
 
   if [[ "$failures" -gt 0 ]]; then
     echo "[FAIL] Scaffold validation reported ${failures} failure(s)." >&2
-    exit 1
+    return 1
   fi
 
   echo "[OK] Scaffold validation passed."

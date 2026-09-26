@@ -15,7 +15,7 @@
 #   RC_TEMPLATE_DIR       ${SCRIPT_DIR}/templates/<p>
 #   RC_ENVSUBST_VARS      envsubst whitelist — literal `$X` in code stays intact
 #   RC_SRC_REMAP          true → template `src/*` lands under ${SRC_DIR}/*
-#   RC_EXEC_GLOBS         space-separated case patterns made executable on write
+#   RC_EXEC_GLOBS         case patterns made executable (default: */gradlew *.sh)
 #   RC_REQUIRED_DIRS_VAR  name of the <P>_REQUIRED_DIRS variable
 #   RC_ITEM_DIR           template-relative per-item tree ("" = none)
 #   RC_ITEM_LITERAL       basename of that tree (e.g. _feature_template)
@@ -26,7 +26,13 @@
 #
 # Passes: _shared/ templates, the platform tree (minus the item tree), the item
 # tree once per entry in FEATURES_CSV (or literally when empty), then every
-# required directory. Bash 3.2 compatible.
+# required directory.
+#
+# The renderer only ever writes into a staging directory (the target given to
+# rc_render_all). init-scaffold.sh plans, validates and applies the staged tree
+# to the real project transactionally. RC_LIVE_TARGET names that real project
+# so project-owned files (CLAUDE.md, AI_RULES.md, .mcp.json) are staged only
+# when absent there. Bash 3.2 compatible.
 # ============================================================================
 
 set -euo pipefail
@@ -91,26 +97,17 @@ rc_substitute() {
 }
 
 # ----------------------------------------------------------------------------
-# rc_write_file — emit a single file into the target, with backup
-# Args: $1 = source template, $2 = target absolute path
+# rc_write_file — render one file into the staging tree
+# Args: $1 = source template, $2 = staged absolute path
+# Two templates producing the same path is a renderer bug, not a conflict.
 # ----------------------------------------------------------------------------
 rc_write_file() {
   local src="$1"
   local out_path="$2"
 
-  if [[ -e "$out_path" && "${FORCE:-false}" != "true" ]]; then
-    echo "[INFO] kept existing ${out_path}"
-    return 0
-  fi
-
-  if [[ "${FORCE:-false}" == "true" && -e "$out_path" ]]; then
-    local rel="${out_path#${TARGET_DIR}/}"
-    local backup_path="${TARGET_DIR}/.claude.bak/${BACKUP_TS}/${rel}"
-    mkdir -p "$(dirname "$backup_path")"
-    cp "$out_path" "$backup_path"
-    BACKUP_MADE="true"
-    export BACKUP_MADE
-    echo "[INFO] Backed up ${rel} to .claude.bak/${BACKUP_TS}/"
+  if [[ -e "$out_path" ]]; then
+    echo "[FAIL] two templates render to the same path: ${out_path}" >&2
+    return 1
   fi
 
   mkdir -p "$(dirname "$out_path")"
@@ -120,7 +117,8 @@ rc_write_file() {
     *)      cp "$src" "$out_path" ;;
   esac
 
-  # Case patterns are matched without pathname expansion, so `*.sh` is safe.
+  # Scripts are executable on every platform. Case patterns are matched
+  # without pathname expansion, so `*.sh` is safe here.
   local globs=() glob
   read -r -a globs <<< "${RC_EXEC_GLOBS:-}"
   for glob in ${globs[@]+"${globs[@]}"}; do
@@ -129,9 +127,6 @@ rc_write_file() {
       $glob) chmod +x "$out_path" 2>/dev/null || true; break ;;
     esac
   done
-
-  CREATED_FILES+=("$out_path")
-  echo "[OK]   wrote ${out_path}"
 }
 
 # ----------------------------------------------------------------------------
@@ -164,6 +159,7 @@ rc_target_relpath() {
 rc_stamp_shared() {
   local target="$1"
   local shared_dir="${SCRIPT_DIR}/templates/_shared"
+  local live="${RC_LIVE_TARGET:-$target}"
 
   if [[ ! -d "$shared_dir" ]]; then
     echo "[WARN] _shared/ template dir not found: ${shared_dir}"
@@ -192,11 +188,11 @@ rc_stamp_shared() {
     # Claude Code stops reading AGENTS.md once a CLAUDE.md exists.
     case "$out_rel" in
       CLAUDE.md|AI_RULES.md|.mcp.json)
-        if [[ -e "$out_path" ]]; then
+        if [[ -e "${live}/${out_rel}" ]]; then
           echo "[INFO] kept existing project file: ${out_rel}"
           continue
         fi
-        if [[ "$out_rel" == "CLAUDE.md" && -e "${target}/AGENTS.md" ]]; then
+        if [[ "$out_rel" == "CLAUDE.md" && -e "${live}/AGENTS.md" ]]; then
           echo "[INFO] skipped CLAUDE.md: AGENTS.md exists (a CLAUDE.md would stop Claude Code reading it)"
           continue
         fi ;;
@@ -206,10 +202,7 @@ rc_stamp_shared() {
 
   # docs/plans/ should exist with a .gitkeep — kept by the shared layer.
   mkdir -p "${target}/docs/plans"
-  if [[ ! -f "${target}/docs/plans/.gitkeep" ]]; then
-    : > "${target}/docs/plans/.gitkeep"
-    CREATED_FILES+=("${target}/docs/plans/.gitkeep")
-  fi
+  [[ -f "${target}/docs/plans/.gitkeep" ]] || : > "${target}/docs/plans/.gitkeep"
 }
 
 # ----------------------------------------------------------------------------
@@ -352,7 +345,7 @@ rc_render_all() {
 
   RC_TEMPLATE_DIR="${SCRIPT_DIR}/templates/${RC_PLATFORM}"
   RC_SRC_REMAP="false"
-  RC_EXEC_GLOBS=""
+  RC_EXEC_GLOBS='*/gradlew *.sh'
   RC_ITEM_DIR=""
   RC_ITEM_LITERAL=""
   RC_ITEM_TOKEN=""

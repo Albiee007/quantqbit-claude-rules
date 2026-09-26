@@ -251,9 +251,33 @@ The dispatcher auto-detects an existing project shape when no `--platform=` is s
 --with-i18n                                    Enable optional i18n stub.
 --with-auth                                    Enable optional auth stub.
 --non-interactive                              Skip prompts; use QQPS_* env vars.
---force                                        Overwrite existing files (backed up first).
+--force                                        Replace existing files in the way (backed up first).
+--dry-run                                      Print the plan; write nothing.
+--uninstall                                    Reverse a stamp; restores files --force replaced.
+--force-unlock                                 Clear the lock left by a crashed run.
 --help, -h                                     Print usage and exit.
 ```
+
+A stamp is one transaction. The starter is rendered into a staging tree under
+`.claude/.scaffold-tmp/`, validated, and compared with the project **before**
+anything is written:
+
+- Any existing file the starter would replace stops the run (exit 1) and is
+  listed; nothing is written. `README.md`, `.gitignore`, `.editorconfig`,
+  `.env.example` and `docs/` files are kept instead. Paths through a symlink are
+  refused. `--force` replaces the files in the way and keeps the originals in
+  `.claude.bak/<timestamp>.<pid>/`.
+- Every change is journaled; a failure part-way (exit 2) rolls the project back
+  to exactly how it was, including a target directory the run created.
+- The manifest `.claude/.scaffold-manifest-scaffold.txt` is written last. It
+  records each file's hash, whether it was created or replaced a file of yours
+  (and where that original was backed up), and the directories created.
+  `--uninstall` removes unmodified files, restores the originals and prunes the
+  directories, again all or nothing. A second stamp needs `--uninstall` first or
+  `--force`.
+
+Exit codes: `0` ok, `1` refused with nothing written, `2` failed and rolled back
+(or another run holds the lock).
 
 Backend, frontend and mobile source directories may use simple relative names
 such as `src`, `source` or `packages/app`. Absolute paths, traversal components

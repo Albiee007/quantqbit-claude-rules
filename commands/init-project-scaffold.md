@@ -1,6 +1,6 @@
 ---
 description: Scaffold a buildable starter for backend / frontend / mobile / android with the strict feature-organised folder layout
-argument-hint: "[--platform=backend|frontend|mobile|android] [--project-name=NAME] [--src-dir=DIR] [--api-version=vN] [--features=a,b,c] [--android-package=ID] [--with-i18n] [--with-auth] [--force] [--non-interactive]"
+argument-hint: "[--platform=backend|frontend|mobile|android] [--project-name=NAME] [--src-dir=DIR] [--api-version=vN] [--features=a,b,c] [--android-package=ID] [--with-i18n] [--with-auth] [--force] [--dry-run] [--uninstall] [--force-unlock] [--non-interactive]"
 ---
 
 # /init-project-scaffold
@@ -36,12 +36,9 @@ If `--platform=` is omitted, the dispatcher auto-detects by sniffing `build.grad
 
 ## Safety guard
 
-Without `--force`, the script refuses to overwrite any of these if already present:
+The stamp is all or nothing. The starter is rendered and validated in a staging area first; if any existing file would be replaced, the script lists it, writes nothing and exits 1. Existing `README.md`, `.gitignore`, `.editorconfig`, `.env.example` and `docs/` files are kept instead. A failure part-way exits 2 and rolls the project back. `--dry-run` shows the plan without writing.
 
-- `package.json`, `build.gradle.kts`, `build.gradle`, `app.json`
-- `src/`, `app/`, `docs/`
-
-To regenerate, ask the user to confirm and re-run with `--force`. Clobbered files are first backed up to `<target>/.claude.bak/<timestamp>/`. `CLAUDE.md`, `AI_RULES.md` and `.mcp.json` are never overwritten, even with `--force`.
+To replace the files in the way, ask the user to confirm and re-run with `--force`: originals are backed up to `<target>/.claude.bak/<timestamp>.<pid>/`, and `--uninstall` restores them. A project that was already scaffolded needs `--uninstall` or `--force`. `CLAUDE.md`, `AI_RULES.md` and `.mcp.json` are never overwritten, even with `--force`. If a crashed run left a lock, re-run with `--force-unlock`.
 
 ## What gets produced
 

@@ -8,13 +8,18 @@
 #   - init-scaffold.sh stamps the application skeleton on top
 #
 # Pipeline:
-#   detect → check existing → prompt → render → validate → report
+#   detect → prompt → validate inputs → render into a staging tree →
+#   validate the staged tree → plan (refuse on conflicts) → apply → manifest
 #
-# This file is the dispatcher only. The per-platform tree is rendered by
-# lib/render-<platform>.sh, sourced lazily after the platform is known. The
-# renderer is responsible for the actual file emission; this script handles
-# argument parsing, platform selection, prompt orchestration, conflict
-# checks, backup namespacing, and the final report.
+# The whole stamp is one transaction (lib/txn.sh): nothing touches the
+# project until the staged tree is complete and valid, every change is
+# journaled, and any failure before the manifest is written rolls the project
+# back to exactly how it was. The per-platform tree is rendered by
+# lib/render-<platform>.sh (sourced lazily); this script handles arguments,
+# platform selection, prompts, planning, backups and the final report.
+#
+# Exit codes: 0 ok (or --dry-run); 1 refused, nothing written (bad input,
+# files in the way, already scaffolded); 2 failed and rolled back, or locked.
 #
 # Requires: bash, sed (always present); envsubst (gettext-base); jq OR python
 #           (recommended — improves detect-platform package.json parsing).
@@ -40,9 +45,12 @@
 #                              QQPS_API_VERSION, QQPS_FEATURES,
 #                              QQPS_ANDROID_PACKAGE, QQPS_WITH_I18N,
 #                              QQPS_WITH_AUTH.
-#   --force                    Overwrite existing files. Clobbered files are
-#                              first backed up to
-#                                <target>/.claude.bak/<timestamp>/<relative>
+#   --force                    Overwrite existing files. Originals are backed
+#                              up to <target>/.claude.bak/<timestamp>/<relative>
+#                              and restored by --uninstall.
+#   --dry-run                  Print the plan; write nothing.
+#   --force-unlock             Clear a lock left by a crashed run.
+#   --uninstall                Reverse a previous stamp (see --help).
 # ============================================================================
 
 set -euo pipefail
@@ -57,6 +65,8 @@ TARGET_DIR="$(pwd)"
 IS_NON_INTERACTIVE="false"
 FORCE="false"
 UNINSTALL="false"
+DRY_RUN="false"
+FORCE_UNLOCK="false"
 PLATFORM=""
 PROJECT_NAME="${QQPS_PROJECT_NAME:-}"
 SRC_DIR="${QQPS_SRC_DIR:-src}"
@@ -66,10 +76,9 @@ ANDROID_PACKAGE="${QQPS_ANDROID_PACKAGE:-}"
 WITH_I18N="${QQPS_WITH_I18N:-false}"
 WITH_AUTH="${QQPS_WITH_AUTH:-false}"
 
-# Tracking — populated by renderers (they append to CREATED_FILES via the
-# shared convention used by init.sh / render.sh).
-CREATED_FILES=()
-export CREATED_FILES
+# Directories this run created for --target (removed again if it fails).
+CREATED_TARGET_DIRS=""
+SCAFFOLD_PHASE=""
 
 # Explicit-flag markers — distinguish "not passed" from "passed empty".
 TARGET_EXPLICIT="false"
@@ -79,11 +88,10 @@ API_VERSION_EXPLICIT="false"
 ANDROID_PACKAGE_EXPLICIT="false"
 PLATFORM_EXPLICIT="false"
 
-# A single timestamp per invocation, exported so renderers reuse it for all
-# --force backups. Matches the init.sh convention.
-BACKUP_TS="$(date +%Y%m%d-%H%M%S)"
-BACKUP_MADE="false"
-export BACKUP_TS BACKUP_MADE
+# One backup folder per invocation for --force originals; the pid keeps two
+# runs in the same second apart.
+BACKUP_TS="$(date +%Y%m%d-%H%M%S).$$"
+export BACKUP_TS
 
 # ----------------------------------------------------------------------------
 # init_scaffold_print_help — emit the usage block (HEREDOC, not self-grep)
@@ -97,7 +105,10 @@ Stamps a buildable per-platform project starter (backend / frontend /
 mobile / android) into a target workspace.
 
 Pipeline:
-  detect -> check existing -> prompt -> render -> validate -> report
+  detect -> prompt -> render into a staging tree -> validate -> plan ->
+  apply -> write manifest. One transaction: any failure leaves the project
+  exactly as it was. Exit codes: 0 ok, 1 refused (nothing written),
+  2 failed and rolled back (or another run holds the lock).
 
 Usage:
   bash init-scaffold.sh [options]
@@ -120,14 +131,24 @@ Options:
                              QQPS_API_VERSION, QQPS_FEATURES,
                              QQPS_ANDROID_PACKAGE, QQPS_WITH_I18N,
                              QQPS_WITH_AUTH.
-  --force                    Overwrite existing files. Clobbered files are
-                             first backed up to
+  --force                    Replace existing files that are in the way (and
+                             re-stamp over an earlier scaffold). Originals are
+                             backed up to
                                <target>/.claude.bak/<timestamp>/<relative>
-  --uninstall                Reverse a previous stamp. Reads the manifest at
-                             <target>/.claude/.scaffold-manifest-scaffold.txt
-                             and removes every file listed, then prunes empty
-                             parent directories. Backups in .claude.bak/ are
-                             preserved so a manual restore is still possible.
+                             Without --force, any existing file the starter
+                             would replace stops the run before anything is
+                             written; README.md, .gitignore, .editorconfig,
+                             .env.example and docs/ files are kept instead.
+                             CLAUDE.md, AI_RULES.md and .mcp.json are never
+                             replaced.
+  --dry-run                  Show what would be written; change nothing.
+  --force-unlock             Clear the lock left by a crashed run.
+  --uninstall                Reverse a previous stamp using
+                             <target>/.claude/.scaffold-manifest-scaffold.txt:
+                             removes the files it created (unless you have
+                             edited them), restores originals it replaced
+                             with --force, and removes the directories it
+                             created once empty. All or nothing.
 ============================================================================
 EOF
 }
@@ -151,6 +172,12 @@ init_scaffold_parse_args() {
         ;;
       --uninstall)
         UNINSTALL="true"
+        ;;
+      --dry-run)
+        DRY_RUN="true"
+        ;;
+      --force-unlock)
+        FORCE_UNLOCK="true"
         ;;
       --with-i18n)
         WITH_I18N="true"
@@ -281,60 +308,178 @@ init_scaffold_resolve_platform() {
 }
 
 # ----------------------------------------------------------------------------
-# init_scaffold_check_existing — Phase 0 status dashboard + clobber check.
-#
-# Prints a ✓/✗ dashboard of every file the renderer cares about so the user
-# sees the full state of the workspace before any writes happen. When --force
-# is NOT set and any candidate already exists, exits 1 with a clear message.
-# When --force IS set, prints the dashboard for transparency and returns
-# (the renderer will back up clobbered files individually).
+# init_scaffold_check_features — reject feature names that collide with each
+# other (case-insensitively, for macOS/Windows filesystems) or with the
+# example folder the templates already ship (backend/frontend health/,
+# mobile home/). Android does not iterate features.
 # ----------------------------------------------------------------------------
-init_scaffold_check_existing() {
-  local candidates=(
-    "package.json"
-    "build.gradle.kts"
-    "build.gradle"
-    "app.json"
-    "src"
-    "app"
-    "docs"
-  )
-
-  local present=() missing=()
-  local candidate
-  for candidate in "${candidates[@]}"; do
-    if [[ -e "${TARGET_DIR}/${candidate}" ]]; then
-      present+=("${candidate}")
-    else
-      missing+=("${candidate}")
+init_scaffold_check_features() {
+  [[ -z "$FEATURES_CSV" || "$PLATFORM" == android ]] && return 0
+  local example="health" seen="," f lower old_ifs="$IFS"
+  [[ "$PLATFORM" == mobile ]] && example="home"
+  IFS=','
+  # shellcheck disable=SC2206
+  local items=( $FEATURES_CSV )
+  IFS="$old_ifs"
+  for f in ${items[@]+"${items[@]}"}; do
+    f="$(printf '%s' "$f" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+    [[ -z "$f" ]] && continue
+    lower="$(printf '%s' "$f" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$lower" == "$example" ]]; then
+      echo "[FAIL] Feature '${f}' collides with the built-in ${example}/ example; pick another name." >&2
+      exit 1
     fi
+    case "$seen" in
+      *",${lower},"*) echo "[FAIL] Feature '${f}' is listed more than once." >&2; exit 1 ;;
+    esac
+    seen="${seen}${lower},"
   done
+}
 
-  echo ""
-  echo "[INFO] Status check for: ${TARGET_DIR}"
-  for candidate in "${candidates[@]}"; do
-    if [[ -e "${TARGET_DIR}/${candidate}" ]]; then
-      printf "  \xe2\x9c\x93 %s\n" "${candidate}"
-    else
-      printf "  \xe2\x9c\x97 %s (would be stamped)\n" "${candidate}"
-    fi
-  done
-  echo ""
+# ----------------------------------------------------------------------------
+# init_scaffold_fault_at <phase> — test hook: SCAFFOLD_FAIL_AT=<phase> fails
+# there (stage | validate | backup | manifest).
+# ----------------------------------------------------------------------------
+init_scaffold_fault_at() {
+  [[ "${SCAFFOLD_FAIL_AT:-}" == "$1" ]] || return 0
+  echo "[FAIL] SCAFFOLD_FAIL_AT=$1 (test fault injection)" >&2
+  return 1
+}
 
-  if [[ ${#present[@]} -eq 0 ]]; then
-    echo "[OK] Clean workspace — proceeding with stamp."
-    return 0
+# ----------------------------------------------------------------------------
+# init_scaffold_plan — compare the staged tree with the project, writing
+# $TXN_W/plan.tsv rows "<op><TAB><rel>":
+#   MKDIR      staged directory missing from the project
+#   ADD        new file
+#   SAME       identical file already present (left alone)
+#   UPDATE     file from an earlier stamp, unmodified since (--force re-stamp)
+#   OVERWRITE  someone else's file, replaced under --force (backed up)
+#   KEEP       someone else's README/.gitignore/.editorconfig/.env.example/
+#              docs file, kept without --force
+#   CONFLICT   someone else's file (or a file/directory mismatch) in the way
+#   UNSAFE     path runs through a symlink or has an unsafe name
+# $TXN_W/prev.tsv holds the earlier stamp's manifest rows, if any.
+# ----------------------------------------------------------------------------
+init_scaffold_plan() {
+  local stage="$TXN_STAGE" t="$TARGET_DIR" rel op prev_hash
+  local plan="$TXN_W/plan.tsv" prev="$TXN_W/prev.tsv"
+  : > "$plan"; : > "$prev"
+  if [[ -f "$t/$INIT_SCAFFOLD_MANIFEST_NAME" ]]; then
+    manifest_rows "$t/$INIT_SCAFFOLD_MANIFEST_NAME" > "$prev" || return 1
   fi
 
-  if [[ "$FORCE" == "true" ]]; then
-    echo "[WARN] ${#present[@]} existing file(s) will be backed up to .claude.bak/${BACKUP_TS}/ before overwrite."
-    return 0
-  fi
+  while IFS= read -r rel; do
+    if ! safe_relative_path "$t" "$rel"; then op=UNSAFE
+    elif [[ -d "$t/$rel" ]]; then continue
+    elif [[ -e "$t/$rel" ]]; then op=CONFLICT
+    else op=MKDIR
+    fi
+    printf '%s\t%s\n' "$op" "$rel" >> "$plan"
+  done < <(cd "$stage" && find . -mindepth 1 -type d | sed 's|^\./||' | LC_ALL=C sort)
 
-  echo "[FAIL] ${#present[@]} existing file(s) would be overwritten." >&2
-  echo "       Re-run with --force (auto-backup), or move them aside first." >&2
-  echo "       Or run with --uninstall to remove a previous stamp first." >&2
-  exit 1
+  while IFS= read -r rel; do
+    if ! safe_relative_path "$t" "$rel"; then op=UNSAFE
+    elif [[ ! -e "$t/$rel" ]]; then op=ADD
+    elif [[ -d "$t/$rel" ]]; then op=CONFLICT
+    elif cmp -s "$stage/$rel" "$t/$rel"; then op=SAME
+    else
+      prev_hash="$(awk -F'\t' -v r="$rel" '$2 == r && $3 != "dir" { print $1; exit }' "$prev")"
+      if [[ -n "$prev_hash" && "$prev_hash" != "-" && "$(manifest_hash "$t/$rel")" == "$prev_hash" ]]; then
+        op=UPDATE
+      elif [[ "$FORCE" == "true" ]]; then
+        op=OVERWRITE
+      else
+        case "$rel" in
+          README.md|.editorconfig|.gitignore|.env.example|docs/*) op=KEEP ;;
+          *) op=CONFLICT ;;
+        esac
+      fi
+    fi
+    printf '%s\t%s\n' "$op" "$rel" >> "$plan"
+  done < <(cd "$stage" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)
+}
+
+# init_scaffold_count <op> — number of plan rows with that op.
+init_scaffold_count() {
+  awk -F'\t' -v op="$1" '$1 == op { n++ } END { print n + 0 }' "$TXN_W/plan.tsv"
+}
+
+# ----------------------------------------------------------------------------
+# init_scaffold_apply — move the staged tree into the project, journaling
+# every change. Originals replaced under --force are then copied (still
+# inside the transaction) to .claude.bak/<timestamp>.<pid>/.
+# ----------------------------------------------------------------------------
+init_scaffold_apply() {
+  local op rel
+  TXN_APPLYING=1
+  while IFS=$'\t' read -r op rel; do
+    case "$op" in
+      MKDIR)                txn_mkdirs "$rel" || return 1 ;;
+      ADD|OVERWRITE|UPDATE) txn_move_in "$rel" || return 1 ;;
+    esac
+  done < "$TXN_W/plan.tsv"
+  init_scaffold_fault_at backup || return 1
+  while IFS=$'\t' read -r op rel; do
+    [[ "$op" == OVERWRITE ]] || continue
+    txn_copy_in "$TXN_BACKUP/$rel" ".claude.bak/${BACKUP_TS}/${rel}" || return 1
+  done < "$TXN_W/plan.tsv"
+}
+
+# ----------------------------------------------------------------------------
+# Manifest (v2) — the commit record. One row per file this stamp owns:
+#   <sha256><TAB><rel><TAB>created|overwritten<TAB><backup rel or ->
+# plus "-<TAB><rel><TAB>dir<TAB>-" for each directory it created. Rows from
+# an earlier stamp carry over for anything this run left untouched, so
+# --uninstall still reverses both. Written to the work dir, then renamed
+# into place by txn_commit_file.
+# ----------------------------------------------------------------------------
+INIT_SCAFFOLD_MANIFEST_NAME=".claude/.scaffold-manifest-scaffold.txt"
+
+init_scaffold_write_manifest() {
+  local new="$TXN_W/rows.new" op rel origin backup inherited
+  : > "$new"
+  # Directories this run created, as journaled by txn_mkdirs.
+  awk -F'\t' '$1 == "rmdir" && $2 !~ /^\.claude(\.bak)?(\/|$)/ { printf "-\t%s\tdir\t-\n", $2 }' \
+    "$TXN_JOURNAL" >> "$new"
+  while IFS=$'\t' read -r op rel; do
+    case "$op" in
+      ADD)       origin="created"; backup="-" ;;
+      OVERWRITE) origin="overwritten"; backup=".claude.bak/${BACKUP_TS}/${rel}" ;;
+      UPDATE)
+        inherited="$(awk -F'\t' -v r="$rel" '$2 == r { print $3 "\t" $4; exit }' "$TXN_W/prev.tsv")"
+        origin="${inherited%%$'\t'*}"; backup="${inherited#*$'\t'}" ;;
+      *) continue ;;
+    esac
+    printf '%s\t%s\t%s\t%s\n' "$(manifest_hash "$TARGET_DIR/$rel")" "$rel" "$origin" "$backup" >> "$new"
+  done < "$TXN_W/plan.tsv"
+
+  {
+    echo "# Generated by init-scaffold.sh"
+    echo "# Platform: ${PLATFORM}"
+    echo "# Stamped: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "# Use 'init-scaffold.sh --uninstall --target=<dir>' to reverse"
+    printf '# format: v2 sha256<TAB>relative-path<TAB>origin<TAB>backup\n'
+    awk -F'\t' 'NR == FNR { seen[$2] = 1; print; next } !($2 in seen) { print }' \
+      "$new" "$TXN_W/prev.tsv" | LC_ALL=C sort -t$'\t' -k2,2
+  } > "$TXN_W/manifest.new"
+}
+
+# ----------------------------------------------------------------------------
+# init_scaffold_print_plan — summary (and, for --dry-run, the file list).
+# ----------------------------------------------------------------------------
+init_scaffold_print_plan() {
+  local verbose="${1:-false}"
+  echo ""
+  echo "[INFO] Plan for ${TARGET_DIR}:"
+  printf '  %-10s %s\n' add "$(init_scaffold_count ADD)" \
+    update "$(init_scaffold_count UPDATE)" overwrite "$(init_scaffold_count OVERWRITE)" \
+    keep "$(init_scaffold_count KEEP)" unchanged "$(init_scaffold_count SAME)" \
+    mkdir "$(init_scaffold_count MKDIR)"
+  if [[ "$verbose" == "true" ]]; then
+    awk -F'\t' '$1 != "SAME" { printf "  %-9s %s\n", $1, $2 }' "$TXN_W/plan.tsv"
+  else
+    awk -F'\t' '$1 == "OVERWRITE" || $1 == "KEEP" { printf "  %-9s %s\n", $1, $2 }' "$TXN_W/plan.tsv"
+  fi
 }
 
 # ----------------------------------------------------------------------------
@@ -345,69 +490,51 @@ init_scaffold_report() {
   echo "===== Scaffold complete ====="
   echo "Target  : ${TARGET_DIR}"
   echo "Platform: ${PLATFORM}"
-  echo ""
-  if [[ ${#CREATED_FILES[@]} -eq 0 ]]; then
-    echo "[WARN] No files were tracked as created (renderer did not record them)."
-    return
+  echo "Wrote $(( $(init_scaffold_count ADD) + $(init_scaffold_count UPDATE) + $(init_scaffold_count OVERWRITE) )) file(s); manifest: ${INIT_SCAFFOLD_MANIFEST_NAME}"
+  if [[ "$(init_scaffold_count KEEP)" -gt 0 ]]; then
+    echo "[INFO] Kept your existing: $(awk -F'\t' '$1 == "KEEP" { printf "%s ", $2 }' "$TXN_W/plan.tsv")(re-run with --force to replace them)"
   fi
-  echo "Created ${#CREATED_FILES[@]} file(s)."
-  if [[ "${BACKUP_MADE:-false}" == "true" ]]; then
-    echo "[OK] Backups available at ${TARGET_DIR}/.claude.bak/${BACKUP_TS}/"
+  if [[ "$(init_scaffold_count OVERWRITE)" -gt 0 ]]; then
+    echo "[OK] Originals of overwritten files: ${TARGET_DIR}/.claude.bak/${BACKUP_TS}/ (--uninstall restores them)"
   fi
 }
 
 # ----------------------------------------------------------------------------
-# _on_exit — EXIT trap so partial failures still surface what was created.
+# _on_exit — EXIT trap. Rolls back an interrupted apply (lib/txn.sh), releases
+# the lock, and removes a target directory this run created if it failed.
 # ----------------------------------------------------------------------------
 _on_exit() {
   local rc=$?
-  if [[ ${#CREATED_FILES[@]} -gt 0 ]]; then
-    echo ""
-    echo "[INFO] Created files (before exit):"
-    local f
-    for f in "${CREATED_FILES[@]}"; do
-      echo "  - ${f}"
-    done
+  [[ $rc -ne 0 && "$SCAFFOLD_PHASE" == "render" ]] && rc=2
+  txn_on_exit "$rc" || rc=$?
+  if [[ $rc -ne 0 || "$DRY_RUN" == "true" ]]; then
+    local d
+    while IFS= read -r d; do
+      [[ -n "$d" ]] && { rmdir "$d" 2>/dev/null || true; }
+    done <<< "$CREATED_TARGET_DIRS"
   fi
-  if [[ $rc -ne 0 ]]; then
-    echo "[WARN] init-scaffold.sh aborted early; you may need to clean up these files manually." >&2
+  if [[ $rc -eq 2 ]]; then
+    echo "[WARN] init-scaffold.sh failed; the project was left as it was before the run." >&2
   fi
-}
-
-# ----------------------------------------------------------------------------
-# Manifest helpers — delegate to the shared lib/manifest.sh so init.sh and
-# init-scaffold.sh share the same on-disk format. Each dispatcher writes its
-# own manifest file so the two scaffolders coexist + uninstall independently.
-# ----------------------------------------------------------------------------
-INIT_SCAFFOLD_MANIFEST_NAME=".claude/.scaffold-manifest-scaffold.txt"
-
-init_scaffold_write_manifest() {
-  local target="$1"
-  if [[ ${#CREATED_FILES[@]} -eq 0 ]]; then
-    echo "[WARN] No files in CREATED_FILES; skipping manifest." >&2
-    return 0
-  fi
-  manifest_write "${target}/${INIT_SCAFFOLD_MANIFEST_NAME}" \
-    "Generated by init-scaffold.sh" \
-    "Platform: ${PLATFORM}" \
-    "Stamped: $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    "Use 'init-scaffold.sh --uninstall --target=<dir>' to reverse" \
-    -- \
-    "${CREATED_FILES[@]}"
+  exit "$rc"
 }
 
 init_scaffold_uninstall() {
   local target="$1"
   local manifest="${target}/${INIT_SCAFFOLD_MANIFEST_NAME}"
   echo "[INFO] Uninstall via manifest: ${manifest}"
-  if manifest_uninstall "$manifest"; then
+  local rc=0
+  # shellcheck disable=SC2034  # read by manifest_uninstall
+  MANIFEST_FORCE_UNLOCK="$([[ "$FORCE_UNLOCK" == "true" ]] && echo 1 || echo 0)"
+  manifest_uninstall "$manifest" || rc=$?
+  if [[ $rc -eq 0 ]]; then
     if [[ -d "${target}/.claude.bak" ]]; then
       echo "[INFO] Backups preserved at: ${target}/.claude.bak/"
     fi
     return 0
   fi
-  echo "[INFO] Look for backups under ${target}/.claude.bak/<timestamp>/ to restore manually." >&2
-  return 1
+  echo "[INFO] Nothing was changed. Backups of files replaced with --force are under ${target}/.claude.bak/." >&2
+  return "$rc"
 }
 
 # ============================================================================
@@ -415,13 +542,16 @@ init_scaffold_uninstall() {
 # ============================================================================
 
 trap '_on_exit' EXIT
+trap 'exit 2' INT TERM
 
 init_scaffold_parse_args "$@"
 
-# Manifest helpers — needed by both the stamp path (write) and the uninstall
-# fast-path (read). Sourced early so the uninstall branch below can call it.
+# Manifest + transaction helpers — needed by both the stamp path and the
+# uninstall fast-path.
 # shellcheck source=lib/manifest.sh
 source "${SCRIPT_DIR}/lib/manifest.sh"
+# shellcheck disable=SC2034  # read by lib/txn.sh (test fault injection)
+TXN_FAIL_VAR="SCAFFOLD_FAIL_AFTER"
 
 # --uninstall is short-circuit: no envsubst, no detect, no prompt, no render.
 # Just read the manifest written by a previous stamp and reverse it.
@@ -432,8 +562,9 @@ if [[ "$UNINSTALL" == "true" ]]; then
   fi
   TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
   echo "[INFO] Uninstalling from: ${TARGET_DIR}"
-  init_scaffold_uninstall "$TARGET_DIR"
-  exit $?
+  uninstall_rc=0
+  init_scaffold_uninstall "$TARGET_DIR" || uninstall_rc=$?
+  exit "$uninstall_rc"
 fi
 
 # envsubst is hard-required because per-platform renderers will use it for
@@ -446,13 +577,17 @@ if ! command -v envsubst >/dev/null 2>&1; then
   exit 1
 fi
 
-# Resolve target dir. If it doesn't exist we create it — scaffolding into a
-# brand-new directory is a normal flow.
-if [[ ! -d "$TARGET_DIR" ]]; then
-  echo "[INFO] Target dir does not exist; creating: ${TARGET_DIR}"
-  mkdir -p "$TARGET_DIR"
+# Resolve the target to an absolute path, but create nothing until every
+# input has been validated.
+case "$TARGET_DIR" in
+  /*|[A-Za-z]:*) ;;
+  *) TARGET_DIR="$(pwd)/${TARGET_DIR}" ;;
+esac
+if [[ -e "$TARGET_DIR" && ! -d "$TARGET_DIR" ]]; then
+  echo "[FAIL] --target exists but is not a directory: ${TARGET_DIR}" >&2
+  exit 1
 fi
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+[[ -d "$TARGET_DIR" ]] && TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
 echo "[INFO] Claude project scaffold"
 echo "[INFO] Source : ${SCRIPT_DIR}"
@@ -467,16 +602,18 @@ source "${SCRIPT_DIR}/lib/prompt-scaffold.sh"
 # shellcheck source=lib/validate-scaffold.sh
 source "${SCRIPT_DIR}/lib/validate-scaffold.sh"
 
-# 1. detect
-detect_platform "$TARGET_DIR"
+# 1. detect (a target that does not exist yet has nothing to detect)
+if [[ -d "$TARGET_DIR" ]]; then
+  detect_platform "$TARGET_DIR"
+else
+  DETECTED_PLATFORM="unknown"
+  DETECTED_CANDIDATES=""
+fi
 
 # 2. resolve platform (flag → detected → prompt)
 init_scaffold_resolve_platform
 
-# 3. refuse to clobber without --force
-init_scaffold_check_existing
-
-# 4. prompt for the remaining substitution variables. prompt_scaffold_collect
+# 3. prompt for the remaining substitution variables. prompt_scaffold_collect
 #    honours IS_NON_INTERACTIVE on its own.
 prompt_scaffold_collect "$PLATFORM"
 
@@ -497,19 +634,25 @@ if [[ ! "$PROJECT_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]*$ ]]; then
   echo '[FAIL] Project name must contain only letters, numbers, spaces, dots, underscores or hyphens.' >&2
   exit 1
 fi
+init_scaffold_check_features
+
+# 4. one stamp per project unless re-stamping on purpose
+if [[ -f "${TARGET_DIR}/${INIT_SCAFFOLD_MANIFEST_NAME}" && "$FORCE" != "true" ]]; then
+  echo "[FAIL] This project was already scaffolded (${INIT_SCAFFOLD_MANIFEST_NAME} exists)." >&2
+  echo "       Run --uninstall first, or --force to re-stamp over it." >&2
+  exit 1
+fi
 
 # Re-export everything renderers need (idempotent; covers both paths).
 export PROJECT_NAME PROJECT_SLUG SRC_DIR API_VERSION FEATURES_CSV \
        ANDROID_PACKAGE WITH_I18N WITH_AUTH TIMESTAMP \
        PLATFORM TARGET_DIR FORCE IS_NON_INTERACTIVE BACKUP_TS
 
-# 5. source the per-platform renderer lazily. The dispatcher errors cleanly
-#    if the lib is missing (renderers land in Subtasks 3-6).
+# 5. source the per-platform renderer.
 RENDERER_LIB="${SCRIPT_DIR}/lib/render-${PLATFORM}.sh"
 if [[ ! -f "$RENDERER_LIB" ]]; then
   echo "[FAIL] renderer lib not found: lib/render-${PLATFORM}.sh" >&2
   echo "       Expected at: ${RENDERER_LIB}" >&2
-  echo "       This platform's renderer has not been implemented yet." >&2
   exit 1
 fi
 # shellcheck source=/dev/null
@@ -522,14 +665,55 @@ if ! declare -F "$RENDER_FN" >/dev/null 2>&1; then
   exit 1
 fi
 
-# 6. render
-"$RENDER_FN" "$TARGET_DIR"
+# 6. create the target (inputs are valid now) and open the transaction.
+if [[ ! -d "$TARGET_DIR" ]]; then
+  d="$TARGET_DIR"
+  while [[ ! -e "$d" ]]; do
+    CREATED_TARGET_DIRS="${CREATED_TARGET_DIRS}${d}"$'\n'
+    d="$(dirname "$d")"
+  done
+  echo "[INFO] Target dir does not exist; creating: ${TARGET_DIR}"
+  mkdir -p "$TARGET_DIR"
+  TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+fi
+txn_begin "$TARGET_DIR" ".claude/.scaffold-tmp" scaffold \
+  "$([[ "$FORCE_UNLOCK" == "true" ]] && echo 1 || echo 0)" || exit 2
 
-# 6b. persist manifest so a future --uninstall can reverse this stamp
-init_scaffold_write_manifest "$TARGET_DIR"
+# 7. render into the staging tree, then validate it — nothing in the project
+#    has changed yet.
+# The renderer runs under errexit; any failure exits with 2 via _on_exit.
+# shellcheck disable=SC2034  # read by lib/render-core.sh
+RC_LIVE_TARGET="$TARGET_DIR"
+SCAFFOLD_PHASE="render"
+"$RENDER_FN" "$TXN_STAGE"
+SCAFFOLD_PHASE=""
+init_scaffold_fault_at stage || exit 2
+validate_scaffold_all "$TXN_STAGE" "$PLATFORM" || exit 2
+init_scaffold_fault_at validate || exit 2
 
-# 7. validate
-validate_scaffold_all "$TARGET_DIR" "$PLATFORM"
+# 8. plan: refuse (writing nothing) if anything is in the way
+init_scaffold_plan || exit 2
+if [[ "$(init_scaffold_count CONFLICT)" -gt 0 || "$(init_scaffold_count UNSAFE)" -gt 0 ]]; then
+  echo "" >&2
+  echo "[FAIL] Existing paths are in the way; nothing was written:" >&2
+  awk -F'\t' '$1 == "CONFLICT" { print "  exists:  " $2 } $1 == "UNSAFE" { print "  unsafe:  " $2 " (symlink or unsafe name)" }' \
+    "$TXN_W/plan.tsv" >&2
+  echo "       Move them aside, or re-run with --force (originals are backed up to .claude.bak/)." >&2
+  exit 1
+fi
+if [[ "$DRY_RUN" == "true" ]]; then
+  init_scaffold_print_plan true
+  echo "[INFO] Dry run: nothing was written."
+  exit 0
+fi
+init_scaffold_print_plan
 
-# 8. report
+# 9. apply, then commit by renaming the manifest into place
+init_scaffold_apply || exit 2
+init_scaffold_write_manifest
+init_scaffold_fault_at manifest || exit 2
+txn_commit_file "$TXN_W/manifest.new" "$INIT_SCAFFOLD_MANIFEST_NAME" || exit 2
+# shellcheck disable=SC2034  # read by lib/txn.sh
+TXN_APPLYING=0   # committed: nothing after this point may roll back
 init_scaffold_report
+txn_end

@@ -46,7 +46,7 @@ If none resolve, tell the user: "I can't find the project-scaffold runner. Insta
 Once the scaffolder is located:
 
 1. **Confirm the target directory** with the user (default = current working directory). Surface a one-line summary of what will be stamped.
-2. **Confirm the platform** — either from the user's request ("scaffold a backend") or by auto-detection. If the directory already has a `package.json` / `build.gradle.kts` / `app.json`, point that out and ask whether to use `--force` (with backup) or pick a different platform.
+2. **Confirm the platform** — either from the user's request ("scaffold a backend") or by auto-detection. If the directory already has a `package.json` / `build.gradle.kts` / `app.json`, point that out and offer `--dry-run` to preview, `--force` (originals backed up, restored by `--uninstall`) or a different platform. Exit 1 means nothing was written (show the listed paths); exit 2 means the run failed and the project was rolled back.
 3. **Run the scaffolder** with the chosen flags. On Unix:
 
    ```bash
@@ -61,7 +61,7 @@ Once the scaffolder is located:
 
    The `.ps1` wrapper needs Git for Windows installed (it finds Git Bash itself) and forwards to `init-scaffold.sh`.
 
-4. **Pass through user-supplied flags** verbatim. The scaffolder accepts: `--platform=`, `--target=`, `--project-name=`, `--src-dir=`, `--api-version=`, `--features=`, `--android-package=`, `--with-i18n`, `--with-auth`, `--force`, `--non-interactive`.
+4. **Pass through user-supplied flags** verbatim. The scaffolder accepts: `--platform=`, `--target=`, `--project-name=`, `--src-dir=`, `--api-version=`, `--features=`, `--android-package=`, `--with-i18n`, `--with-auth`, `--force`, `--dry-run`, `--uninstall`, `--force-unlock`, `--non-interactive`.
 
 ### After the stamp
 

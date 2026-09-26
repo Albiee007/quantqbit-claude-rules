@@ -50,12 +50,20 @@ jobs:
         run: bash tests/validate.test.sh
       - name: Sync scenario tests
         run: bash tests/sync.test.sh
-      - name: macOS stock bash 3.2 compatibility (hooks + sync)
+      - name: macOS stock bash 3.2 compatibility (hooks + sync + scaffold)
         if: runner.os == 'macOS'
         run: |
+          command -v envsubst || brew install gettext
           PATH="/bin:/usr/bin:$PATH" bash --version | head -1
           PATH="/bin:/usr/bin:$PATH" /bin/bash tests/hooks.test.sh
           PATH="/bin:/usr/bin:$PATH" /bin/bash tests/sync.test.sh
+          PATH="/bin:/usr/bin:$PATH" /bin/bash tests/scaffold.test.sh
+      - name: Scaffold transaction tests (Windows Git Bash, trimmed)
+        if: runner.os == 'Windows'
+        env:
+          SCAFFOLD_PLATFORM: backend
+          SCAFFOLD_QUICK: '1'
+        run: bash tests/scaffold.test.sh
       - name: Windows PowerShell entry points
         if: runner.os == 'Windows'
         shell: pwsh

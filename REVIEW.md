@@ -58,10 +58,12 @@ as part of this local review.
 2. **Add native CI.** Bootstrap a verified Gradle wrapper, provision the Android
    SDK, and run Kotlin tests and an APK build. Add Expo prebuild/native checks
    before advertising the mobile starter as release-ready.
-3. **Make application scaffolding transactional.** Harness sync has rollback;
-   application scaffold rendering still writes files incrementally. A failed
-   render can leave a partial project. Stage and validate the full tree before
-   applying it, with an ownership journal and fault-injection tests.
+3. **Make application scaffolding transactional.** *Done:* `init-scaffold.sh`
+   stages and validates the full tree, plans against the project (refusing
+   before any write), applies through the journal in `scaffold/lib/txn.sh`, and
+   commits a v2 manifest recording origins and backups. `tests/scaffold.test.sh`
+   covers conflicts, `--force` restore, locking, symlinks and a fault-injection
+   matrix. Moving `sync.sh` onto `txn.sh` is optional follow-up work.
 4. **Strengthen database lifecycle handling.** The SQL migration runner has
    per-file transactions but no cross-process migration lock or applied-file
    checksum. The server shutdown path does not close optional DB connections.

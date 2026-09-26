@@ -12,10 +12,17 @@ Every entry has **Upgrade notes** for anything a project needs to act on.
 
 ### Changed
 - **Scaffold renderers share one core.** `scaffold/lib/render-core.sh` now holds the substitution, write/backup, shared-template, main-pass, per-feature and required-directory logic. Each `render-<platform>.sh` only describes its platform (variables, envsubst whitelist, skip rules, path tokens, item template, required dirs). Generated output is unchanged, which `tests/scaffold-equiv.test.sh` checks against a base ref.
-- ShellCheck (via `validate-harness.sh`) now also covers `init-scaffold.sh` and the renderers.
+- ShellCheck (via `validate-harness.sh`) now also covers `init-scaffold.sh`, the renderers, `txn.sh` and `manifest.sh`.
+- **Application scaffolding is transactional.** `init-scaffold.sh` renders into a staging tree, validates it, and plans against the project before writing anything. Any existing file the starter would replace now stops the run and is listed (previously only seven names were checked and other files were silently kept, leaving a mixed tree). Changes are journaled and a failure rolls the project back. The manifest is written last and records the directories created and the originals `--force` replaced. The journal and lock logic comes from `sync.sh` and is shared through the new `scaffold/lib/txn.sh`.
+- `--uninstall` (both `init-scaffold.sh` and `init.sh`) is all or nothing and restores originals that `--force` replaced instead of deleting them.
+- New `--dry-run` and `--force-unlock` flags. Exit codes match `sync.sh`: `0` ok, `1` refused with nothing written, `2` failed and rolled back.
+- Features named like the built-in example (`health`, or `home` on mobile) or listed twice are rejected up front. A target directory is only created after all input is valid.
+- `scripts/*.sh` in every starter are now executable (previously only Android).
 
 ### Upgrade notes
-- None. Stamped projects are byte-identical to 1.1.0 output.
+- Scaffolding into a non-empty project: files that would be replaced now stop the run. Preview with `--dry-run`; use `--force` to replace them (backed up, and restored by `--uninstall`).
+- Re-running the scaffolder on a scaffolded project now needs `--uninstall` first, or `--force`.
+- Manifests written by this version use a v2 row format. Older scaffolders refuse to uninstall them (no files are touched); this version reads v1 and legacy manifests.
 
 ## [1.1.0] - 2026-09-25
 

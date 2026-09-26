@@ -12,11 +12,10 @@
 #   .claude/.scaffold-manifest-rules.txt      (written by init.sh)
 #   .claude/.scaffold-manifest-scaffold.txt   (written by init-scaffold.sh)
 #
-# Manifest format:
-#   # ... arbitrary comment / metadata lines beginning with '#'
-#   <absolute-path-to-file>
-#   <absolute-path-to-file>
-#   ...
+# Manifest format (see manifest_rows for every version):
+#   # ... comment / metadata lines beginning with '#'
+#   v1 (init.sh):          <sha256><TAB><relative path>
+#   v2 (init-scaffold.sh): <sha256|-><TAB><rel><TAB><origin><TAB><backup rel|->
 #
 # Usage:
 #   source "${SCRIPT_DIR}/lib/manifest.sh"
@@ -29,7 +28,10 @@
 # ============================================================================
 
 set -euo pipefail
+# shellcheck source=safe-path.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/safe-path.sh"
+# shellcheck source=txn.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/txn.sh"
 
 # ----------------------------------------------------------------------------
 # manifest_write <manifest-path> <header-1> [<header-N>...] -- <file-1> [<file-N>...]
@@ -77,11 +79,58 @@ manifest_write() {
 }
 
 # ----------------------------------------------------------------------------
+# manifest_rows <manifest-path>
+#
+# Normalises every manifest format to "hash<TAB>rel<TAB>origin<TAB>backup":
+#   legacy v0.x  <absolute path>                    → -     rel created -
+#   v1           <sha256><TAB><rel>                 → sha   rel created -
+#   v2           <sha256|-><TAB><rel><TAB><origin><TAB><backup rel|->
+# origin is created | overwritten | dir. Every rel (and backup) is checked
+# with safe_relative_path first; returns 1 on any unsafe or malformed
+# row. (v1 readers see a v2 rel containing tabs and refuse it — safe.)
+# ----------------------------------------------------------------------------
+manifest_rows() {
+  local manifest_path="$1" root line hash rel origin backup rest out=""
+  root="$(cd "$(dirname "$manifest_path")/.." && pwd)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    origin="created"; backup="-"
+    if [[ "$line" == *$'\t'* ]]; then
+      hash="${line%%$'\t'*}"; rest="${line#*$'\t'}"
+      if [[ "$rest" == *$'\t'* ]]; then
+        rel="${rest%%$'\t'*}"; rest="${rest#*$'\t'}"
+        origin="${rest%%$'\t'*}"; backup="${rest#*$'\t'}"
+        [[ "$backup" == *$'\t'* ]] && { echo "[FAIL] Malformed manifest row: $line" >&2; return 1; }
+      else
+        rel="$rest"
+      fi
+    else
+      [[ "$line" == "$root/"* ]] || { echo "[FAIL] Manifest path is outside target: $line" >&2; return 1; }
+      hash="-"; rel="${line#"$root"/}"
+    fi
+    case "$origin" in created|overwritten|dir) ;; *)
+      echo "[FAIL] Unknown manifest origin '${origin}' for: $rel" >&2; return 1 ;;
+    esac
+    safe_relative_path "$root" "$rel" || { echo "[FAIL] Unsafe manifest path: $rel" >&2; return 1; }
+    if [[ "$backup" != "-" ]]; then
+      safe_relative_path "$root" "$backup" || { echo "[FAIL] Unsafe manifest backup path: $backup" >&2; return 1; }
+    fi
+    out="${out}${hash}"$'\t'"${rel}"$'\t'"${origin}"$'\t'"${backup}"$'\n'
+  done < "$manifest_path"
+  printf '%s' "$out"
+}
+
+# ----------------------------------------------------------------------------
 # manifest_uninstall <manifest-path>
 #
-# Reads the manifest, rm's every listed file, prunes now-empty parent dirs
-# (in reverse-depth order), then deletes the manifest itself. Exits non-zero
-# if the manifest doesn't exist.
+# Reverses a stamp as one transaction (lib/txn.sh): files still matching their
+# recorded hash are removed — or, when the stamp overwrote a file with
+# --force, the saved original is restored. Modified files are kept. The
+# manifest is removed last (the commit point); any failure before that rolls
+# every change back. Then directories the stamp created are pruned if empty.
+# Returns 1 when refused (missing manifest, unsafe row), 2 on a failed
+# (rolled-back) or locked run.
 # ----------------------------------------------------------------------------
 manifest_uninstall() {
   local manifest_path="$1"
@@ -96,94 +145,70 @@ manifest_uninstall() {
   fi
 
   echo "[INFO] Reading manifest: $manifest_path"
-
-  # Collect non-comment, non-blank lines into the files array.
-  local files=()
-  local line
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-    files+=("$line")
-  done < "$manifest_path"
-
-  if [[ ${#files[@]} -eq 0 ]]; then
-    echo "[WARN] Manifest is empty — nothing to remove."
-    rm -f "$manifest_path"
-    return 0
-  fi
-
-  echo "[INFO] Manifest lists ${#files[@]} files to remove"
-
-  local removed=0
-  local skipped=0
-  local kept=0
-  local root entry f want
+  local root rows manifest_rel
   root="$(cd "$(dirname "$manifest_path")/.." && pwd)"
-  # Validate the complete list before deleting even one file. Legacy absolute
-  # entries must also remain within this workspace.
-  local rel
-  for entry in "${files[@]}"; do
-    if [[ "$entry" == *$'\t'* ]]; then
-      rel="${entry#*$'\t'}"
-    else
-      [[ "$entry" == "$root/"* ]] || { echo "[FAIL] Manifest path is outside target: $entry" >&2; return 1; }
-      rel="${entry#"$root"/}"
-    fi
-    safe_relative_path "$root" "$rel" || { echo "[FAIL] Unsafe manifest path: $rel" >&2; return 1; }
-  done
-  local resolved=()
-  for entry in "${files[@]}"; do
-    if [[ "$entry" == *$'\t'* ]]; then
-      # v1.0 format: hash<TAB>relative path — remove only if unmodified.
-      want="${entry%%$'\t'*}"
-      f="${root}/${entry#*$'\t'}"
-      if [[ -f "$f" && "$(manifest_hash "$f")" != "$want" ]]; then
-        echo "[WARN] kept (modified since stamping): ${f}"
-        kept=$((kept + 1))
-        continue
-      fi
-    else
-      f="$entry"   # legacy v0.x format: absolute path, no hash
-    fi
-    resolved+=("$f")
-    if [[ -f "$f" ]]; then
-      rm -f "$f"
-      removed=$((removed + 1))
-    else
-      skipped=$((skipped + 1))
-    fi
-  done
-  files=("${resolved[@]+"${resolved[@]}"}")
-  echo "[OK] Removed ${removed} files (${skipped} already gone, ${kept} modified kept)"
+  manifest_rel="${manifest_path#"$root"/}"
+  # Validate the complete list before touching even one file.
+  rows="$(manifest_rows "$manifest_path")" || return 1
+  safe_relative_path "$root" "$manifest_rel" || { echo "[FAIL] Unsafe manifest location: $manifest_path" >&2; return 1; }
 
-  # Prune empty parent dirs. Walk up the ancestry of every removed file: for
-  # /a/b/c/file.txt we try to rmdir /a/b/c, then /a/b, then /a — sort -r
-  # gives deepest-first so the inner dir is empty before the outer dir is
-  # tried. Stop walking up at the manifest's target root (the parent of
-  # `.claude/`) — we don't want to nuke the workspace dir itself.
-  local ancestor_dirs=()
-  local f d
-  for f in "${files[@]}"; do
-    d="$(dirname "$f")"
-    while [[ "$d" == "$root/"* ]]; do
-      ancestor_dirs+=("$d")
-      d="$(dirname "$d")"
-    done
-  done
-  local dirs_unique
-  dirs_unique=$(printf '%s\n' "${ancestor_dirs[@]}" | sort -u | sort -r)
+  txn_begin "$root" ".claude/.scaffold-tmp" scaffold "${MANIFEST_FORCE_UNLOCK:-0}" || return 2
+  # shellcheck disable=SC2034  # read by lib/txn.sh
+  TXN_APPLYING=1
+
+  local hash rel origin backup removed=0 restored=0 kept=0 gone=0 dirs="" d
+  while IFS=$'\t' read -r hash rel origin backup; do
+    [[ -z "$rel" ]] && continue
+    if [[ "$origin" == dir ]]; then
+      dirs="${dirs}${rel}"$'\n'; continue
+    fi
+    if [[ ! -e "$root/$rel" ]]; then
+      gone=$((gone + 1)); continue
+    fi
+    if [[ "$hash" != "-" && "$(manifest_hash "$root/$rel")" != "$hash" ]]; then
+      echo "[WARN] kept (modified since stamping): ${rel}"
+      kept=$((kept + 1)); continue
+    fi
+    if [[ "$origin" == overwritten ]]; then
+      if [[ "$backup" != "-" && -f "$root/$backup" ]]; then
+        txn_copy_in "$root/$backup" "$rel" || { txn_on_exit 2; return 2; }
+        restored=$((restored + 1))
+      else
+        echo "[WARN] kept ${rel}: it replaced one of your files and the backup ${backup} is missing"
+        kept=$((kept + 1))
+      fi
+      continue
+    fi
+    txn_remove "$rel" || { txn_on_exit 2; return 2; }
+    removed=$((removed + 1))
+  done <<< "$rows"
+
+  # Commit point: the manifest goes last.
+  txn_remove "$manifest_rel" || { txn_on_exit 2; return 2; }
+  txn_end
+  echo "[OK] Removed ${removed} file(s), restored ${restored} original(s) (${gone} already gone, ${kept} kept)"
+
+  # v1/legacy manifests record no directories: prune ancestors of every
+  # listed file, deepest first. v2 lists the directories the stamp created.
+  if [[ -z "$dirs" ]]; then
+    while IFS=$'\t' read -r hash rel origin backup; do
+      [[ -z "$rel" ]] && continue
+      d="${rel%/*}"
+      while [[ "$d" != "$rel" && -n "$d" ]]; do
+        dirs="${dirs}${d}"$'\n'
+        [[ "$d" == */* ]] || break
+        d="${d%/*}"
+      done
+    done <<< "$rows"
+  fi
   local pruned=0
   while IFS= read -r d; do
     [[ -z "$d" ]] && continue
-    if rmdir "$d" 2>/dev/null; then
-      pruned=$((pruned + 1))
-    fi
-  done <<< "$dirs_unique"
+    rmdir "$root/$d" 2>/dev/null && pruned=$((pruned + 1))
+  done < <(printf '%s' "$dirs" | LC_ALL=C sort -u | LC_ALL=C sort -r)
   echo "[OK] Pruned ${pruned} now-empty directories"
 
-  # Remove the manifest itself, then best-effort prune its parent directory
-  # (typically .claude/). If the parent is non-empty (e.g. the OTHER
-  # dispatcher's manifest still lives there), rmdir silently fails — fine.
-  rm -f "$manifest_path"
+  # Best-effort prune of .claude/ (the other dispatcher's manifest may remain).
   rmdir "$(dirname "$manifest_path")" 2>/dev/null || true
   echo "[OK] Removed manifest"
   return 0

@@ -8,6 +8,7 @@
 #
 # Usage: SCAFFOLD_EQUIV_BASE=<git ref, default HEAD> bash tests/scaffold-equiv.test.sh
 #        SCAFFOLD_PLATFORM="backend mobile" limits the platforms.
+#        SCAFFOLD_EQUIV_SKIP_MANIFEST=1 ignores the manifest (format changes).
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -49,6 +50,8 @@ for directory, dirs, names in os.walk(root):
         path = Path(directory) / name
         rel = norm(path.relative_to(root).as_posix())
         data = path.read_bytes()
+        if rel.endswith('.claude/.scaffold-manifest-scaffold.txt') and os.environ.get('SCAFFOLD_EQUIV_SKIP_MANIFEST') == '1':
+            continue
         if rel.endswith('.claude/.scaffold-manifest-scaffold.txt'):
             lines = data.decode('utf-8').splitlines()
             head = [l for l in lines if l.startswith('#') and not l.startswith('# Stamped:')]
