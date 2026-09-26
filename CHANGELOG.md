@@ -8,6 +8,17 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [Unreleased]
+
+Starter platform baselines move to current releases, verified by installing, type-checking, testing and building the generated projects on Node 22 and 24.
+
+### Changed
+- **Frontend starter:** React 19.3, React Router 8 (the `react-router` package replaces `react-router-dom`), Vite 8, Vitest 5, jsdom 30, Testing Library 16 with `@testing-library/dom` declared, Zod 4 and TypeScript 6.0. The tsconfig drops the deprecated `baseUrl` (paths are `./`-relative), the Vite configs use `import.meta.dirname`, components import the `JSX` type from React, and the Dockerfile builds on `node:24-alpine`. `engines.node` is `>=22.22`.
+
+### Upgrade notes
+- Only newly stamped projects change. Existing projects keep their dependencies; to follow, apply the same bumps and run the project's checks.
+- TypeScript stays on 6.0 in the starters: TypeScript 7 (the native compiler) is not yet supported by `ts-jest`, and Expo pins its own version.
+
 ## [1.2.0] - 2026-09-26
 
 Store assets get a release gate, and the application scaffolder becomes transactional on a shared renderer core.

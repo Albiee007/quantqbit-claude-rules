@@ -10,13 +10,13 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@/config': path.resolve(__dirname, '${SRC_DIR}/config'),
-      '@/components': path.resolve(__dirname, '${SRC_DIR}/components'),
-      '@/features': path.resolve(__dirname, '${SRC_DIR}/features'),
-      '@/hooks': path.resolve(__dirname, '${SRC_DIR}/hooks'),
-      '@/lib': path.resolve(__dirname, '${SRC_DIR}/lib'),
-      '@/routes': path.resolve(__dirname, '${SRC_DIR}/routes'),
-      '@/types': path.resolve(__dirname, '${SRC_DIR}/types'),
+      '@/config': path.resolve(import.meta.dirname, '${SRC_DIR}/config'),
+      '@/components': path.resolve(import.meta.dirname, '${SRC_DIR}/components'),
+      '@/features': path.resolve(import.meta.dirname, '${SRC_DIR}/features'),
+      '@/hooks': path.resolve(import.meta.dirname, '${SRC_DIR}/hooks'),
+      '@/lib': path.resolve(import.meta.dirname, '${SRC_DIR}/lib'),
+      '@/routes': path.resolve(import.meta.dirname, '${SRC_DIR}/routes'),
+      '@/types': path.resolve(import.meta.dirname, '${SRC_DIR}/types'),
     },
   },
   test: {

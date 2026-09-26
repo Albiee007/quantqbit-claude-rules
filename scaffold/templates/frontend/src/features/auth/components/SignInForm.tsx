@@ -2,6 +2,8 @@
 // Placeholder sign-in component. Bare HTML — replace with your design
 // system's form components.
 
+import type { JSX } from 'react';
+
 export function SignInForm(): JSX.Element {
   return (
     <form>

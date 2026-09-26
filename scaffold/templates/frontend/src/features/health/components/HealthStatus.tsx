@@ -3,6 +3,8 @@
 // /healthz query. Intentionally minimal: zero external dependencies beyond
 // the configured API base URL. Do NOT grow this into an auth/DB demo.
 
+import type { JSX } from 'react';
+
 import { useHealth } from '../hooks/useHealth';
 
 export function HealthStatus(): JSX.Element {

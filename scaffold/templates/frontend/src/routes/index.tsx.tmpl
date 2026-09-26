@@ -2,7 +2,8 @@
 // Router configuration. Each feature exports its own page component; route
 // mounting happens here only — keeps routes/ as the single source of truth.
 
-import { Routes, Route } from 'react-router-dom';
+import type { JSX } from 'react';
+import { Routes, Route } from 'react-router';
 
 import { AppShell } from '../components/layout/AppShell';
 import { HealthStatus } from '../features/health/components/HealthStatus';
