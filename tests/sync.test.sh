@@ -13,8 +13,10 @@ trap 'rm -rf "$WORK"' EXIT
 pass=0; fail=0
 
 ok()   { pass=$((pass + 1)); printf '  [OK] %s\n' "$*"; }
-bad()  { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$*"; }
-check() { local d="$1"; shift; if "$@"; then ok "$d"; else bad "$d"; fi; }
+# A failure also shows the tail of the last command's output (sync or doctor).
+bad()  { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$*"
+         [[ -s "$WORK/out.log" ]] && tail -15 "$WORK/out.log" | sed 's/^/        | /'; return 0; }
+check() { local d="$1"; shift; if "$@"; then ok "$d"; else bad "$d"; return 1; fi; }
 
 new_repo() { # name [extra setup cmd]
   local r="$WORK/$1"
@@ -54,7 +56,7 @@ check "core rule present" test -f "$R/.claude/rules/harness/00-core.md"
 check "tree committed clean" test -z "$(git -C "$R" status --porcelain)"
 run "$R"; check "re-sync exits 0" test $? -eq 0
 check "re-sync changes nothing" grep -q '0 file(s) changed' "$WORK/out.log"
-bash "$R/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor healthy" test $? -eq 0
+bash "$R/.claude/harness/bin/harness-doctor.sh" >"$WORK/out.log" 2>&1; check "doctor healthy" test $? -eq 0
 
 echo "2. AGENTS.md project: no CLAUDE.md created"
 R2="$(new_repo agents)"; echo "# agents" > "$R2/AGENTS.md"; git -C "$R2" add AGENTS.md; git -C "$R2" commit -qm a
@@ -70,7 +72,7 @@ before="$(tree_sum "$R")"
 run "$R"; check "exit 1 on conflict" test $? -eq 1
 check "conflict reported" grep -q 'CONFLICT-MODIFIED' "$WORK/out.log"
 check "tree unchanged" test "$before" = "$(tree_sum "$R")"
-bash "$R/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor flags it (exit 2)" test $? -eq 2
+bash "$R/.claude/harness/bin/harness-doctor.sh" >"$WORK/out.log" 2>&1; check "doctor flags it (exit 2)" test $? -eq 2
 
 echo "4. --keep marks kept-local; later syncs don't re-abort"
 run "$R" --keep --commit; check "keep exits 0" test $? -eq 0
@@ -81,7 +83,7 @@ run "$R"; check "subsequent sync ok" test $? -eq 0
 echo "5. --theirs restores upstream"
 run "$R" --theirs --commit; check "theirs exits 0" test $? -eq 0
 check "tweak gone" test -z "$(grep 'local tweak' "$R/.claude/rules/harness/coding.md")"
-bash "$R/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor healthy again" test $? -eq 0
+bash "$R/.claude/harness/bin/harness-doctor.sh" >"$WORK/out.log" 2>&1; check "doctor healthy again" test $? -eq 0
 
 echo "6. unmanaged file at a harness path aborts"
 R3="$(new_repo unmanaged)"; mkdir -p "$R3/.claude/agents"; echo "mine" > "$R3/.claude/agents/reviewer.md"
@@ -125,7 +127,7 @@ run "$R5" --profiles all --force-unlock; check "--force-unlock proceeds" test $?
 echo "10. CRLF checkout is not 'modified'"
 R6="$(new_repo crlf)"; run "$R6" --profiles all --commit
 f="$R6/.claude/rules/harness/00-core.md"; awk '{ printf "%s\r\n", $0 }' "$f" > "$f.crlf" && mv "$f.crlf" "$f"
-bash "$R6/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor ignores CRLF" test $? -eq 0
+bash "$R6/.claude/harness/bin/harness-doctor.sh" >"$WORK/out.log" 2>&1; check "doctor ignores CRLF" test $? -eq 0
 run "$R6" --allow-dirty; check "sync treats CRLF as unchanged" grep -q '0 file(s) changed' "$WORK/out.log"
 
 echo "11. dirty harness paths block sync"
@@ -146,7 +148,7 @@ check "project env kept" grep -q '"FOO": "1"' "$R7/.claude/settings.json"
 
 echo "13. path with spaces"
 R8="$(new_repo "with space")"; run "$R8" --profiles all; check "install ok" test $? -eq 0
-bash "$R8/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor healthy" test $? -eq 0
+bash "$R8/.claude/harness/bin/harness-doctor.sh" >"$WORK/out.log" 2>&1; check "doctor healthy" test $? -eq 0
 
 echo "14. uninstall leaves modified files, removes the rest"
 echo "keepme" >> "$R8/.claude/agents/verifier.md"
@@ -231,7 +233,7 @@ git -c core.autocrlf=true clone -q "$R15" "$WORK/eolclone"
 check ".claude/.gitattributes shipped" test -f "$R15/.claude/.gitattributes"
 check "guard.sh checked out LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$WORK/eolclone/.claude/harness/hooks/guard.sh")"
 check "lock checked out LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$WORK/eolclone/.claude/harness/lock")"
-bash "$WORK/eolclone/.claude/harness/bin/harness-doctor.sh" >/dev/null 2>&1; check "doctor healthy on autocrlf clone" test $? -eq 0
+bash "$WORK/eolclone/.claude/harness/bin/harness-doctor.sh" >"$WORK/out.log" 2>&1; check "doctor healthy on autocrlf clone" test $? -eq 0
 
 echo "22. --help prints usage and writes nothing"
 H1="$WORK/helpcwd"; mkdir -p "$H1"
