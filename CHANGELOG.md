@@ -8,7 +8,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
-## [Unreleased]
+## [1.3.0] - 2026-09-26
 
 Starter platform baselines move to current releases, verified by installing, type-checking, testing and building the generated projects on Node 22 and 24.
 
