@@ -122,7 +122,9 @@ done < <(find "$H" "$ROOT/scaffold" "$ROOT/tests" -name '*.sh' 2>/dev/null)
 if command -v shellcheck >/dev/null 2>&1; then
   while IFS= read -r f; do
     shellcheck -S warning -x "$f" >/dev/null 2>&1 || e "shellcheck warnings: ${f#"$ROOT"/} (run: shellcheck -x $f)"
-  done < <(find "$H" "$ROOT/scaffold/sync.sh" "$ROOT/scaffold/lib/release.sh" "$ROOT/scaffold/lib/validate-harness.sh" -name '*.sh' 2>/dev/null)
+  done < <(find "$H" "$ROOT/scaffold/sync.sh" "$ROOT/scaffold/init-scaffold.sh" \
+             "$ROOT/scaffold/lib/release.sh" "$ROOT/scaffold/lib/validate-harness.sh" \
+             "$ROOT/scaffold/lib"/render-*.sh -name '*.sh' 2>/dev/null)
 else
   hc_warn "shellcheck not installed — skipped (CI runs it)"
 fi

@@ -8,6 +8,15 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [Unreleased]
+
+### Changed
+- **Scaffold renderers share one core.** `scaffold/lib/render-core.sh` now holds the substitution, write/backup, shared-template, main-pass, per-feature and required-directory logic. Each `render-<platform>.sh` only describes its platform (variables, envsubst whitelist, skip rules, path tokens, item template, required dirs). Generated output is unchanged, which `tests/scaffold-equiv.test.sh` checks against a base ref.
+- ShellCheck (via `validate-harness.sh`) now also covers `init-scaffold.sh` and the renderers.
+
+### Upgrade notes
+- None. Stamped projects are byte-identical to 1.1.0 output.
+
 ## [1.1.0] - 2026-09-25
 
 Mobile app-store and brand personas, distilled from a real store refresh of an Expo app (device capture → mockups → listing copy → pre-submission checks). Each persona is an Opus agent with its own skill, so they can run on their own or in parallel.

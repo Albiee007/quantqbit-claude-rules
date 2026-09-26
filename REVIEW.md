@@ -73,9 +73,10 @@ as part of this local review.
 6. **Treat hooks as guidance, not a security boundary.** The guard documents
    best-effort shell/JSON matching and indirect-read limitations. Enforce secret
    isolation through actual tool permissions and environment controls as well.
-7. **Reduce renderer duplication.** Four platform renderers repeat substitution,
-   backup and write logic. Extract common behavior once the new generation tests
-   are established; retain platform-specific path and feature mappings.
+7. **Reduce renderer duplication.** *Done:* shared logic lives in
+   `scaffold/lib/render-core.sh`; each platform renderer is a descriptor with
+   its own variables, whitelist, path and feature mappings. Output equivalence
+   is checked by `tests/scaffold-equiv.test.sh`.
 8. **Make builds reproducible at project adoption.** Generate and commit a lockfile
    after creating a starter, use `npm ci` thereafter, and audit resolved packages.
    The template repository cannot supply one shared lockfile for all platforms.
@@ -84,6 +85,9 @@ as part of this local review.
 
 - Run helper, hook, validator, sync and scaffold suites before a harness release.
 - Run `SCAFFOLD_BUILD=1 bash tests/scaffold.test.sh` for template changes.
+- Run `SCAFFOLD_EQUIV_BASE=<ref> bash tests/scaffold-equiv.test.sh` for renderer
+  refactors that must not change generated output (CI: run the workflow manually
+  with `equiv_base` for Linux and macOS bash 3.2).
 - Treat a weekly CI failure as dependency drift to investigate, not something to
   silence with `|| true` or a no-tests success flag.
 - Regenerate `harness/manifest.tsv` after changes under `harness/`.

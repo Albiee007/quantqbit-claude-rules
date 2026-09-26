@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      equiv_base:
+        description: 'Git ref for the scaffold renderer equivalence check (empty = skip)'
+        required: false
+        default: ''
   schedule:
     - cron: '17 6 * * 1'
 
@@ -85,3 +90,26 @@ jobs:
           SCAFFOLD_BUILD: '1'
           SCAFFOLD_PLATFORM: ${{ matrix.platform }}
         run: bash tests/scaffold.test.sh
+
+  # On demand, for renderer refactors: prove generated output is unchanged
+  # against a base ref, on Linux bash and macOS stock bash 3.2.
+  scaffold-equiv:
+    if: github.event_name == 'workflow_dispatch' && inputs.equiv_base != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: envsubst
+        run: command -v envsubst || { if [ "$RUNNER_OS" = Linux ]; then sudo apt-get install -y -qq gettext-base; else brew install gettext; fi; }
+      - name: Renderer equivalence against ${{ inputs.equiv_base }}
+        env:
+          SCAFFOLD_EQUIV_BASE: ${{ inputs.equiv_base }}
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then PATH="/bin:/usr/bin:$PATH" /bin/bash tests/scaffold-equiv.test.sh
+          else bash tests/scaffold-equiv.test.sh; fi

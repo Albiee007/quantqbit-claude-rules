@@ -76,7 +76,6 @@ TARGET_EXPLICIT="false"
 PROJECT_NAME_EXPLICIT="false"
 SRC_DIR_EXPLICIT="false"
 API_VERSION_EXPLICIT="false"
-FEATURES_EXPLICIT="false"
 ANDROID_PACKAGE_EXPLICIT="false"
 PLATFORM_EXPLICIT="false"
 
@@ -181,7 +180,6 @@ init_scaffold_parse_args() {
         ;;
       --features=*)
         FEATURES_CSV="${arg#*=}"
-        FEATURES_EXPLICIT="true"
         ;;
       --android-package=*)
         ANDROID_PACKAGE="${arg#*=}"
