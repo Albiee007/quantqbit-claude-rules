@@ -32,7 +32,7 @@ jobs:
           python-version: "3.12"
       - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Install Claude Code CLI (for `claude plugin validate`)
         run: npm install -g @anthropic-ai/claude-code
       - name: Install shellcheck (Linux)
@@ -82,18 +82,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "harness-doctor.ps1 failed: $LASTEXITCODE" }
           git -C $p log --oneline -1
 
+  # Generated JavaScript starters on the oldest supported Node LTS and the
+  # current one. Weekly runs catch dependency drift without template changes.
   scaffolds:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        platform: [backend, frontend, mobile, android]
+        platform: [backend, frontend, mobile]
+        node: ['22', '24']
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node }}
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq gettext-base
       - name: Render starters and check generated applications
         env:
