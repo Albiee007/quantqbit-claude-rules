@@ -51,7 +51,8 @@ render_android_export_vars() {
   API_VERSION="${API_VERSION:-v1}"
 
   # Derived: com.acme.app → com/acme/app, for __PACKAGE_PATH__ tokens.
-  ANDROID_PACKAGE_PATH="${ANDROID_PACKAGE//./\/}"
+  # tr, not ${var//./\/}: bash 3.2 (macOS) keeps the backslash in the result.
+  ANDROID_PACKAGE_PATH="$(printf '%s' "$ANDROID_PACKAGE" | tr . /)"
   # Derived: application-class prefix, casing kept as given (MyAppApplication).
   APP_CLASS_PREFIX="${PROJECT_NAME}"
 

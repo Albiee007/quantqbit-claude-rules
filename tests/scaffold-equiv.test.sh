@@ -55,7 +55,8 @@ for directory, dirs, names in os.walk(root):
         if rel.endswith('.claude/.scaffold-manifest-scaffold.txt'):
             lines = data.decode('utf-8').splitlines()
             head = [l for l in lines if l.startswith('#') and not l.startswith('# Stamped:')]
-            body = sorted(l for l in lines if l and not l.startswith('#'))
+            body = sorted(re.sub(r'\.claude\.bak/[^/\t]+/', '.claude.bak/TS/', l)
+                          for l in lines if l and not l.startswith('#'))
             data = '\n'.join(head + body).encode('utf-8')
         mode = ('x' if os.access(path, os.X_OK) else '-') if check_exec else '?'
         rows.append('f %s %s %s' % (rel, mode, hashlib.sha256(data).hexdigest()))
@@ -104,8 +105,12 @@ run_case() {
   seed "$old" "$c" "$platform"; seed "$new" "$c" "$platform"
   render "$W/base/scaffold" "$old" "$platform" "$c"; rc_old=$?
   render "$W/work/scaffold" "$new" "$platform" "$c"; rc_new=$?
-  if [[ $rc_old -ne 0 || $rc_new -ne 0 ]]; then
-    { echo "FAIL $platform/$c: exit ${rc_old} (base) / ${rc_new} (work), expected 0"
+  # A feature named like the built-in example is refused (exit 1) since the
+  # transactional scaffolder; every other case must succeed.
+  local expect=0
+  [[ "$c" == collide ]] && expect=1
+  if [[ $rc_old -ne $expect || $rc_new -ne $expect ]]; then
+    { echo "FAIL $platform/$c: exit ${rc_old} (base) / ${rc_new} (work), expected ${expect}"
       tail -3 "$old.log"; tail -3 "$new.log"; } > "$new.verdict"
     return
   fi
