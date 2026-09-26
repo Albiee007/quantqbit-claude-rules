@@ -68,10 +68,11 @@ as part of this local review.
    per-file transactions but no cross-process migration lock or applied-file
    checksum. The server shutdown path does not close optional DB connections.
    Add database-backed integration tests before changing these contracts.
-5. **Separate partial asset inspection from release completeness.** Store asset
-   checks skip absent screenshot folders, and directory presence does not prove
-   the required images exist. Add an explicit release mode with declared target
-   stores and required slots; test empty, corrupt and incomplete submissions.
+5. **Separate partial asset inspection from release completeness.** *Done:*
+   `check_store_assets.py --release` requires every slot of the declared stores
+   (from `--stores` or `store-assets.json`), rejects corrupt and mis-formatted
+   images, and `tests/store-assets.test.sh` covers empty, corrupt and
+   incomplete submissions with fixtures generated at run time.
 6. **Treat hooks as guidance, not a security boundary.** The guard documents
    best-effort shell/JSON matching and indirect-read limitations. Enforce secret
    isolation through actual tool permissions and environment controls as well.

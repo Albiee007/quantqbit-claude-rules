@@ -81,6 +81,7 @@ bash scaffold/lib/release.sh            # regenerate the manifest after editing 
 bash scaffold/lib/validate-harness.sh   # model policy, frontmatter, size budgets, hygiene, links, versions
 bash tests/hooks.test.sh; bash tests/validate.test.sh; bash tests/sync.test.sh
 bash tests/helpers.test.sh; bash tests/scaffold.test.sh
+bash tests/store-assets.test.sh          # needs Pillow
 # After a renderer refactor: prove generated output is unchanged versus a ref.
 SCAFFOLD_EQUIV_BASE=main bash tests/scaffold-equiv.test.sh
 # Also install, type-check, test and build the generated JavaScript starters:

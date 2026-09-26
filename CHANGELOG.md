@@ -8,7 +8,18 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
-## [Unreleased]
+## [1.2.0] - 2026-09-26
+
+Store assets get a release gate, and the application scaffolder becomes transactional on a shared renderer core.
+
+### Added
+- **`check_store_assets.py --release`** (store-submission-precheck). A submission gate: every slot the declared stores require must hold valid images: Play phone screenshots, exactly one feature graphic and the Play icon; iPhone 6.9″; iPad 13″ when the app supports iPad; and any Play tablet slots you list. Stores and the iPad answer come from `--stores`/`--[no-]supports-tablet` or a `store-assets.json` next to the assets (which can read `supportsTablet` from `app.json` and raise minimum counts). Without them, release mode stops with exit 2 rather than guessing.
+- `--json` output with stable finding codes, and `tests/store-assets.test.sh`, which builds its image fixtures with Pillow at run time. CI installs Pillow and runs it on all three OSes.
+
+### Fixed
+- **Store asset checks no longer pass on nothing.** Before, a missing or empty screenshot folder was only INFO, and an empty `ios/6.9/` or `ios/ipad13/` passed. Release mode now reports them as errors.
+- A corrupt or truncated image is an ERROR line instead of a Python traceback. The real file format is checked (a GIF or WebP renamed `.png` is an error), as are CMYK and 16-bit images. Intermediate `*.raw.png` renders and hidden files are ignored with a warning instead of being counted. More than one feature graphic is an error.
+- Play tablet screenshots may be up to 7680 px per side (they were capped at the phone limit of 3840), and a short side under 1080 px warns about large-screen eligibility. `store-specs.md` now states the same limits.
 
 ### Changed
 - **Scaffold renderers share one core.** `scaffold/lib/render-core.sh` now holds the substitution, write/backup, shared-template, main-pass, per-feature and required-directory logic. Each `render-<platform>.sh` only describes its platform (variables, envsubst whitelist, skip rules, path tokens, item template, required dirs). Generated output is unchanged, which `tests/scaffold-equiv.test.sh` checks against a base ref.
@@ -20,6 +31,7 @@ Every entry has **Upgrade notes** for anything a project needs to act on.
 - `scripts/*.sh` in every starter are now executable (previously only Android).
 
 ### Upgrade notes
+- Store gates: run `check_store_assets.py <assets> --release` with `--stores` (or add `store-assets.json`). Inspect mode, without `--release`, keeps the old lenient behaviour for drafts, but corrupt or mis-formatted images are now errors there too.
 - Scaffolding into a non-empty project: files that would be replaced now stop the run. Preview with `--dry-run`; use `--force` to replace them (backed up, and restored by `--uninstall`).
 - Re-running the scaffolder on a scaffolded project now needs `--uninstall` first, or `--force`.
 - Manifests written by this version use a v2 row format. Older scaffolders refuse to uninstall them (no files are touched); this version reads v1 and legacy manifests.

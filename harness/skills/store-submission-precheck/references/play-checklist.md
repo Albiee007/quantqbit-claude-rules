@@ -22,7 +22,7 @@ Each item says **how to verify** it. Mark every item PASS, FAIL, NOT-VERIFIABLE 
 ## Store listing
 - [ ] **Title** (30) states the brand and at most a short descriptor. No "best", "#1", "free" or emoji spam, and no keyword stuffing.
 - [ ] **Short description (80) and full description (4000)** are accurate. Premium features are marked, and there's no claim the build can't back (see the `store-listing` skill's guardrails).
-- [ ] **Graphics:** icon 512, feature graphic 1024 × 500, and 2–8 phone screenshots (at least 4 at 1080 px or more for recommendations), per [store-specs](store-specs.md). Run `check_store_assets.py`.
+- [ ] **Graphics:** icon 512, feature graphic 1024 × 500, and 2–8 phone screenshots (at least 4 at 1080 px or more for recommendations), per [store-specs](store-specs.md). Run `check_store_assets.py <folder> --release`.
 - [ ] **Brand-only or photo-only frames:** at most one, never the first, and the set still shows the app. Photos are licensed, with model releases.
 - [ ] **Content rating questionnaire** complete; **target audience** set (declaring children brings Families policy duties).
 - [ ] **Ads declaration** correct; **app access** instructions and a demo login for reviewers if the app is gated behind a login.

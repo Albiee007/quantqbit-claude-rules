@@ -14,7 +14,7 @@ The parent gives you: the app folder, the release (version/build, platforms), th
 Read `.claude/skills/store-submission-precheck/SKILL.md` and every reference it names. Use `store-specs.md` as the single source of numbers.
 
 ## Rules
-- **Run the scripts; don't eyeball:** `check_store_assets.py` for images, `check_public_urls.sh` for policy URLs, and the `store-listing` checker for copy.
+- **Run the scripts; don't eyeball:** `check_store_assets.py --release` for images (with the folder's `store-assets.json`, or `--stores` and `--[no-]supports-tablet` taken from the release inventory), `check_public_urls.sh` for policy URLs, and the `store-listing` checker for copy. Every checker ERROR is a BLOCKER.
 - **Every checklist line gets PASS, FAIL, NOT-VERIFIABLE or N/A,** with evidence (a path:line or command output).
 - **Hunt for contradictions** following `consistency-checks.md`: paywalls vs review notes, platform gates vs per-platform copy, feature flags vs claims, uploads vs Data safety and App Privacy.
 - **What's outside the repo** (console forms, production env, signed entitlements) is NOT-VERIFIABLE. Name the exact field or command for the owner. Never assume it's fine.

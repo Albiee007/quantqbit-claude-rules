@@ -25,7 +25,7 @@ Each item says **how to verify** it. Mark every item PASS, FAIL, NOT-VERIFIABLE 
 - [ ] **Subscriptions** show their price, period and terms before purchase, and link to the terms and privacy policy.
 
 ## Product page
-- [ ] **Screenshots:** 6.9″ (plus iPad 13″ if the app supports iPad), with sizes and no alpha per [store-specs](store-specs.md). Run `python .claude/skills/store-submission-precheck/scripts/check_store_assets.py <folder>`.
+- [ ] **Screenshots:** 6.9″ (plus iPad 13″ if the app supports iPad), with sizes and no alpha per [store-specs](store-specs.md). Run `python .claude/skills/store-submission-precheck/scripts/check_store_assets.py <folder> --release`.
 - [ ] **Screenshots match the submitted build** (2.3.3); recapture if the UI changed. Mockups must be faithful rebuilds of real screens.
 - [ ] **No Android-only features, Google Play wording or Android frames** in iOS assets.
 - [ ] **Every screenshot shows the app in use.** A brand-only, logo-only or photo-only frame in the iOS set is a BLOCKER (2.3.3). Continuous (panorama) sets must still show app UI in every frame.

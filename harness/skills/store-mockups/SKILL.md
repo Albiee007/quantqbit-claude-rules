@@ -56,7 +56,7 @@ Produce store frames that **sell the app and are faithful to it**. Each frame is
 - **Iterate one frame at a time;** render every size only at the end.
 - **Change the kit's copy, never the harness templates.** The templates in `.claude/skills/store-mockups/templates/` are managed by the harness.
 - **Hand captions to the listing.** Keep them identical to the LISTING.md caption table (`listing-copywriter`).
-- **Before any upload,** run `store-precheck-auditor` (`check_store_assets.py`) on the output folder.
+- **Before any upload,** run `store-precheck-auditor` (`check_store_assets.py --release`) on the output folder.
 - **Only real app screens,** even when the owner asks for marketing-only features. If asked for a concept frame of an unreleased feature, label it as a concept and keep it out of the store folders.
 
 ## Output

@@ -17,9 +17,9 @@ A read-only audit that answers one question: **will this submission be accepted,
    - app id / bundle id, version and build number, and target platforms;
    - `supportsTablet`, since it decides whether iPad screenshots are needed;
    - the permissions requested, the sign-in methods, and whether IAP or subscriptions exist per platform.
-2. **Check the assets:**
-   `python .claude/skills/store-submission-precheck/scripts/check_store_assets.py <assets-root> [--ios-icon path] [--play-icon path]`
-   This checks every image against [store-specs](references/store-specs.md): exact sizes, no alpha where forbidden, per-slot counts, and file size.
+2. **Check the assets in release mode:**
+   `python .claude/skills/store-submission-precheck/scripts/check_store_assets.py <assets-root> --release`
+   This checks every image against [store-specs](references/store-specs.md): exact sizes, no alpha where forbidden, per-slot counts, file size, and that each file really is an undamaged PNG or JPEG. In release mode, every slot the declared stores require must hold images; see **Release mode** below.
 3. **Check the public URLs:**
    `bash .claude/skills/store-submission-precheck/scripts/check_public_urls.sh <privacy> <terms> <support> <data-deletion>`
    Any non-200 is a metadata rejection.
@@ -27,6 +27,18 @@ A read-only audit that answers one question: **will this submission be accepted,
 5. **Run the consistency checks:** [consistency-checks](references/consistency-checks.md). These cover paywalls vs review notes, platform-gated features vs per-platform copy, feature flags vs claims, and uploads vs Data safety.
 6. **Check the copy's limits and guardrails:** if the listing uses `store-listing` field blocks, run `python .claude/skills/store-listing/scripts/check_listing.py <LISTING.md>`.
 7. **Report** in the format below. Rank the blockers first.
+
+## Release mode
+Without `--release` the checker only inspects what exists, so a missing folder passes; use that for drafts. For a submission, declare what is being shipped in `<assets-root>/store-assets.json` (paths are relative to the file):
+```json
+{"version": 1, "stores": ["play", "ios"],
+ "ios":  {"app_json": "../app.json", "icon": "../assets/icon.png"},
+ "play": {"icon": "../assets/play-icon-512.png", "tablet_slots": ["tablet10"]},
+ "min_counts": {"play-phone": 4}}
+```
+- Required with `--release`: Play phone screenshots, exactly one feature graphic and the Play icon; iPhone 6.9″ screenshots; iPad 13″ when the app supports iPad (`ios.supports_tablet`, or read from `app_json`); Play tablet slots listed in `tablet_slots`.
+- `--stores` and `--[no-]supports-tablet` override the file. Without either source of truth the check stops with exit 2 rather than guessing.
+- Exit 0 = no errors, 1 = errors (each one is a BLOCKER), 2 = bad arguments or config. `--json` gives machine-readable findings.
 
 ## Severity
 | Severity | Meaning | Examples |

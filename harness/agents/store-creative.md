@@ -33,7 +33,7 @@ For continuous, read `references/continuous-panorama.md`. Choose one motif from 
   - Every photo has a `license` note.
   - Run `render --check-only`, then `contact_sheet.py --strip --check-seams`.
 - **Keep captions in sync with the LISTING.md caption table.** Coordinate with `listing-copywriter` when both are running.
-- **Before reporting done,** run `python .claude/skills/store-submission-precheck/scripts/check_store_assets.py <out>` and include its result.
+- **Before reporting done,** run `python .claude/skills/store-submission-precheck/scripts/check_store_assets.py <out>` (inspect mode; the `--release` gate belongs to `store-precheck-auditor`) and include its result.
 
 ## Output
 ```

@@ -9,8 +9,8 @@ The other store skills (`store-mockups`, `store-listing`, `app-icons`, `brand-as
 | App icon | 512 × 512, 32-bit PNG (alpha allowed), ≤ 1024 KB | 1 | Full-bleed square. Play applies the rounded mask and shadow, so don't bake them in |
 | Feature graphic | 1024 × 500, JPEG or 24-bit PNG, **no alpha** | 1 (required) | Keep the key content away from the centre, where a video play button can be overlaid, and away from the edges |
 | Phone screenshots | JPEG or 24-bit PNG, no alpha; each side 320–3840 px; the long side at most 2× the short side | 2–8 | For recommendation eligibility, use **at least 4 at 9:16 (or 16:9) with a short side of at least 1080 px**. 1080 × 1920 is the safe default |
-| 7″ tablet screenshots | same format; e.g. 1200 × 1920 | up to 8 | Needed for the tablet listing and large-screen recommendations |
-| 10″ tablet screenshots | same format; e.g. 1620 × 2880 or 1600 × 2560 | up to 8 | Short side 1080–7680 px for large-screen eligibility |
+| 7″ tablet screenshots | same format; each side 320–7680 px, long side at most 2× the short side; e.g. 1200 × 1920 | up to 8 | Needed for the tablet listing. Large-screen recommendations want every side 1080–7680 px (16:9 or 9:16) |
+| 10″ tablet screenshots | same format and limits; e.g. 1620 × 2880 or 1600 × 2560 | up to 8 | Short side 1080–7680 px for large-screen eligibility |
 | Promo video | YouTube URL, ads off | 0–1 | |
 | Each image file | ≤ 8 MB | | |
 
