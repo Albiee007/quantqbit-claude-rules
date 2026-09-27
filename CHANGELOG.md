@@ -8,6 +8,16 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.3.1] - 2026-09-27
+
+### Fixed
+- **Intermittent failures on macOS in `harness-sync`, `harness-doctor` and `sync.sh`.** They read one field from the lock with `tr | awk '… exit'`. Under `pipefail`, awk exiting at the first match broke the pipe while `tr` was still writing (`tr: stdout: Broken pipe`) once the lock outgrew the pipe buffer (16 KB on macOS, 64 KB on Linux). A sync, update or health check could then fail at random. awk now reads the lock directly.
+- `detect.sh` (`init.sh` stack detection) used `find | head -n1`, which could fail the same way in a large project; it now uses `find -print -quit`.
+- `tests/sync.test.sh` prints the sync or doctor output behind a failed check, which is how the cause above was found in CI.
+
+### Upgrade notes
+- Run `bash .claude/harness/bin/harness-sync.sh --remote --commit` to pick up the fixed `harness-sync.sh` and `harness-doctor.sh`.
+
 ## [1.3.0] - 2026-09-26
 
 Starter platform baselines move to current releases, verified by installing, type-checking, testing and building the generated projects on Node 22 and 24.

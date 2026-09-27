@@ -30,7 +30,9 @@ if grep -qE '^(<<<<<<<|=======|>>>>>>>)' "$LOCK"; then
   err "lock has git merge-conflict markers — keep either side, then re-run harness sync"
 fi
 
-ver="$(tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "harness_version" { print $2; exit }')"
+# awk reads the file itself: `tr … | awk '… exit'` broke the pipe under
+# pipefail once the lock outgrew the (smaller, macOS) pipe buffer.
+ver="$(awk -F'\t' '{ sub(/\r$/, "") } $1 == "harness_version" { print $2; exit }' "$LOCK")"
 rows="$(mktemp "${TMPDIR:-/tmp}/harness-doctor.XXXXXX")"
 trap 'rm -f "$rows" "$rows".*' EXIT
 tr -d '\r' < "$LOCK" | awk -F'\t' '($1 == "managed" || $1 == "generated") && NF >= 5' > "$rows"

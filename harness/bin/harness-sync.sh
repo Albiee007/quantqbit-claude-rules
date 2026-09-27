@@ -53,7 +53,7 @@ fi
 tmp=""
 if [[ -z "$src" ]]; then
   url=""
-  [[ -f "$LOCK" ]] && url="$(tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "source" { print $2; exit }')"
+  [[ -f "$LOCK" ]] && url="$(awk -F'\t' '{ sub(/\r$/, "") } $1 == "source" { print $2; exit }' "$LOCK")"
   # Only trust plain https URLs from a lock (older locks may hold a local path,
   # 'local', an SSH form or a tokenised URL).
   [[ "$url" =~ ^https://[^@/]+/ ]] || url=""

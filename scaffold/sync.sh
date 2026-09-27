@@ -111,7 +111,9 @@ if [[ -f "$LOCK" ]]; then
   done < <(tr -d '\r' < "$LOCK")
 fi
 old_ver=""
-[[ -f "$LOCK" ]] && old_ver="$(tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "harness_version" { print $2; exit }')"
+# awk reads the lock itself: `tr … | awk '… exit'` can die of SIGPIPE under
+# pipefail once the lock is larger than the pipe buffer (16 KB on macOS).
+[[ -f "$LOCK" ]] && old_ver="$(awk -F'\t' '{ sub(/\r$/, "") } $1 == "harness_version" { print $2; exit }' "$LOCK")"
 first_install=0
 [[ -f "$LOCK" ]] || first_install=1
 
@@ -154,7 +156,7 @@ if [[ -n "$profiles_arg" ]]; then
   PROFILES="$profiles_arg"
 elif [[ -n "$cfg_profiles" ]]; then
   PROFILES="$cfg_profiles"
-elif [[ -f "$LOCK" ]] && lock_profiles="$(tr -d '\r' < "$LOCK" | awk -F'\t' '$1 == "profiles" { print $2; exit }')" && [[ -n "$lock_profiles" ]]; then
+elif [[ -f "$LOCK" ]] && lock_profiles="$(awk -F'\t' '{ sub(/\r$/, "") } $1 == "profiles" { print $2; exit }' "$LOCK")" && [[ -n "$lock_profiles" ]]; then
   PROFILES="$lock_profiles"
 else
   PROFILES="$(sync_detect_profiles)"

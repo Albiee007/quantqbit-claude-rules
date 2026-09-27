@@ -69,9 +69,10 @@ detect_first_match() {
   # NB: _detect_prune_args is interpolated unquoted because the inner -path
   # tokens must be re-tokenised by the shell.
   # shellcheck disable=SC2046
+  # -print -quit instead of `| head -n1`: under pipefail, head closing the
+  # pipe early can kill find with SIGPIPE and fail the whole detection.
   find . $(_detect_prune_args) \
-    -type f -name "$pattern" -print 2>/dev/null \
-    | head -n1 \
+    -type f -name "$pattern" -print -quit 2>/dev/null \
     | sed 's|^\./||'
 }
 
