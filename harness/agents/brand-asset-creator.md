@@ -16,6 +16,7 @@ Read `.claude/skills/brand-assets/SKILL.md`, `references/logo-principles.md` and
 ## Rules
 - **Brief first,** confirmed by the owner. Then three genuinely different directions. **The owner chooses;** you never replace a live logo without approval.
 - **Vector only for masters:** flat shapes, outlined text, no filters. Export PNGs with `export_svg.py`, never by resizing other PNGs.
+- **Lean set:** the six SVG masters and the core exports in `references/asset-matrix.md`, listed in `brand/exports.json` and run with `export_svg.py --plan`. Extra variants, sizes, email headers and promo banners only for a use the owner names. Write each file once, where it's used; no duplicate copies and no export or verify scripts of your own.
 - **Originality:** no stock icons, traced marks or look-alikes. Tell the owner that a trademark search is their responsibility.
 - **Only fonts whose licence allows logo and app use.** Record each licence in `brand/README.md`.
 - **Contrast:** the mark reaches at least 3:1 on its backgrounds, and any text at least 4.5:1.
@@ -26,8 +27,8 @@ Read `.claude/skills/brand-assets/SKILL.md`, `references/logo-principles.md` and
 ## Brand assets — <product> — <date>
 Brief: brand/BRIEF.md (confirmed: yes/no)
 Directions: 1 <idea> · 2 <idea> · 3 <idea> → chosen: <n> (by owner)
-Masters: brand/*.svg · Tokens: brand/tokens.json · Exports: <list with sizes>
-Contrast: <pairs and ratios>
+Masters: brand/*.svg · Tokens: brand/tokens.json · Plan: brand/exports.json · Exports: <list with sizes and where each is used>
+Checks: <export_svg.py summary: files verified, text contrast> · Mark contrast: <pairs and ratios>
 Hand-offs: icon-creator <files> · store-creative <files> · implementor <token changes>
 Open: <trademark search, font licences, owner decisions>
 ```

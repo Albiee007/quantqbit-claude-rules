@@ -76,7 +76,9 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     fi
   done
   # Harness files hidden by a .gitignore rule never reach teammates.
-  hidden="$( { cut -f2 "$rows"; echo ".claude/harness/lock"; } | git -C "$ROOT" check-ignore -v --stdin 2>/dev/null || true)"
+  # -v also reports paths re-included by a !negation rule; those are not hidden.
+  hidden="$( { cut -f2 "$rows"; echo ".claude/harness/lock"; } | git -C "$ROOT" check-ignore -v --stdin 2>/dev/null \
+             | grep -vE ':[0-9]+:!' || true)"
   if [[ -n "$hidden" ]]; then
     err "harness files are gitignored, so teammates never get them — narrow the rule (see harness sync's message):"
     [[ $quiet -eq 1 ]] || printf '%s\n' "$hidden" | awk -F'\t' '{ printf "    %s (rule %s)\n", $2, $1 }' >&2

@@ -474,7 +474,8 @@ fi
 if [[ $in_git -eq 1 && $uninstall -eq 0 ]]; then
   ignored="$( { awk -F'\t' '$1 !~ /^(REMOVE|GONE|LEAVE-MODIFIED|SEED-KEEP|ORPHAN-KEPT)$/ { print $2 }' "$OPS"
                 echo ".claude/harness/lock"; } \
-              | git -C "$T" check-ignore -v --stdin 2>/dev/null || true)"
+              | git -C "$T" check-ignore -v --stdin 2>/dev/null \
+              | grep -vE ':[0-9]+:!' || true)"  # -v also reports paths re-included by a !negation
   if [[ -n "$ignored" ]]; then
     if [[ $dry -eq 1 ]]; then
       hc_warn "these harness files are ignored by git; the real run will refuse until the rule is changed:"
@@ -488,6 +489,9 @@ if [[ $in_git -eq 1 && $uninstall -eq 0 ]]; then
       printf '         /.claude/skills/\n       with\n         /.claude/skills/*\n'
       awk -F'\t' '$2 ~ /^\.claude\/skills\/[^\/]+\// { split($2, a, "/"); print a[3] }' "$OPS" \
         | LC_ALL=C sort -u | while IFS= read -r sk; do printf '         !/.claude/skills/%s/\n' "$sk"; done
+      # Files directly in .claude/skills/ (its .gitignore) need their own exception.
+      awk -F'\t' '$2 ~ /^\.claude\/skills\/[^\/]+$/ { print $2 }' "$OPS" \
+        | LC_ALL=C sort -u | while IFS= read -r f; do printf '         !/%s\n' "$f"; done
       printf '       then re-run.\n'
     } >&2
     [[ $dry -eq 1 ]] || exit 1

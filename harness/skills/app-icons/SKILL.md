@@ -31,6 +31,7 @@ Make one mark work everywhere, from a 1024 px store tile to a 24 dp status-bar s
    `python .claude/skills/app-icons/scripts/make_icon_set.py generate --master <glyph.png> --bg "#RRGGBB" --out assets/icons`
    - It produces the opaque iOS icon, the adaptive foreground and background, the monochrome and notification silhouettes, the Play 512, and the favicon, apple-touch, PWA and maskable icons.
    - It also writes `expo-icon-snippet.json`.
+   - Add `--no-web` when the app has no web or PWA target: the favicon, apple-touch, PWA and maskable icons are then skipped.
    - `--glyph-scale` (default 0.6) sets how much of the tile the glyph fills. The adaptive and maskable versions are capped to their safe zones automatically.
    - Monochrome and notification icons keep only the alpha channel. If the mark relies on inner colour contrast (e.g. a check drawn in brand colour inside a white disc), pass `--mono <cut-out.png>`, a single-colour master with those details transparent, or the silhouette becomes a solid blob. Always open `android/monochrome.png` and look at it.
 4. **Wire it up.**

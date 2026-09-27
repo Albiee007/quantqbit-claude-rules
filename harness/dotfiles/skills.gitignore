@@ -1,0 +1,3 @@
+# harness:managed - Python caches written when the skills' scripts run or are imported.
+__pycache__/
+*.pyc

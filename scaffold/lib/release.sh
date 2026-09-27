@@ -36,6 +36,7 @@ release_dest() { # src (relative to harness/) -> dest (relative to project); emp
     settings.base.json) echo ".claude/harness/settings.base.json" ;;
     dotfiles/harness.gitignore) echo ".claude/harness/.gitignore" ;;
     dotfiles/harness.gitattributes) echo ".claude/.gitattributes" ;;
+    dotfiles/skills.gitignore) echo ".claude/skills/.gitignore" ;;
     *) echo "" ;;
   esac
 }

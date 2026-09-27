@@ -5,5 +5,6 @@ Store & brand checklist (mobile releases):
 - Copy: every claim backed by code; Android-only and Premium features marked or left out per platform; no fixed prices.
 - Icons: iOS icon opaque; adaptive foreground transparent inside the safe zone; notification icon a white silhouette.
 - Device captures are read-only and contain personal data: keep them gitignored and never upload them.
+- Lean output: one mockup kit per project, reused and rendered with `render --all` into its gitignored `out/`; never two store-creative runs at once. Brand exports come from `brand/exports.json` (core set; extras only on request).
 - Before submitting: run check_store_assets.py --release, check_listing.py and check_public_urls.sh, and report the real output.
 Load skill: store-submission-precheck (mandatory before any store submission); store-mockups, store-listing, app-icons, brand-assets, mobile-screen-capture for the matching work.
