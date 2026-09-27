@@ -290,12 +290,15 @@ check "dry-run warns about ignored files" grep -q 'real run will refuse until th
 run "$R19" --profiles all --commit; check "real run refuses (exit 1)" test $? -eq 1
 check "names the rule" grep -q '.gitignore:1:/.claude/skills/' "$WORK/out.log"
 check "nothing written" test "$before" = "$(tree_sum "$R19")"
-{ printf '/.claude/skills/*\n'; sed -n 's#^ *\(!/.claude/skills/[a-z-]*/\)$#\1#p' "$WORK/out.log"; } > "$R19/.gitignore"
+{ printf '/.claude/skills/*\n'; sed -n 's#^ *\(!/.claude/skills/[a-z.-]*/*\)$#\1#p' "$WORK/out.log"; } > "$R19/.gitignore"
 check "suggestion lists store skills too" grep -q '!/.claude/skills/store-mockups/' "$R19/.gitignore"
+check "suggestion lists the skills .gitignore" grep -qx '!/.claude/skills/.gitignore' "$R19/.gitignore"
 git -C "$R19" commit -qam narrow
 run "$R19" --profiles all --commit; check "suggested fix works (exit 0)" test $? -eq 0
 check "skills committed" test -n "$(git -C "$R19" ls-files .claude/skills/seo/SKILL.md)"
 check "tree clean" test -z "$(git -C "$R19" status --porcelain)"
+bash "$R19/.claude/harness/bin/harness-doctor.sh" > "$WORK/doc.log" 2>&1
+check "doctor accepts files re-included by a !rule" bash -c "! grep -q 'gitignored' '$WORK/doc.log'"
 R20="$(new_repo ignoredlater)"; run "$R20" --profiles all
 printf '/.claude/skills/\n' > "$R20/.gitignore"
 bash "$R20/.claude/harness/bin/harness-doctor.sh" > "$WORK/doc.log" 2>&1; check "doctor flags ignored harness files (exit 2)" test $? -eq 2

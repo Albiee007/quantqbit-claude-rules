@@ -50,6 +50,8 @@ jobs:
         run: bash tests/validate.test.sh
       - name: Store asset checker tests (fixtures generated with Pillow)
         run: python -m pip install -q "pillow>=10" && bash tests/store-assets.test.sh
+      - name: Store render, brand export and icon tests (headless Chrome from the runner image)
+        run: bash tests/store-render.test.sh
       - name: Sync scenario tests
         run: bash tests/sync.test.sh
       - name: macOS stock bash 3.2 compatibility (hooks + sync + scaffold)

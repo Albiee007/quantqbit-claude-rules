@@ -6,10 +6,11 @@
             android/monochrome.png, android/notification-96.png, play/icon-512.png,
             web/favicon-{16,32,48}.png, web/favicon.ico, web/apple-touch-icon-180.png,
             web/pwa-{192,512}.png, web/maskable-512.png, expo-icon-snippet.json
+            --no-web skips the web/ set (apps with no web or PWA target)
   check     audit an Expo app.json (or explicit files) for the common icon defects
 
 Usage:
-  python make_icon_set.py generate --master brand/mark.png --bg "#6366f1" --out assets/icons
+  python make_icon_set.py generate --master brand/mark.png --bg "#6366f1" --out assets/icons [--no-web]
   python make_icon_set.py check --app-json app.json
 Needs Pillow. Specs: references/icon-specs.md.
 """
@@ -84,16 +85,17 @@ def generate(args: argparse.Namespace) -> int:
     save(silhouette(glyph_on(1024, mono, min(s, ADAPTIVE_SAFE * 0.95), None)), "android/monochrome.png")
     save(silhouette(glyph_on(96, mono, 0.78, None)), "android/notification-96.png")
     save(glyph_on(512, master, s, bg), "play/icon-512.png")
-    for px in (16, 32, 48):
-        save(glyph_on(px, master, 0.9, bg), f"web/favicon-{px}.png", opaque=True)
-    ico = glyph_on(256, master, 0.9, bg).convert("RGB")
-    (out / "web").mkdir(parents=True, exist_ok=True)
-    ico.save(out / "web/favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
-    print(f"wrote {out / 'web/favicon.ico'}  16/32/48")
-    save(glyph_on(180, master, s, bg), "web/apple-touch-icon-180.png", opaque=True)
-    save(glyph_on(192, master, s, bg), "web/pwa-192.png", opaque=True)
-    save(glyph_on(512, master, s, bg), "web/pwa-512.png", opaque=True)
-    save(glyph_on(512, master, MASKABLE_SAFE * 0.7, bg), "web/maskable-512.png", opaque=True)
+    if not args.no_web:
+        for px in (16, 32, 48):
+            save(glyph_on(px, master, 0.9, bg), f"web/favicon-{px}.png", opaque=True)
+        ico = glyph_on(256, master, 0.9, bg).convert("RGB")
+        (out / "web").mkdir(parents=True, exist_ok=True)
+        ico.save(out / "web/favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+        print(f"wrote {out / 'web/favicon.ico'}  16/32/48")
+        save(glyph_on(180, master, s, bg), "web/apple-touch-icon-180.png", opaque=True)
+        save(glyph_on(192, master, s, bg), "web/pwa-192.png", opaque=True)
+        save(glyph_on(512, master, s, bg), "web/pwa-512.png", opaque=True)
+        save(glyph_on(512, master, MASKABLE_SAFE * 0.7, bg), "web/maskable-512.png", opaque=True)
 
     snippet = {
         "expo": {
@@ -103,9 +105,10 @@ def generate(args: argparse.Namespace) -> int:
                 "monochromeImage": f"./{(out / 'android/monochrome.png').as_posix()}",
                 "backgroundColor": args.bg}},
             "plugins": [["expo-notifications", {"icon": f"./{(out / 'android/notification-96.png').as_posix()}", "color": args.bg}]],
-            "web": {"favicon": f"./{(out / 'web/favicon-48.png').as_posix()}"},
         }
     }
+    if not args.no_web:
+        snippet["expo"]["web"] = {"favicon": f"./{(out / 'web/favicon-48.png').as_posix()}"}
     (out / "expo-icon-snippet.json").write_text(json.dumps(snippet, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {out / 'expo-icon-snippet.json'} (merge into app.json; paths are relative to the project root)")
     return 0
@@ -225,6 +228,7 @@ def main() -> int:
     g.add_argument("--out", type=Path, required=True)
     g.add_argument("--mono", type=Path, help="single-colour master with details cut out (for monochrome and notification icons)")
     g.add_argument("--glyph-scale", type=float, default=0.6, help="glyph size as a share of the full icon (default 0.6)")
+    g.add_argument("--no-web", action="store_true", help="skip favicon/PWA icons (no web target)")
     c = sub.add_parser("check", help="audit an Expo app.json")
     c.add_argument("--app-json", type=Path, required=True)
     args = parser.parse_args()

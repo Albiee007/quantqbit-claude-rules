@@ -8,6 +8,54 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.4.0] - 2026-09-27
+
+Store and brand work now produces fewer, cleaner files. In a real project, one screenshot refresh left 161 new or changed files in git. They included a second copy of the mockup sources, agent-written render, verify and contrast scripts, engine files mixed into the sources, and brand exports of every variant at every size.
+
+### Added
+- **`render_frames.py render --all`**: the release set in one command.
+  - Renders every size and the feature graphic.
+  - Removes PNGs of renamed or dropped frames.
+  - Writes the contact sheet, plus Android and iOS strips with a seam report for continuous sets.
+  - Re-checks every file: exact size, RGB, under 8 MB.
+  - Runs the new caption contrast check and `check_store_assets.py`, and exits non-zero on any failure.
+  - Chrome runs in parallel (`--jobs`, default 4). `--out` renders to another folder.
+- **`render_frames.py contrast`**: a caption contrast check measured on the rendered pixels. Headlines need 3:1 (large text) and other caption text 4.5:1. `frame.html` gains `&probe=1` and `&nocap=1` modes for it.
+- **`export_svg.py --plan brand/exports.json`** exports the whole brand set from one re-runnable plan (`--only` to pick entries).
+  - It accepts several sources per call.
+  - It re-checks every file it writes (size, RGB when flattened, not blank) and checks text contrast on HTML sources (4.5:1, or 3:1 for large text; `--no-contrast` skips it).
+- **`make_icon_set.py generate --no-web`** skips the favicon and PWA icons for apps with no web target.
+- **`.claude/skills/.gitignore`** (new vendored file) keeps the `__pycache__/` folders out of git. Python writes them there when the skills' scripts are imported.
+- `tests/store-render.test.sh` (59 checks), run in CI on Linux, macOS and Windows with the runner's Chrome.
+
+### Changed
+- **One mockup kit per project.**
+  - `render_frames.py init` refuses when the project already has a kit (`--new` overrides) and writes the kit's `.gitignore`.
+  - The engine and generated files (`frame.html`, `objects.js`, `frames.generated.js`, `icons.generated.js`, the Ionicons font, copies of project photos) now live in `<kit>/.build/`, which ignores itself. The kit holds only the files you edit.
+  - A lock in `.build/` refuses a second render on the same kit while one is running.
+- The template `app.css` no longer declares the Ionicons `@font-face`; the build injects it.
+- `store-mockups` skill and `store-creative` agent:
+  - Reuse the existing kit and render into its gitignored `out/`, not a new dated folder with a copy of the sources.
+  - Never run two renders on the same kit at once.
+  - Keep rendered PNGs out of git, or use Git LFS.
+  - Finish with `render --all`.
+- `brand-assets` skill, asset matrix and `brand-asset-creator` agent:
+  - A **core set** by default: the six SVG masters, a 2048 mark PNG, the splash image and the OG image.
+  - Extra variants, sizes, email headers and promo banners only for a use the owner names.
+  - Every export is listed in `brand/exports.json`, and each file is written once, where it's used.
+  - No export or verify scripts of the agent's own.
+- `snippets/store.md` states the lean-output rules.
+
+### Fixed
+- The gitignore guard in `sync.sh` and `harness-doctor.sh` reported a harness file as ignored when a `!` rule re-included it: `git check-ignore -v` also prints negation matches. The guard's suggested fix now lists `!/.claude/skills/.gitignore` too.
+
+### Upgrade notes
+- **Existing kits:**
+  - `render` prints a NOTE listing the old engine files at the kit root (`frame.html`, `objects.js`, `frames.generated.js`, `icons.generated.js`, `assets/Ionicons.ttf`). They are no longer used; delete them unless you edited them on purpose.
+  - A kit without a `.gitignore` gets one on its next render.
+- **Old outputs:** earlier dated output folders and copies of the kit are not touched. Delete them yourself once the new `out/` set is signed off.
+- **Name clash:** if your project already has its own `.claude/skills/.gitignore`, sync reports it as CONFLICT-UNMANAGED. Merge in `__pycache__/` and `*.pyc` and re-run with `--theirs`.
+
 ## [1.3.1] - 2026-09-27
 
 ### Fixed

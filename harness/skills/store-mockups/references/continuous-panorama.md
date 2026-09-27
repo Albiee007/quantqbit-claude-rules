@@ -95,5 +95,5 @@ The renderer warns (instead of failing) about unknown types when this file exist
    | 1|2  | coin €          | caption of 2 stays clear |
    ```
 3. **Place the objects in frames.json,** then check with `render_frames.py render <kit> --check-only`.
-4. **Render one size, then preview:** `contact_sheet.py … --strip --check-seams`. Iterate, then render every size.
+4. **Render one size, then preview:** `contact_sheet.py … --strip --check-seams`. Iterate, then run `render --all`, which renders every size and writes the strips with their seam reports.
 5. **QA each frame alone** as well as the strip: every frame must still make sense cropped out of the strip.

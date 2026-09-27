@@ -4,7 +4,7 @@
    reference captures. frame.html scales the whole screen to fit each canvas.
    REPLACE the tokens below with the app's real theme tokens (light theme). */
 
-@font-face { font-family: Ionicons; src: url(assets/Ionicons.ttf) format('truetype'); }
+/* Ionicons (frames.json "icons": "ionicons") is loaded by .build/icons.generated.js from the app's node_modules. */
 
 :root {
   --bg: #faf8ff; --surface: #fff; --surfaceAlt: #f2f3ff; --surfaceContainer: #eaedff;
