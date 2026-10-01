@@ -22,7 +22,7 @@ ui_text="$prompt"
 ui_text="${ui_text//design pattern/ }"
 ui_text="${ui_text//system design/ }"
 
-if [[ "$ui_text" =~ $B(ui|ux|frontend|front-end|screens?|layouts?|components?|css|scss|tailwind|styl(e|es|ing)|design|redesign|a11y|accessib(le|ility)|wcag|buttons?|forms?|modals?|dialogs?|navbar|navigation|menu|responsive|dark[[:space:]]mode|theme|colou?rs?|fonts?|typography|animations?|landing[[:space:]]page|dashboard|figma|swiftui|jetpack|compose[[:space:]]ui|onboarding|empty[[:space:]]state)$E ]]; then
+if [[ "$ui_text" =~ $B(ui|ux|frontend|front-end|screens?|layouts?|components?|css|scss|tailwind|styl(e|es|ing)|design|redesign|a11y|accessib(le|ility)|wcag|buttons?|forms?|modals?|dialogs?|navbar|navigation|menu|responsive|dark[[:space:]]mode|theme|colou?rs?|palettes?|fonts?|typefaces?|typography|type[[:space:]]scale|oklch|gamut|animations?|landing[[:space:]]page|dashboard|figma|swiftui|jetpack|compose[[:space:]]ui|onboarding|empty[[:space:]]state)$E ]]; then
   hh_add_snippet ui
 fi
 if [[ "$prompt" =~ $B(seo|meta[[:space:]]?(tags?|description)|title[[:space:]]tags?|schema\.org|structured[[:space:]]data|json-ld|sitemaps?|robots\.txt|canonical|hreflang|serp|rank(ing)?|search[[:space:]]console|core[[:space:]]web[[:space:]]vitals|lcp|inp|cls|open[[:space:]]?graph|og:|ai[[:space:]]overviews?|llms\.txt|landing[[:space:]]page|blog|backlinks?|keywords?|indexing|crawl(ing|er)?)$E ]]; then

@@ -66,6 +66,9 @@ expect "allow Test-Path .env"         guard.sh '{"tool_name":"PowerShell","tool_
 echo "prompt-router"
 expect "UI prompt → ui checklist"      prompt-router.sh '{"session_id":"a1","prompt":"Make the login screen responsive"}' 'ui-ux'
 expect "same topic not repeated"       prompt-router.sh '{"session_id":"a1","prompt":"tweak the button color"}' ''
+expect "font/palette prompt → all three UI skills" prompt-router.sh '{"session_id":"a20","prompt":"change the typeface and palette"}' 'ui-ux, typography, color-science'
+expect "oklch prompt → ui checklist"   prompt-router.sh '{"session_id":"a21","prompt":"convert the brand ramp to oklch"}' 'typography, color-science'
+expect "UI checklist deduped per session" prompt-router.sh '{"session_id":"a20","prompt":"tweak the font sizes"}' ''
 expect "SEO prompt → seo checklist"    prompt-router.sh '{"session_id":"a2","prompt":"add meta description and sitemap"}' 'Load skill: seo'
 expect "pattern prompt → gate"         prompt-router.sh '{"session_id":"a3","prompt":"Should we add a factory here?"}' 'design-patterns'
 expect "design pattern ≠ UI"           prompt-router.sh '{"session_id":"a4","prompt":"which design pattern fits?"}' 'design-patterns'
@@ -102,8 +105,20 @@ expect "sub-agent gets its own gate"       file-context.sh '{"session_id":"b5","
 expect "agent_id in tool_input ignored"    file-context.sh '{"session_id":"b5","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/X.tsx","agent_id":"evil"}}' ''
 run prompt-router.sh '{"session_id":"b6","prompt":"restyle the navbar"}' >/dev/null
 expect "gate still applies after prompt checklist" file-context.sh '{"session_id":"b6","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Nav.tsx"}}' 'deny'
+out="$(run file-context.sh '{"session_id":"b10","tool_name":"Write","tool_input":{"file_path":"/p/src/theme/tokens.css"}}')"
+if [[ $(grep -o '"permissionDecision":"deny"' <<<"$out" | wc -l) -eq 1 ]] && grep -q 'mandatory skills' <<<"$out" \
+   && grep -q 'ui-ux/SKILL.md' <<<"$out" && grep -q 'typography/SKILL.md' <<<"$out" && grep -q 'color-science/SKILL.md' <<<"$out"; then
+  pass=$((pass+1)); echo "  [OK] one UI deny names ui-ux, typography and color-science"
+else fail=$((fail+1)); echo "  [FAIL] UI deny should name all three skills once — got: ${out:0:200}"; fi
+expect "retry after three-skill deny allowed" file-context.sh '{"session_id":"b10","tool_name":"Write","tool_input":{"file_path":"/p/src/theme/tokens.css"}}' ''
+expect "no second deny for another UI file"   file-context.sh '{"session_id":"b10","tool_name":"Write","tool_input":{"file_path":"/p/src/styles/app.scss"}}' ''
+expect "SEO deny keeps singular wording"      file-context.sh '{"session_id":"b12","tool_name":"Write","tool_input":{"file_path":"/p/public/robots.txt"}}' 'falls under a mandatory skill\.'
 printf 'checklists=inform\n' > "$P/.claude/harness.config"
 expect "inform mode adds context only"     file-context.sh '{"session_id":"b7","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Y.tsx"}}' '"additionalContext"'
+out="$(run file-context.sh '{"session_id":"b11","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Z.tsx"}}')"
+if ! grep -q 'deny' <<<"$out" && grep -q 'ui-ux, typography, color-science' <<<"$out"; then
+  pass=$((pass+1)); echo "  [OK] inform mode names all three skills without denying"
+else fail=$((fail+1)); echo "  [FAIL] inform mode — got: ${out:0:200}"; fi
 rm -f "$P/.claude/harness.config"
 
 echo "session-start"

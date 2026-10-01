@@ -17,7 +17,7 @@ Load a skill by reading `.claude/skills/<name>/SKILL.md` and the reference files
 |---|---|---|
 | `code` | skill `coding-standards`, its review checklist | Correctness, error handling, naming, tests, readability, and consistency with the surrounding code |
 | `patterns` | skill `design-patterns` | Apply the decision gate to every new abstraction. Flag speculative generality, single-product factories, one-implementation interfaces and god objects. Also flag missing structure where there is real, repeated variation. |
-| `ux` | skill `ui-ux`, `references/ux-review-rubric.md` | WCAG 2.2 AA, all UI states, tokens vs raw values, target sizes, contrast, keyboard and focus, the laws of UX, platform conventions |
+| `ux` | skills `ui-ux` (`references/ux-review-rubric.md`), `typography`, `color-science` | WCAG 2.2 AA, all UI states, tokens vs raw values, target sizes, contrast, keyboard and focus, the laws of UX, platform conventions; type: token reuse, text scaling, script/fallback coverage, layout shift; color: WCAG reported apart from supplementary metrics, CVD, theme parity, stated color assumptions |
 | `seo` / `seo-technical` / `seo-content` / `seo-schema` / `seo-performance` / `seo-geo` | skill `seo` and the matching reference | The build-time checklist, or the audit category |
 | `security` | skill `coding-standards` → `references/security-owasp.md` | Injection, authn/authz, secrets, SSRF, unsafe deserialisation, dependency risk, and data exposure in logs |
 | `all` | All of the above that apply to the files in scope | |

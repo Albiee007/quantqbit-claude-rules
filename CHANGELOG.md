@@ -8,6 +8,33 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.6.0] - 2026-10-02
+
+Typography and color get their own specialist skills. The single `typography-color.md` reference imposed one universal type scale, a family and weight cap, a 60/30/10 split and a fixed dark-surface hex, whatever the project, and had almost no color-science depth. The new skills discover the project's context first, reuse its tokens, adapt to evidence, and keep standards apart from heuristics.
+
+### Added
+- **Skill `typography`** (web and mobile profiles, mandatory for every UI change alongside `ui-ux`): context discovery, evidence-based hierarchy and measure, font metrics and pairing, variable fonts and optical sizing, numerals and OpenType features, multilingual shaping, RTL and fallback coverage, loading performance and layout stability, licensing, and web, React Native, Android and Apple text scaling with accessibility checks. Decisions go into the project's existing design docs and tokens.
+- **Skill `color-science`** (web and mobile profiles, mandatory for every UI change): context discovery; spectral foundations, observers, illuminants, XYZ, adaptation and metamerism; RGB spaces, transfer functions, linear-light compositing, interpolation and gamut mapping; Lab/LCh, Oklab/OKLCH, color differences and appearance models with their limits; semantic palettes, states, dark and high-contrast themes, CVD and data visualization; ICC workflows, proofing, rendering intents, wide gamut, HDR and measurement uncertainty. Calculations must state units, white point, observer and output; WCAG conformance is reported apart from supplementary metrics such as APCA and ΔE.
+- Each skill keeps short entrypoint guidance, references loaded only when the task needs them, and a dated `references/sources.md`. Paywalled standards are cited by title and marked unverified.
+- **Tests:** hook tests for the three-skill deny (one deny, retry allowed, no second deny, singular SEO wording, inform mode) and the new prompt keywords; sync tests for web, mobile, backend and infra distribution, profile shrink, update from an install without the skills, and the reserved-name conflict; validator tests for the new skills' frontmatter.
+
+### Changed
+- **First-write gate:** the UI gate now names `ui-ux`, `typography` and `color-science` in a single deny ("falls under mandatory skills"); the retry is allowed as before and inform mode is unchanged. `hh_gate` takes several skills per topic.
+- The UI snippet, session-start summary, core §5 table and gate note, the `ui-ux` rule, the implementor, and the reviewer's `ux` lens load or check all three skills. The prompt router also matches `palette`, `typeface`, `type scale`, `oklch` and `gamut`.
+- `ui-ux/references/typography-color.md` is now a compatibility overview: the WCAG floors stay, the old universal values become fallback defaults or labelled heuristics, and it links to the specialist skills. The UX review rubric no longer penalises "too many weights" or "body under 16 px" outright; it checks against project tokens and recorded rationale instead.
+- `brand-assets`, `story-art`, `brand-asset-creator`, `illustrator` and `store-creative` route typeface and palette decisions through the specialist skills.
+- Reserved names (sync's conflict message, harness README, harness skill, harness-install skill, INSTALL) include `typography` and `color-science`.
+
+### Fixed
+- The large-text threshold for bold text read "18.5 px"; WCAG's 14 pt bold is about **18.66 px**, so 18.5–18.6 px bold text was wrongly allowed 3:1. Corrected in the `ui-ux` rule, skill checklist, `wcag-22-aa.md` and the overview.
+- The `ui-ux` reflow checklist item now states the WCAG 1.4.10 exception for two-dimensional content (data tables, maps, diagrams) scrolling in its own container.
+
+### Upgrade notes
+- **Web and mobile projects** receive `.claude/skills/typography/` and `.claude/skills/color-science/` on the next sync. Backend and infra projects are unaffected.
+- The first UI write in each agent context is still denied once, but the message now lists three SKILL.md files; agents read all three, then retry.
+- If a project already has its own skill named `typography` or `color-science`, sync reports CONFLICT-UNMANAGED. Rename yours, then re-run.
+- No new runtime dependencies and no bundled fonts.
+
 ## [1.5.0] - 2026-10-02
 
 Product story art becomes a harness capability. On a real website revamp, four feature-pillar illustrations (friends on a trip, flatmates in a kitchen, a currency-exchange counter, a sofa and a spending chart) were made ad hoc: context gathered by hand, a style prompt reinvented, full-resolution files dug out of Canva through a scratch design, and a one-off export script. Owner review caught a ₿-like glyph that had to be regenerated. The new skill and agent make that a repeatable, reviewed workflow.

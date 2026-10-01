@@ -20,7 +20,7 @@ Make illustrations that tell the product's story: real people (fictional, inclus
    - **who** (fictional, a cast that reflects the markets), **where**, **the moment of need**, **the emotion**, **what the app does in that moment**;
    - the real feature it maps to, by name from the code. A scene the product can't back is cut, not softened.
    - Use [scenario-patterns](references/scenario-patterns.md) for common app types, shot types and aspect ratios.
-2. **Style bible, locked once per set.** Fix the render style, the palette hexes (from the tokens), the lighting, the background and the aspect ratio. Add the shared negative list from [prompt-template](references/prompt-template.md): no text or letters, no logos or brands, no real people or likenesses, no real banknote designs, no crypto glyphs, no other apps' UI, inclusive casting. Never change the bible mid-set; a change means a new set.
+2. **Style bible, locked once per set.** Fix the render style, the palette hexes (from the tokens, chosen with [color-science](../color-science/SKILL.md) so overlaid UI text keeps its contrast), the lighting, the background and the aspect ratio. Add the shared negative list from [prompt-template](references/prompt-template.md): no text or letters, no logos or brands, no real people or likenesses, no real banknote designs, no crypto glyphs, no other apps' UI, inclusive casting. Never change the bible mid-set; a change means a new set.
 3. **Prompts.** Build each prompt from the template: style bible + scene. Name exact symbols and objects; a vague noun gets a guessed glyph (asking for "baht ฿" once produced a ₿-like mark).
 4. **Generate** with the session's provider, following [providers](references/providers.md):
    - One image at a time. On a quota or cooldown error, wait and retry; never loop.
@@ -65,4 +65,4 @@ Make illustrations that tell the product's story: real people (fictional, inclus
 - [prompt-template](references/prompt-template.md): the style-bible and scene templates, the negative list, a worked example.
 - [review-checklist](references/review-checklist.md): reject criteria, accessibility and performance budgets.
 - Script: [export_art.py](scripts/export_art.py).
-- Related skills: `brand-assets` (tokens and palette), `store-mockups` (personas, demo data), `store-listing` (claims guardrails), `ui-ux` (contrast, alt text), `seo` (LCP, image weight).
+- Related skills: `brand-assets` (tokens and palette), `store-mockups` (personas, demo data), `store-listing` (claims guardrails), `ui-ux` (contrast, alt text), `color-science` (palette lock), `seo` (LCP, image weight).

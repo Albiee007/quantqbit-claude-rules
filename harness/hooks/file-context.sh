@@ -3,8 +3,9 @@
 # Path-scoped rules load when Claude *reads* a matching file, but new files are
 # written without a read, and a checklist delivered alongside a write arrives
 # after the content is already composed. So, once per agent context and topic:
-#   * ui / seo (topics with a mandatory skill): the first write is DENIED with
-#     the checklist and "load the skill, then retry" — the retry is allowed.
+#   * ui / seo (topics with mandatory skills): the first write is DENIED once
+#     with the checklist and "load the skills, then retry" — the retry is allowed.
+#     ui names ui-ux, typography and color-science together in that one deny.
 #     Set checklists=inform in .claude/harness.config to only inform instead.
 #   * security / store / infra: the checklist is added as context (never blocks).
 # The gate has its own marker per agent context and topic, so a checklist the
@@ -20,15 +21,15 @@ hh_get file_path "$HH_TI"; p="$HH_V"
 p="${p//\\//}"
 shopt -s nocasematch
 
-# hh_gate <topic> <skill> — first write for this topic in this agent context:
-# mark the gate and queue the skill for the deny. If the marker cannot be
+# hh_gate <topic> <skill>... — first write for this topic in this agent context:
+# mark the gate and queue the skills for one deny. If the marker cannot be
 # written, fall back to inform so the gate can never deny forever.
 enforce=(); gate_text=""
 hh_gate() {
   hh_topic_marker "gate-$1"
   [[ -e "$HH_V" ]] && return 0
   : > "$HH_V" 2>/dev/null || return 0
-  enforce+=("$2")
+  enforce+=("${@:2}")
   hh_snippet_text "$1"; gate_text+="$HH_V"$'\n'
 }
 
@@ -37,7 +38,7 @@ case "$p" in
   *.tsx|*.jsx|*.vue|*.svelte|*.astro|*.html|*.htm|*.css|*.scss|*.sass|*.less|*.swift|*.xib|*.storyboard|\
   */res/layout/*|*/res/values/*|*Screen.kt|*View.kt|*Component.kt|*Activity.kt|*Fragment.kt|*/tailwind.config.*|\
   */components/*|*/ui/*|*/screens/*|*/views/*|*/theme/*|*/styles/*)
-    [[ "$mode" != "inform" ]] && hh_gate ui ui-ux
+    [[ "$mode" != "inform" ]] && hh_gate ui ui-ux typography color-science
     hh_add_snippet ui ;;
 esac
 case "$p" in
@@ -64,7 +65,8 @@ if [[ ${#enforce[@]} -gt 0 ]]; then
   for s in "${enforce[@]}"; do
     skills+="${skills:+, }.claude/skills/$s/SKILL.md"
   done
-  hh_deny "Harness: ${p##*/} falls under a mandatory skill. Before writing it, load ${skills} (Read tool or Skill tool) and apply this checklist, then retry the same write (it will be allowed):
+  what="a mandatory skill"; [[ ${#enforce[@]} -gt 1 ]] && what="mandatory skills"
+  hh_deny "Harness: ${p##*/} falls under ${what}. Before writing it, load ${skills} (Read tool or Skill tool) and apply this checklist, then retry the same write (it will be allowed):
 $gate_text"
 fi
 [[ -z "$HH_OUT" ]] && exit 0

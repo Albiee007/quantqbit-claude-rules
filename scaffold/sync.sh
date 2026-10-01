@@ -459,9 +459,10 @@ EOF
                        agents explorer, implementor, infra-implementor, verifier, reviewer,
                        screen-capturer, store-creative, listing-copywriter,
                        store-precheck-auditor, icon-creator, brand-asset-creator, illustrator;
-                       skills coding-standards, design-patterns, ui-ux, seo, harness,
-                       mobile-screen-capture, store-mockups, store-listing,
-                       store-submission-precheck, app-icons, brand-assets, story-art.
+                       skills coding-standards, design-patterns, ui-ux, typography,
+                       color-science, seo, harness, mobile-screen-capture, store-mockups,
+                       store-listing, store-submission-precheck, app-icons, brand-assets,
+                       story-art.
                        Rename yours and change its name: field (recommended), commit the
                        rename, then re-run; or re-run with --theirs (yours is saved under
                        .claude/harness/.backup/). --keep does not apply.

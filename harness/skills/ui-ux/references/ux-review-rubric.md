@@ -48,9 +48,9 @@ UI REVIEW: FAIL | NEEDS WORK | PASS
 - **Major:** Breakpoints not from tokens. Lines over about 80 characters. Fixed-height text containers. Hover-only actions on touch. Missing safe-area or inset handling.
 - **Minor:** Inconsistent alignment or grid. Unbalanced whitespace. Grouping that contradicts proximity.
 
-### 6. Visual hierarchy, typography, and color: see [typography-color](typography-color.md), [gestalt](gestalt.md)
-- **Major:** No clear primary action, or several competing primaries. Type sizes off the scale. Body text under 16 px on web. Dark theme not verified, or pairs failing contrast only in dark mode. Status color without an icon or text.
-- **Minor:** Too many font weights. Inconsistent icon style or size. Justified body text.
+### 6. Visual hierarchy, typography, and color: see [typography](../../typography/SKILL.md), [color-science](../../color-science/SKILL.md), [gestalt](gestalt.md)
+- **Major:** No clear primary action, or several competing primaries. Type sizes or colors outside the project tokens, or a parallel scale or palette. Body text below the platform default or the project's body token without a recorded reason. Text that clips at 200% or the largest platform text size. A supported script with no font coverage. Dark or high-contrast theme not verified, or pairs failing contrast only in one theme. Status color without an icon or text. A supplementary metric (APCA, ΔE) reported as WCAG conformance. Color math with no stated space or white point.
+- **Minor:** Families or weights beyond the project system without a recorded rationale. Visible layout shift on font swap. Inconsistent icon style or size. Justified body text.
 
 ### 7. Interaction and motion: see [motion](motion.md)
 - **Major:** No feedback within about 100 ms on press or submit. Animation blocks input. Animations over 500 ms on routine UI. Layout-property animations causing jank. Destructive action without undo or confirmation.

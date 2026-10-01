@@ -2,7 +2,7 @@
 
 The harness gives every project the same Claude Code setup:
 - **Core rules**, always loaded.
-- **Mandatory skills:** coding standards, design patterns, UI/UX and SEO.
+- **Mandatory skills:** coding standards, design patterns, UI/UX (with typography and color science) and SEO.
 - **Five core Opus agents**, plus seven store, brand and story-art agents in mobile projects (screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets, illustrations; the last two also in web projects).
 - **Safety hooks** that block `.env` access and non-Opus agents.
 
@@ -113,7 +113,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\.local\share\quantqbi
 ```
 
 **What happens on first install:**
-- **Profiles are detected** from your files: `web` (React/Vue/Svelte/…), `mobile`, `backend`, `infra`. They are saved in `.claude/harness.config`. Web projects get the UI/UX and SEO skills; mobile projects get UI/UX plus the store and brand agents; backend-only projects get neither.
+- **Profiles are detected** from your files: `web` (React/Vue/Svelte/…), `mobile`, `backend`, `infra`. They are saved in `.claude/harness.config`. Web projects get the UI/UX, typography, color-science and SEO skills; mobile projects get UI/UX, typography and color science plus the store and brand agents; backend-only projects get neither.
 - **Your files are kept.**
   - `CLAUDE.md`, `AGENTS.md` and `AI_RULES.md` are never touched.
   - A `CLAUDE.md` stub is created only if you have neither `CLAUDE.md` nor `AGENTS.md`. A new `CLAUDE.md` would stop Claude Code reading `AGENTS.md`.
@@ -138,7 +138,7 @@ Push the branch and open a PR. After it merges, **teammates need to do nothing e
 After pulling a project that has the harness, just use Claude Code as usual. You will notice:
 - **Session start:** a short "QuantQbit agent harness vX" summary listing the agents and mandatory skills.
 - **Checklists:** prompts about UI, SEO, refactoring, security or infra get the relevant checklist added automatically.
-- **The first UI or SEO file write in each agent is paused once:** "falls under a mandatory skill…". Claude loads the skill and retries, and the retry goes through.
+- **The first UI or SEO file write in each agent is paused once:** "falls under mandatory skills…". Claude loads the named skills (for UI: ui-ux, typography and color-science, in one pause) and retries, and the retry goes through.
 - **Blocked actions:** the guard hook blocks direct `.env` access and non-Opus sub-agents (best-effort pattern matching); permission rules block the common forms of `git add -A` and `git push --force`. Keep `.env*` in your root `.gitignore` (with `!.env.example`); the harness does not add it for you.
 - **Plan mode by default:** Claude plans first. See the table below to change this.
 

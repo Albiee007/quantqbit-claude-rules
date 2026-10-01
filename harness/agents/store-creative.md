@@ -12,7 +12,7 @@ The parent gives you: the positioning and the features to lead with, reference c
 
 ## Before starting
 - Read `.claude/skills/store-mockups/SKILL.md` and the references it names, especially `demo-data-rules.md` and `storyboard-and-captions.md`.
-- Read `.claude/skills/ui-ux/SKILL.md` for contrast and legibility.
+- Read `.claude/skills/ui-ux/SKILL.md` for contrast and legibility, plus `.claude/skills/typography/SKILL.md` and `.claude/skills/color-science/SKILL.md` for caption type and palette.
 - Read the app's theme tokens, and the real component for every screen you rebuild.
 
 ## Style

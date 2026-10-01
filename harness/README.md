@@ -7,7 +7,7 @@ This project vendors the QuantQbit agent harness: shared agent rules, skills, ag
 | Path | Owner | May I edit it? |
 |---|---|---|
 | `.claude/rules/harness/*` | harness | No. Override in `.claude/rules/project/` |
-| `.claude/skills/{coding-standards,design-patterns,ui-ux,seo,harness}/` | harness | No. Add your own skills under other names |
+| `.claude/skills/{coding-standards,design-patterns,ui-ux,typography,color-science,seo,harness}/` | harness | No. Add your own skills under other names |
 | `.claude/skills/{mobile-screen-capture,store-mockups,store-listing,store-submission-precheck,app-icons,brand-assets,story-art}/` (mobile; `brand-assets` and `story-art` also web) | harness | No. Copy templates into your project before editing them |
 | `.claude/agents/{explorer,implementor,infra-implementor,reviewer,verifier}.md` | harness | No. Add your own agents under other names |
 | `.claude/agents/{screen-capturer,store-creative,listing-copywriter,store-precheck-auditor,icon-creator,brand-asset-creator,illustrator}.md` (mobile; `brand-asset-creator` and `illustrator` also web) | harness | No |

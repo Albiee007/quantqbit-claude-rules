@@ -9,7 +9,7 @@ A prompt is the **style bible** (identical for every image in the set) followed 
 <Background>. <Negative list>.
 ```
 - **Render style:** one phrase, e.g. "Stylized modern 3D illustration, soft clay render style" or "Flat vector illustration, soft grain".
-- **Palette:** 3–4 hexes from the brand tokens, named. The accent is the one colour that pops.
+- **Palette:** 3–4 hexes from the brand tokens, named. The accent is the one colour that pops. If the tokens don't settle the palette, decide it with [color-science](../../color-science/SKILL.md).
 - **Lighting:** one phrase, e.g. "warm soft lighting".
 - **Background:** the page the art sits on decides it, e.g. "Dark indigo/navy backdrop" for a dark site.
 

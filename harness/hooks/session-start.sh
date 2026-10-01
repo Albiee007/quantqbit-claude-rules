@@ -39,7 +39,7 @@ fi
 
 msg="QuantQbit agent harness v$ver (profiles: $profiles).
 Agents (all Opus): explorer → implementor / infra-implementor → verifier → reviewer (lens: code|patterns|ux|seo|security).
-Mandatory skills: ui-ux (UI work), seo (public web pages), design-patterns (before any abstraction), coding-standards (always).
+Mandatory skills: ui-ux + typography + color-science (UI work), seo (public web pages), design-patterns (before any abstraction), coding-standards (always).
 Project overrides: .claude/rules/project/ and CLAUDE.md. Do not edit harness:managed files."
 # Mention only the rosters that are installed: the store roster ships to mobile
 # projects; web projects get the brand and art agents alone.

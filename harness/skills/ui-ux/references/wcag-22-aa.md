@@ -26,7 +26,7 @@ Native-app mapping: "CSS px" becomes pt (iOS) or dp (Android). "Page" becomes sc
 ### 1.4 Distinguishable
 - **1.4.1 Use of Color (A):** Color is never the only means of conveying information, state, or action. Add text, icon, pattern, or underline.
 - **1.4.2 Audio Control (A):** Audio that auto-plays for more than 3 seconds can be paused, stopped, or volume-controlled independently.
-- **1.4.3 Contrast (Minimum) (AA):** Text contrast is at least **4.5:1**. Large text (at least 18 pt / about 24 CSS px, or 14 pt bold / about 18.5 CSS px bold) is at least **3:1**. Exempt: inactive (disabled) components, pure decoration, logotypes, incidental text.
+- **1.4.3 Contrast (Minimum) (AA):** Text contrast is at least **4.5:1**. Large text (at least 18 pt / about 24 CSS px, or 14 pt bold / about 18.66 CSS px bold) is at least **3:1**. Exempt: inactive (disabled) components, pure decoration, logotypes, incidental text.
 - **1.4.4 Resize Text (AA):** Text can be resized to **200%** without loss of content or function (no clipping or overlap).
 - **1.4.5 Images of Text (AA):** Use real text, not images of text (except logos or essential cases).
 - **1.4.10 Reflow (AA):** No two-dimensional scrolling at **320 CSS px** width (vertical-scrolling content) or **256 CSS px** height (horizontal-scrolling content). 320 px equals 1280 px at 400% zoom. Exempt: content that needs 2D layout (maps, data tables, diagrams, video, games, toolbars).

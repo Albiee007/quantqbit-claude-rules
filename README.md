@@ -7,7 +7,7 @@
 | Layer | Contents |
 |---|---|
 | **Core rules** (always loaded, ≤150 lines) | Precedence, Opus-only sub-agents, plan mode, the orchestration table, mandatory-skill routing, verification gates, cross-platform scripts, `.env` protection, git branch policy, YAGNI |
-| **Mandatory skills** | **coding-standards**: SOLID, naming, errors, testing, OWASP Top 10:2025, review checklist · **design-patterns**: a decision gate plus all 23 GoF patterns with examples, architectural patterns, anti-patterns · **ui-ux**: 30 Laws of UX, Nielsen heuristics, WCAG 2.2 AA, Gestalt, DTCG tokens, Material 3, Apple HIG · **seo**: technical SEO, E-E-A-T, schema, Core Web Vitals, AI search (GEO), hreflang, local, a 0–100 audit score |
+| **Mandatory skills** | **coding-standards**: SOLID, naming, errors, testing, OWASP Top 10:2025, review checklist · **design-patterns**: a decision gate plus all 23 GoF patterns with examples, architectural patterns, anti-patterns · **ui-ux**: 30 Laws of UX, Nielsen heuristics, WCAG 2.2 AA, Gestalt, DTCG tokens, Material 3, Apple HIG · **typography**: context-aware hierarchy, font metrics and pairing, variable fonts, multilingual and RTL text, loading and licensing, platform text scaling · **color-science**: palettes and themes, CVD, color spaces and gamut mapping, Oklab/CAM16, data-viz color, ICC, print and HDR · **seo**: technical SEO, E-E-A-T, schema, Core Web Vitals, AI search (GEO), hreflang, local, a 0–100 audit score |
 | **Path-scoped rules** | coding, tests, security, ui-ux, seo, bash, powershell, ansible, compose/Dockerfile, terraform |
 | **Agents** (all Opus) | `explorer` → `implementor` / `infra-implementor` → `verifier` → `reviewer` (lenses: code, patterns, ux, seo, security) |
 | **Mobile store, brand & story art** (mobile profile; brand and story art also web) | Agents `screen-capturer` → `store-creative` / `listing-copywriter` / `icon-creator` / `brand-asset-creator` / `illustrator` → `store-precheck-auditor`, each with its own skill: **mobile-screen-capture** (read-only ADB/iOS device tours) · **store-mockups** (storyboard, demo-data ledger, HTML screen rebuilds in one reusable kit; `render --all` makes every Play/App Store size + feature graphic, contact sheet and caption contrast check) · **store-listing** (claims truth table, ASO, limit + guardrail checker) · **store-submission-precheck** (release gate, store specs, consistency checks) · **app-icons** (iOS/adaptive/monochrome/notification/web sets + audit) · **brand-assets** (logo system, tokens, a lean export plan for splash and social images; also web) · **story-art** (context pack, one scene per feature pillar, locked style bible, generation via the session's provider (Canva MCP by default), owner-approved contact sheet, budgeted AVIF/WebP export with provenance; also web) |
@@ -54,7 +54,8 @@ PowerShell users: every entry point has a `.ps1` twin, which uses Git Bash.
 harness/                 SOURCE OF TRUTH (vendored into projects)
   core/00-core.md          always-loaded rules
   rules/                   path-scoped rules
-  skills/                  coding-standards, design-patterns, ui-ux, seo, harness,
+  skills/                  coding-standards, design-patterns, ui-ux, typography,
+                           color-science, seo, harness,
                            mobile-screen-capture, store-mockups, store-listing,
                            store-submission-precheck, app-icons, brand-assets, story-art
   agents/                  explorer, implementor, infra-implementor, verifier, reviewer,

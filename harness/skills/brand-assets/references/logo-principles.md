@@ -10,7 +10,7 @@
 For each direction, show: the mark at 1024 and 32 px, on light and dark, as an app icon tile, and one sentence of rationale. Directions should differ in *idea*, not only in colour. Examples: a monogram, a symbol drawn from the core feature, and an abstract shape expressing the positioning.
 
 ## Wordmark
-- Pick a typeface with a licence that allows logo use; record the licence in `brand/README.md`.
+- Pick a typeface with a licence that allows logo use; record the licence in `brand/README.md`. Choose it with [typography](../../typography/SKILL.md) (context, script coverage, licence terms).
 - Adjust spacing by hand between letter pairs, and convert the text to outlines in the final SVG.
 - Keep the capitalisation consistent everywhere (store title, icon, website): e.g. "SplitExpenZ", never "Splitexpenz".
 

@@ -13,7 +13,7 @@ The parent gives you: the product and its positioning, the placements (web featu
 ## Before starting
 - Read `.claude/skills/story-art/SKILL.md` and all four of its references.
 - Read `brand/tokens.json` (`brand-assets`) if it exists, otherwise the app or site theme tokens.
-- Read `.claude/skills/ui-ux/SKILL.md` for contrast and alt-text rules.
+- Read `.claude/skills/ui-ux/SKILL.md` for contrast and alt-text rules, and `.claude/skills/color-science/SKILL.md` before locking the palette.
 - **Image tools.** The harness grants you the core file and shell tools only, because MCP server names differ per project. If the session's image tools (Canva, Figma Weave) are not available to you, do the context pack, storyboard, style bible and prompts, then return them to the parent: the parent runs generation with its own tools and hands you the images for review and export. A project that wants you to generate directly can add its own agent, under another name, whose `tools` list includes its MCP server.
 
 ## Rules

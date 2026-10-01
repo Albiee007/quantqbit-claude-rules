@@ -22,7 +22,7 @@ Export everything from the SVG or HTML masters, never by resizing PNGs. Store si
 | Promo banner | as the campaign needs | PNG, flattened | HTML like og-image | On request | Web and ads, never inside store screenshots |
 
 ## Colour and type tokens
-Write the brand tokens once, e.g. `brand/tokens.json` (DTCG format: primary, on-primary, accent, neutral scale, and fonts with their licences). Link the app theme and the web CSS to it, and have the ui-ux skill's token rules consume it. Every asset above uses only these tokens.
+Write the brand tokens once, e.g. `brand/tokens.json` (DTCG format: primary, on-primary, accent, neutral scale, and fonts with their licences). Link the app theme and the web CSS to it, and have the ui-ux skill's token rules consume it. Derive the palette with [color-science](../../color-science/SKILL.md) and the fonts with [typography](../../typography/SKILL.md). Every asset above uses only these tokens.
 
 ## A minimal plan
 ```json
