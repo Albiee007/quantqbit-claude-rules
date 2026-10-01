@@ -102,8 +102,22 @@ run export "$W/badname" "$W/x"; check "non-slug scene name: exit 2" test $? -eq 
 mkdir -p "$W/empty"
 run export "$W/empty" "$W/x"; check "no sources: exit 2" test $? -eq 2
 run export "$W/src" "$W/x" --budget 1200; check "malformed budget: exit 2" test $? -eq 2
+mk "$W/dupe" trip.png:1300x900 trip.jpg:1300x900
+run export "$W/dupe" "$W/dupeout"; check "one stem twice: exit 2" test $? -eq 2
+check "both sources are named" grep -q 'trip.jpg and trip.png' "$W/err"
+check "one stem twice: nothing written" test ! -e "$W/dupeout"
 
-echo "5. contact sheet"
+echo "5. a manifest that can't be merged into stops the export before any write"
+printf '{"files": [' > "$W/broken.json"
+run export "$W/src" "$W/brokenout" --manifest "$W/broken.json"; check "malformed manifest: exit 2" test $? -eq 2
+check "no images written" test ! -e "$W/brokenout"
+check "manifest left as it was" test "$(cat "$W/broken.json")" = '{"files": ['
+printf '{"files": []}\n' > "$W/wrong.json"
+run export "$W/src" "$W/brokenout" --manifest "$W/wrong.json"; check "files not an object: exit 2" test $? -eq 2
+check "no images written for it either" test ! -e "$W/brokenout"
+check "no staging files left" test -z "$(find "$W/pub" "$W" -maxdepth 1 -name '.*.tmp')"
+
+echo "6. contact sheet"
 run sheet "$W/pub" "$W/review/sheet.png"
 check "exit 0" test $? -eq 0
 check "sheet written" test -f "$W/review/sheet.png"

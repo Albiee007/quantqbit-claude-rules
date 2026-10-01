@@ -6,9 +6,11 @@
           quality down from 82 until the file fits the width's budget; AVIF steps
           down until it is under the budget and under 80% of the WebP size. Without
           AVIF support in Pillow only WebP is written (a note goes to stderr).
-          Nothing is written unless every file meets its budget. With --manifest the
-          entries are merged into {"files": {name: {"width", "height"}}}; other keys
-          in that file are kept.
+          Two sources with one stem (trip.png, trip.jpg) are refused. With
+          --manifest the entries are merged into {"files": {name: {"width",
+          "height"}}}; other keys in that file are kept. The manifest is checked
+          before encoding; nothing is written unless every file meets its budget,
+          and then the images and manifest are staged and moved into place together.
   sheet   one review image from the files in DIR matching --glob, labelled with
           their names.
 
@@ -26,6 +28,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -108,15 +111,34 @@ def export_scene(src: Path, widths: list[int], budget: dict[int, int], prefix: s
     return out
 
 
-def merge_manifest(path: Path, entries: dict[str, dict[str, int]]) -> None:
-    doc: dict = {}
-    if path.is_file():
+def load_manifest(path: Path) -> dict:
+    """The existing manifest ({} if absent); ExportError if it can't be merged into."""
+    if not path.is_file():
+        return {}
+    try:
         doc = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(doc, dict) or not isinstance(doc.get("files", {}), dict):
-            raise ExportError(f"{path}: expected {{\"files\": {{...}}}}")
-    doc.setdefault("files", {}).update(entries)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8", newline="\n")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ExportError(f"{path}: {exc}") from None
+    if not isinstance(doc, dict) or not isinstance(doc.get("files", {}), dict):
+        raise ExportError(f"{path}: expected {{\"files\": {{...}}}}")
+    return doc
+
+
+def write_staged(targets: list[tuple[Path, bytes]]) -> None:
+    """Write every file to a hidden sibling first, then move them all into place."""
+    staged: list[tuple[Path, Path]] = []
+    try:
+        for path, data in targets:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_name(f".{path.name}.tmp")
+            tmp.write_bytes(data)
+            staged.append((tmp, path))
+    except OSError:
+        for tmp, _ in staged:
+            tmp.unlink(missing_ok=True)
+        raise
+    for tmp, path in staged:
+        os.replace(tmp, path)
 
 
 def cmd_export(args: argparse.Namespace) -> int:
@@ -132,6 +154,20 @@ def cmd_export(args: argparse.Namespace) -> int:
         print(f"rename these to lowercase-hyphen scene names (the stem becomes the file name): {', '.join(bad)}",
               file=sys.stderr)
         return 2
+    stems: dict[str, list[str]] = {}
+    for p in sources:
+        stems.setdefault(p.stem, []).append(p.name)
+    dupes = [" and ".join(names) for names in stems.values() if len(names) > 1]
+    if dupes:
+        print(f"one source per scene name (they would write the same files): {'; '.join(dupes)}", file=sys.stderr)
+        return 2
+    manifest: dict = {}
+    if args.manifest:
+        try:
+            manifest = load_manifest(args.manifest)
+        except ExportError as exc:
+            print(f"manifest can't be merged into, nothing written: {exc}", file=sys.stderr)
+            return 2
     avif = features.check("avif")
     if not avif:
         print("note: this Pillow has no AVIF support; writing WebP only (pip install -U pillow)", file=sys.stderr)
@@ -142,18 +178,21 @@ def cmd_export(args: argparse.Namespace) -> int:
         print(f"export failed, nothing written: {exc}", file=sys.stderr)
         return 1
 
-    args.out_dir.mkdir(parents=True, exist_ok=True)
+    targets = [(args.out_dir / name, data) for name, data, *_ in files]
+    if args.manifest:
+        manifest.setdefault("files", {}).update({n: {"width": w, "height": h} for n, _, w, h, _ in files})
+        targets.append((args.manifest, (json.dumps(manifest, indent=2) + "\n").encode("utf-8")))
+    try:
+        write_staged(targets)
+    except OSError as exc:
+        print(f"export failed, nothing written: {exc}", file=sys.stderr)
+        return 1
+
     print(f"{'file':<34} {'size':>9} {'quality':>7} {'budget':>9}")
     for name, data, w, _, q in files:
-        (args.out_dir / name).write_bytes(data)
         limit = args.budget.get(w)
         print(f"{name:<34} {len(data):>9,} {q:>7} {f'{limit:,}' if limit else '-':>9}")
     if args.manifest:
-        try:
-            merge_manifest(args.manifest, {n: {"width": w, "height": h} for n, _, w, h, _ in files})
-        except (ExportError, json.JSONDecodeError) as exc:
-            print(f"manifest not updated: {exc}", file=sys.stderr)
-            return 2
         print(f"manifest: {len(files)} entries merged into {args.manifest}")
     print(f"{len(files)} files written to {args.out_dir}")
     return 0

@@ -314,6 +314,7 @@ for s in mobile-screen-capture store-mockups store-listing store-submission-prec
   check "skill $s installed" test -f "$R21/.claude/skills/$s/SKILL.md"
 done
 check "store snippet installed" test -f "$R21/.claude/harness/snippets/store.md"
+check "art snippet installed" test -f "$R21/.claude/harness/snippets/art.md"
 check "kit template copied verbatim" grep -q 'window.FRAMES' "$R21/.claude/skills/store-mockups/templates/frame.html"
 check "seo skill not in mobile" test ! -e "$R21/.claude/skills/seo"
 R22="$(new_repo webonly)"
@@ -322,6 +323,8 @@ check "web gets brand-assets" test -f "$R22/.claude/skills/brand-assets/SKILL.md
 check "web gets story-art" test -f "$R22/.claude/skills/story-art/scripts/export_art.py"
 check "web gets illustrator" test -f "$R22/.claude/agents/illustrator.md"
 check "web skips store-mockups" test ! -e "$R22/.claude/skills/store-mockups"
+check "web gets the art snippet" test -f "$R22/.claude/harness/snippets/art.md"
+check "web skips the store snippet" test ! -e "$R22/.claude/harness/snippets/store.md"
 
 echo
 echo "sync tests: $pass passed, $fail failed"

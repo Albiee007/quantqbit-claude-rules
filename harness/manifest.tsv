@@ -27,8 +27,8 @@ hooks/_lib.sh	.claude/harness/hooks/_lib.sh	1.0.1	4c774515ec037a1ceb331be0b6e32f
 hooks/file-context.sh	.claude/harness/hooks/file-context.sh	1.1.0	7fb60b58954f5a5d2be0c3f5122f43917379ce106a8792f250b32d9950b7eca0	all
 hooks/guard.sh	.claude/harness/hooks/guard.sh	1.0.2	c4039fccedc1a043255cddf449dbb3155e3d13c7f39363712cf62ae4104f2bcb	all
 hooks/post-edit-lint.sh	.claude/harness/hooks/post-edit-lint.sh	1.0.1	6c262439fcc062eb791944937add0edf9e2add9c7e2de037826c073f32c6686d	all
-hooks/prompt-router.sh	.claude/harness/hooks/prompt-router.sh	1.5.0	db0b104abe93dd6a23cda8f2b02d391560e2608ce444672d5faa775d25bf10ef	all
-hooks/session-start.sh	.claude/harness/hooks/session-start.sh	1.5.0	4260a5de79153aff449882303d752f1f99787ddedb70a3ab4a512a0b15e9aca1	all
+hooks/prompt-router.sh	.claude/harness/hooks/prompt-router.sh	1.5.0	5453241689263e500b70dfcff11cbc6ead80a2a844488003f12ea7a910085261	all
+hooks/session-start.sh	.claude/harness/hooks/session-start.sh	1.5.0	4ec9b4b8c6002b158db1bac23757d4c21d79ff2f56fcbee6b284d1478392782d	all
 rules/ansible.md	.claude/rules/harness/ansible.md	1.0.0	632be04d4aaa30ae3b9d2a0bd58fdcdc8281ef47e3b0b9d3a42fc6eaa5f5f0bf	infra
 rules/bash.md	.claude/rules/harness/bash.md	1.0.0	b1ca4e33f518c8d2b917aa2a425a19f91ae8d34a7174ccc5f8f5af5fbb690b6e	all
 rules/coding.md	.claude/rules/harness/coding.md	1.0.0	bcdbf9710e6ca195743080c4dcee441d932ac14e5fd7363239968d394ab985a5	all
@@ -127,7 +127,7 @@ skills/story-art/references/prompt-template.md	.claude/skills/story-art/referenc
 skills/story-art/references/providers.md	.claude/skills/story-art/references/providers.md	1.5.0	c3d0b4aed8b6a7b597dd57e02c24db439be4e030321e7c358c8d2ac10d194dbf	web,mobile
 skills/story-art/references/review-checklist.md	.claude/skills/story-art/references/review-checklist.md	1.5.0	0d2a20bde112c522fe6631513dacad42a12c61c1c4acb464c78b201ca1466652	web,mobile
 skills/story-art/references/scenario-patterns.md	.claude/skills/story-art/references/scenario-patterns.md	1.5.0	8f7466a3e16317f1b5db047af80f500c44f6f89dc9948bbcaa8958ad045efc1a	web,mobile
-skills/story-art/scripts/export_art.py	.claude/skills/story-art/scripts/export_art.py	1.5.0	c3d4a40e073f1297517a2443c67fc506b171aad7299b634dc1b478a437475dee	web,mobile
+skills/story-art/scripts/export_art.py	.claude/skills/story-art/scripts/export_art.py	1.5.0	aef46f609ea3cbc9ffcf9d7fb028ae006157e1ee334e1aaaa854cc75da760f5f	web,mobile
 skills/ui-ux/SKILL.md	.claude/skills/ui-ux/SKILL.md	1.0.0	435f7b779074f201a9e7850d4286c6abfe11264b20cd78df14edaf308e2b001f	web,mobile
 skills/ui-ux/references/apple-hig.md	.claude/skills/ui-ux/references/apple-hig.md	1.0.0	d23cf165a480feb6e3a84dbe22cbd3297a324e2669affdf2d07217703bcb1646	web,mobile
 skills/ui-ux/references/content-microcopy.md	.claude/skills/ui-ux/references/content-microcopy.md	1.0.0	7ccae956ed21ba40afccb583d63b6fa021db86b25ea0e2e8af4cfb1d22424e37	web,mobile
@@ -143,9 +143,10 @@ skills/ui-ux/references/responsive-layout.md	.claude/skills/ui-ux/references/res
 skills/ui-ux/references/typography-color.md	.claude/skills/ui-ux/references/typography-color.md	1.0.0	d5e00e9fe2f417a486673a8d5e23c6069a764c8720a9be7b1755fc11ae918e2d	web,mobile
 skills/ui-ux/references/ux-review-rubric.md	.claude/skills/ui-ux/references/ux-review-rubric.md	1.0.0	234b90519e70493a01bae90fd70ea87d1c35511a4812660178d3b053a65aedc8	web,mobile
 skills/ui-ux/references/wcag-22-aa.md	.claude/skills/ui-ux/references/wcag-22-aa.md	1.0.0	4fd1b6ae8cd737373c064d9ffe388b7f0c9f358355d9c83ae2ee4fef4ca98628	web,mobile
+snippets/art.md	.claude/harness/snippets/art.md	1.5.0	fa2d5ad415f95c0d2a0a42b5c7f913a9f83c066557e370d3bb56be48658bea67	web,mobile
 snippets/infra.md	.claude/harness/snippets/infra.md	1.0.0	48cc9b49d30b30f6744e18cbe7480a272cfd6a85a1aea8b076351651fc54a391	all
 snippets/patterns.md	.claude/harness/snippets/patterns.md	1.0.0	351cf5d9b80b5bcecc6908ab5061b35259f531aebe86ae75506c4cd59f357f1a	all
 snippets/security.md	.claude/harness/snippets/security.md	1.0.0	0a624f29239c7a7eb270c5f751af53684ac01fda9dc64b84629cf251949325ca	all
 snippets/seo.md	.claude/harness/snippets/seo.md	1.0.0	c1750da170749ebbd2f46d140e698aa0af86649ca27dfa82efc8e7b231c6e175	web
-snippets/store.md	.claude/harness/snippets/store.md	1.5.0	e71d9bf5e6ae0048f09420c45ca3851ebb21300dcb03fe99b47430cab788bc54	mobile
+snippets/store.md	.claude/harness/snippets/store.md	1.5.0	f56dcb84887ef523c5b3671b0f1bd62b60953eb62b519610a3ade46b036aef91	mobile
 snippets/ui.md	.claude/harness/snippets/ui.md	1.0.0	9778dda95144fd97eb2c164debf83940af483eb68f393b307f67693bc70ed7eb	web,mobile

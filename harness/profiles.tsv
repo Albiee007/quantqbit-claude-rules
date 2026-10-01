@@ -23,6 +23,7 @@ skills/app-icons/*	mobile
 skills/brand-assets/*	web,mobile
 skills/story-art/*	web,mobile
 snippets/store.md	mobile
+snippets/art.md	web,mobile
 rules/ansible.md	infra
 rules/terraform.md	infra
 rules/compose.md	backend,infra
