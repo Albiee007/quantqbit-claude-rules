@@ -8,6 +8,30 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.5.0] - 2026-10-02
+
+Product story art becomes a harness capability. On a real website revamp, four feature-pillar illustrations (friends on a trip, flatmates in a kitchen, a currency-exchange counter, a sofa and a spending chart) were made ad hoc: context gathered by hand, a style prompt reinvented, full-resolution files dug out of Canva through a scratch design, and a one-off export script. Owner review caught a ₿-like glyph that had to be regenerated. The new skill and agent make that a repeatable, reviewed workflow.
+
+### Added
+- **Agent `illustrator`** (web and mobile profiles): collects product context, storyboards one scene per real feature pillar, locks a style bible, generates through the session's image provider, returns a contact sheet for owner approval, and exports budgeted web files with provenance recorded. Its `tools` list is the core file and shell tools (the validator requires one); when the session's MCP image tools aren't granted to it, it returns the prompts and the parent generates.
+- **Skill `story-art`** (web and mobile profiles):
+  - Workflow: context pack → storyboard → locked style bible → prompts → one-at-a-time generation → review gate with owner approval → full-resolution retrieval → web export → integration guidance → provenance, all recorded in one `out/story-art/<date>/plan.md`.
+  - References: `providers.md` (Canva MCP step by step, including `quota_cooldown`, signed thumbnail URLs that 403 when resized, the `copy-design` scratch fallback when `create-design` hits `quota_exceeded`, `update_fill` to swap one image, expiring export URLs; Figma Weave and API-key providers outlined), `scenario-patterns.md`, `prompt-template.md` (style bible, scene template, negative list, a worked example) and `review-checklist.md`.
+  - `scripts/export_art.py`: `export` writes `<prefix>-<scene>-<width>.{avif,webp}` at each width, steps quality down to fit per-width byte budgets (defaults 1200 px ≤ 120 KB, 640 px ≤ 50 KB), keeps AVIF under 80% of the WebP size (WebP only when Pillow lacks AVIF), writes nothing if a budget can't be met, and merges the entries into a site manifest without dropping other keys. `sheet` builds a labelled contact sheet. Pillow only, no Chrome.
+- **Routing:** core §4 orchestration row and §5 mandatory-skill row; the store snippet and session roster name the illustrator; prompt-router keywords `illustration(s)`, `artwork`, `story art`, `scene art`, `hero image/art/illustration`.
+- **Tests:** `tests/story-art.test.sh` (fixtures generated with Pillow; skipped locally without it, a failure in CI), run in CI; sync tests for the mobile and web installs; hook tests for the new keywords, a no-trigger case and the roster.
+
+### Changed
+- `brand-assets` and `brand-asset-creator` hand the palette hexes to `illustrator`.
+- Reserved names (sync's conflict message and reserved-agent check, harness README, harness skill, harness-install skill, INSTALL) include `illustrator` and `story-art`.
+
+### Upgrade notes
+- **Web and mobile projects** receive `.claude/agents/illustrator.md` and `.claude/skills/story-art/` on the next sync. If a `.gitignore` rule hides `.claude/skills/`, sync names the rule and prints the exceptions to add.
+- If a project already has its own agent named `illustrator` or skill named `story-art`, sync reports CONFLICT-UNMANAGED. Rename yours, then re-run.
+- `export_art.py` needs **Python 3.9+ with Pillow**; AVIF output needs Pillow 11.3+ (or a build with libavif). Older Pillow writes WebP only.
+- **Image generation** uses the session's MCP tools (Canva by default). To let the agent call them directly, add a project agent under another name whose `tools` include your MCP server; otherwise the parent session runs generation.
+- If your site has a render script that rewrites its image manifest, make it preserve `art-*` entries.
+
 ## [1.4.0] - 2026-09-27
 
 Store and brand work now produces fewer, cleaner files. In a real project, one screenshot refresh left 161 new or changed files in git. They included a second copy of the mockup sources, agent-written render, verify and contrast scripts, engine files mixed into the sources, and brand exports of every variant at every size.

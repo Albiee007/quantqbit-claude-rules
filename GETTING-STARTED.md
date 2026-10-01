@@ -3,7 +3,7 @@
 The harness gives every project the same Claude Code setup:
 - **Core rules**, always loaded.
 - **Mandatory skills:** coding standards, design patterns, UI/UX and SEO.
-- **Five core Opus agents**, plus six store and brand agents in mobile projects (screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets).
+- **Five core Opus agents**, plus seven store, brand and story-art agents in mobile projects (screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets, illustrations; the last two also in web projects).
 - **Safety hooks** that block `.env` access and non-Opus agents.
 
 The harness is **copied into each project's `.claude/` folder and committed to git**, so teammates get it with a normal `git pull`.

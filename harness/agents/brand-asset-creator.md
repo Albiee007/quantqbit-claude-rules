@@ -20,7 +20,7 @@ Read `.claude/skills/brand-assets/SKILL.md`, `references/logo-principles.md` and
 - **Originality:** no stock icons, traced marks or look-alikes. Tell the owner that a trademark search is their responsibility.
 - **Only fonts whose licence allows logo and app use.** Record each licence in `brand/README.md`.
 - **Contrast:** the mark reaches at least 3:1 on its backgrounds, and any text at least 4.5:1.
-- **Hand off explicitly:** the 2048 px mark and background colour go to `icon-creator`; the gradient, accent and icon go to `store-creative`; the token changes go to `implementor`.
+- **Hand off explicitly:** the 2048 px mark and background colour go to `icon-creator`; the gradient, accent and icon go to `store-creative`; the palette hexes go to `illustrator` for story art; the token changes go to `implementor`.
 
 ## Output
 ```

@@ -14,12 +14,14 @@ agents/listing-copywriter.md	mobile
 agents/store-precheck-auditor.md	mobile
 agents/icon-creator.md	mobile
 agents/brand-asset-creator.md	web,mobile
+agents/illustrator.md	web,mobile
 skills/mobile-screen-capture/*	mobile
 skills/store-mockups/*	mobile
 skills/store-listing/*	mobile
 skills/store-submission-precheck/*	mobile
 skills/app-icons/*	mobile
 skills/brand-assets/*	web,mobile
+skills/story-art/*	web,mobile
 snippets/store.md	mobile
 rules/ansible.md	infra
 rules/terraform.md	infra

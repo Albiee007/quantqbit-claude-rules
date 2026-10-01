@@ -35,7 +35,7 @@ if [[ "$prompt" =~ $B(auth(entication|orization)?|login|sign[[:space:]-]?(up|in)
   hh_add_snippet security
 fi
 # Store / brand work (the snippet ships only to mobile projects, so this is a no-op elsewhere).
-if [[ "$prompt" =~ $B(app[[:space:]]store|play[[:space:]]store|google[[:space:]]play|store[[:space:]]listing|store[[:space:]]screenshots?|app[[:space:]]screenshots?|mockups?|aso|testflight|feature[[:space:]]graphic|app[[:space:]]icons?|adaptive[[:space:]]icons?|launcher[[:space:]]icons?|notification[[:space:]]icons?|splash([[:space:]]screen)?|logos?|adb|release[[:space:]]notes|data[[:space:]]safety|app[[:space:]]review)$E ]]; then
+if [[ "$prompt" =~ $B(app[[:space:]]store|play[[:space:]]store|google[[:space:]]play|store[[:space:]]listing|store[[:space:]]screenshots?|app[[:space:]]screenshots?|mockups?|aso|testflight|feature[[:space:]]graphic|app[[:space:]]icons?|adaptive[[:space:]]icons?|launcher[[:space:]]icons?|notification[[:space:]]icons?|splash([[:space:]]screen)?|logos?|adb|release[[:space:]]notes|data[[:space:]]safety|app[[:space:]]review|illustrations?|artwork|story[[:space:]]art|scene[[:space:]]art|hero[[:space:]](image|art|illustration)s?)$E ]]; then
   hh_add_snippet store
 fi
 if [[ "$prompt" =~ $B(docker|compose|dockerfile|ansible|playbook|terraform|deploy(ment)?|ci/cd|ci[[:space:]](pipeline|workflow|job)|pipeline|github[[:space:]]actions|bash|shell[[:space:]]script|powershell|ps1|nginx|traefik|kubernetes|k8s|helm|infra(structure)?)$E ]]; then

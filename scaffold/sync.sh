@@ -437,7 +437,7 @@ fi
 if [[ $uninstall -eq 0 && -d "$CL/agents" ]]; then
   while IFS= read -r af; do
     an="$(awk '/^name:/ { sub(/^name:[[:space:]]*/, ""); print; exit }' "$af")"
-    case "$an" in explorer|implementor|infra-implementor|verifier|reviewer|screen-capturer|store-creative|listing-copywriter|store-precheck-auditor|icon-creator|brand-asset-creator)
+    case "$an" in explorer|implementor|infra-implementor|verifier|reviewer|screen-capturer|store-creative|listing-copywriter|store-precheck-auditor|icon-creator|brand-asset-creator|illustrator)
       [[ "${af##*/}" == "$an.md" ]] || hc_warn "${af#"$T"/} declares the reserved agent name '$an'; change its name: field too" ;;
     esac
   done < <(find "$CL/agents" -maxdepth 1 -name '*.md' -type f 2>/dev/null)
@@ -458,10 +458,10 @@ EOF
   CONFLICT-UNMANAGED : a file of yours sits at a path the harness owns. Reserved names:
                        agents explorer, implementor, infra-implementor, verifier, reviewer,
                        screen-capturer, store-creative, listing-copywriter,
-                       store-precheck-auditor, icon-creator, brand-asset-creator;
+                       store-precheck-auditor, icon-creator, brand-asset-creator, illustrator;
                        skills coding-standards, design-patterns, ui-ux, seo, harness,
                        mobile-screen-capture, store-mockups, store-listing,
-                       store-submission-precheck, app-icons, brand-assets.
+                       store-submission-precheck, app-icons, brand-assets, story-art.
                        Rename yours and change its name: field (recommended), commit the
                        rename, then re-run; or re-run with --theirs (yours is saved under
                        .claude/harness/.backup/). --keep does not apply.

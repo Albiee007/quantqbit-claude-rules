@@ -43,7 +43,7 @@ Mandatory skills: ui-ux (UI work), seo (public web pages), design-patterns (befo
 Project overrides: .claude/rules/project/ and CLAUDE.md. Do not edit harness:managed files."
 # The store and brand roster ships to mobile projects only; mention it only where installed.
 [[ -f "$HH_ROOT/.claude/agents/store-creative.md" ]] && msg+="
-Store agents: screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator → store-precheck-auditor (skills: mobile-screen-capture, store-mockups, store-listing, app-icons, brand-assets, store-submission-precheck)."
+Store agents: screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator / illustrator → store-precheck-auditor (skills: mobile-screen-capture, store-mockups, store-listing, app-icons, brand-assets, story-art, store-submission-precheck)."
 [[ -f "$lock" ]] || msg+="
 WARNING: .claude/harness/lock is missing, so harness files are untracked. Run harness sync."
 [[ $conflict -eq 1 ]] && msg+="

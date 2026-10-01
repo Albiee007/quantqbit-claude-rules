@@ -307,10 +307,10 @@ check "doctor names the path" grep -q '.claude/skills/' "$WORK/doc.log"
 echo "29. mobile profile installs the store and brand agents and skills"
 R21="$(new_repo mobile)"
 run "$R21" --profiles mobile; check "mobile install exits 0" test $? -eq 0
-for a in screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator; do
+for a in screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator; do
   check "agent $a installed" test -f "$R21/.claude/agents/$a.md"
 done
-for s in mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets; do
+for s in mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets story-art; do
   check "skill $s installed" test -f "$R21/.claude/skills/$s/SKILL.md"
 done
 check "store snippet installed" test -f "$R21/.claude/harness/snippets/store.md"
@@ -319,6 +319,8 @@ check "seo skill not in mobile" test ! -e "$R21/.claude/skills/seo"
 R22="$(new_repo webonly)"
 run "$R22" --profiles web; check "web install exits 0" test $? -eq 0
 check "web gets brand-assets" test -f "$R22/.claude/skills/brand-assets/SKILL.md"
+check "web gets story-art" test -f "$R22/.claude/skills/story-art/scripts/export_art.py"
+check "web gets illustrator" test -f "$R22/.claude/agents/illustrator.md"
 check "web skips store-mockups" test ! -e "$R22/.claude/skills/store-mockups"
 
 echo

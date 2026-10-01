@@ -78,6 +78,9 @@ expect "infra for github actions"      prompt-router.sh '{"session_id":"a11","pr
 expect "store prompt → store checklist" prompt-router.sh '{"session_id":"a12","prompt":"refresh the play store listing and screenshots"}' 'Load skill: store-submission-precheck'
 expect "app icon prompt → store checklist" prompt-router.sh '{"session_id":"a13","prompt":"fix the adaptive icon"}' 'store-creative'
 expect "no store for plain storage prompt" prompt-router.sh '{"session_id":"a14","prompt":"explain how the storage cache works"}' ''
+expect "story art prompt → store checklist" prompt-router.sh '{"session_id":"a14b","prompt":"make story art for the feature rows"}' 'illustrator'
+expect "hero image prompt → store checklist" prompt-router.sh '{"session_id":"a14c","prompt":"regenerate the hero image"}' 'story-art'
+expect "no store for plain scene prompt" prompt-router.sh '{"session_id":"a14d","prompt":"fix the scene graph loader"}' ''
 expect "plain prompt → nothing"        prompt-router.sh '{"session_id":"a6","prompt":"what does this function return?"}' ''
 expect "valid JSON escaping"           prompt-router.sh '{"session_id":"a7","prompt":"fix \"auth\" token\nflow"}' '"additionalContext":"Harness'
 
@@ -112,6 +115,7 @@ out="$(run session-start.sh '{"session_id":"c4"}')"
 grep -q 'store-creative' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] store roster shown without store agents"; } || { pass=$((pass+1)); echo "  [OK] no store roster when store agents absent"; }
 mkdir -p "$P/.claude/agents" && : > "$P/.claude/agents/store-creative.md"
 expect "store roster when installed" session-start.sh '{"session_id":"c5"}' 'store-precheck-auditor'
+expect "store roster names the illustrator" session-start.sh '{"session_id":"c6"}' 'illustrator'
 rm -f "$P/.claude/agents/store-creative.md"
 
 echo "post-edit-lint"
