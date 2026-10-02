@@ -66,7 +66,7 @@ jobs:
         run: bash tests/media-variety.test.sh
       - name: Upload the variety sheet for review
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: variety-sheet-${{ matrix.os }}
           path: ${{ runner.temp }}/variety-sheet-${{ matrix.os }}.png
