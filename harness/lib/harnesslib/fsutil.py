@@ -179,7 +179,7 @@ class DirLock:
             self.path.mkdir()
         except FileExistsError:
             age = time.time() - self.path.stat().st_mtime
-            if age < self.max_age:
+            if age < self.max_age and not self._owner_gone():
                 owner = self.path / "owner"
                 who = owner.read_text(encoding="utf-8").strip() if owner.is_file() else "unknown"
                 raise OperationalError(f"{self.what} is locked by another run ({who}, {int(age // 60)} min ago); "
@@ -191,6 +191,25 @@ class DirLock:
 
     def __exit__(self, *exc: object) -> None:
         shutil.rmtree(self.path, ignore_errors=True)
+
+    def _owner_gone(self) -> bool:
+        """True when the lock names a process on this machine that no longer runs (a killed run).
+        POSIX only: on Windows os.kill(pid, 0) would terminate the process."""
+        if os.name == "nt":
+            return False
+        try:
+            m = re.fullmatch(r"pid (\d+) on (.+)", (self.path / "owner").read_text(encoding="utf-8").strip())
+        except OSError:
+            return False
+        if not m or m.group(2) != socket.gethostname():
+            return False
+        try:
+            os.kill(int(m.group(1)), 0)
+        except ProcessLookupError:
+            return True
+        except OSError:
+            return False
+        return False
 
 
 # ------------------------------------------------------------------ staged publishing

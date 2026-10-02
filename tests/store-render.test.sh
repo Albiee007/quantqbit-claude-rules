@@ -224,14 +224,26 @@ print(f'screenshot in {time.time() - t:.1f} s')" "$ROOT/harness/lib" "$CHROME" s
 
   echo "== legacy pixel parity with the v1.6.1 scripts"
   OLD="$W/v161"; mkdir -p "$OLD"
-  # The v1.6.1 scripts start Chrome without the macOS keychain flags and without timeouts: give
-  # them the same flags through a wrapper (not on Windows, where a script can't stand in for an
-  # .exe and the flags aren't needed) and bound each render.
+  # The v1.6.1 scripts start Chrome without the macOS keychain flags, without timeouts and wait
+  # for it to exit (which it may not do while Google's updater runs). A wrapper runs Chrome the
+  # way the current engine does (not on Windows, where a script can't stand in for an .exe and
+  # the engine's waiting isn't needed), and each render is bounded.
   OLDCHROME="$CHROME"; PYCMD="$(hc_python)"
   if [[ "$(uname -s)" != MINGW* && "$(uname -s)" != MSYS* && "$(uname -s)" != CYGWIN* ]]; then
-    printf '#!/bin/sh
-exec "%s" --use-mock-keychain --password-store=basic --no-default-browser-check "$@"
-' "$CHROME" > "$W/chrome-wrapper"
+    { printf '#!%s\n' "$(command -v python3 || echo /usr/bin/python3)"
+      printf 'import sys\nsys.dont_write_bytecode = True\nsys.path.insert(0, %s)\n' "'$ROOT/harness/lib'"
+      printf 'CHROME = %s\n' "'$CHROME'"
+      cat <<'PY'
+from harnesslib import browser
+args = sys.argv[1:]
+shot = next((a.split("=", 1)[1] for a in args if a.startswith("--screenshot=")), None)
+done = browser._shot_done(shot) if shot else browser._dom_done if "--dump-dom" in args else None
+rc, out, err = browser._run([CHROME, "--use-mock-keychain", "--password-store=basic",
+                             "--no-default-browser-check"] + args, 240, done)
+sys.stdout.buffer.write(out); sys.stderr.buffer.write(err)
+sys.exit(rc)
+PY
+    } > "$W/chrome-wrapper"
     chmod +x "$W/chrome-wrapper"; OLDCHROME="$W/chrome-wrapper"
   fi
   if git -C "$ROOT" archive v1.6.1 harness/skills/store-mockups harness/skills/store-submission-precheck 2>/dev/null | tar -x -C "$OLD" 2>/dev/null; then

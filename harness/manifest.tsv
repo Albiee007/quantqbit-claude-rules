@@ -32,13 +32,13 @@ hooks/prompt-router.sh	.claude/harness/hooks/prompt-router.sh	1.7.0	3cadf59b38c5
 hooks/session-start.sh	.claude/harness/hooks/session-start.sh	1.7.0	2ab1bb1d13b0bc79f350bc5bc0844c96275aa796c78e8dafcd7a2bf3c5878fc5	all
 lib/README.md	.claude/harness/lib/README.md	1.7.0	d3315bb834aea9583f78ad82e3a6a6216f3c74c413d7504951698d8d4c709c86	web,mobile
 lib/harnesslib/__init__.py	.claude/harness/lib/harnesslib/__init__.py	1.7.0	22bb2a7c1228b3006f6c6b60590bb85feecff350e4f4ac498fdfd30c06c10e55	web,mobile
-lib/harnesslib/browser.py	.claude/harness/lib/harnesslib/browser.py	1.7.0	ceb0dd1a55722a8e92d59e044299c4b6e84d59f82c6f162c1bbfcbff4580a331	web,mobile
+lib/harnesslib/browser.py	.claude/harness/lib/harnesslib/browser.py	1.7.0	890f4b218ad81f1515410c40290dae364a0ae7018b845dd18a3493af0140cf32	web,mobile
 lib/harnesslib/color.py	.claude/harness/lib/harnesslib/color.py	1.7.0	45304e9ec24344aceebe6109c649f2bb3bd3a7499563f03d256ede7b9ae86d8a	web,mobile
 lib/harnesslib/contrast.py	.claude/harness/lib/harnesslib/contrast.py	1.7.0	f86156c1d0bbf427a747a55d50064c21c0257ab9105d1fc4429208a3d5b242d8	web,mobile
 lib/harnesslib/direction.py	.claude/harness/lib/harnesslib/direction.py	1.7.0	a1a9aa8864ee2b5cd56846d9fda2934c3f3c899cda2796e2bd2be7915d8112e0	web,mobile
 lib/harnesslib/dtcg.py	.claude/harness/lib/harnesslib/dtcg.py	1.7.0	2849ca60c091bef4d1be36e6e62af9707fddab20b360e4e0ecf70354d287a28e	web,mobile
 lib/harnesslib/fingerprint.py	.claude/harness/lib/harnesslib/fingerprint.py	1.7.0	4ad5a424b3af4009b681143c2cb58e6590a9be43bb83f957ff76adb8f408ef85	web,mobile
-lib/harnesslib/fsutil.py	.claude/harness/lib/harnesslib/fsutil.py	1.7.0	65294b1f17f2c9531bb8f378d220c72053cec6273b56d9358cf743dc912aa3f2	web,mobile
+lib/harnesslib/fsutil.py	.claude/harness/lib/harnesslib/fsutil.py	1.7.0	431d5ea9c7a44f063957704af2651b974dce5bd7993dc536e9aa5ea9b9c3bebd	web,mobile
 lib/harnesslib/imaging.py	.claude/harness/lib/harnesslib/imaging.py	1.7.0	f4f3f96886ebe93433f28864c57d3e5e796725ba99677a8e2ab01ce916481a7b	web,mobile
 lib/harnesslib/pagecheck.py	.claude/harness/lib/harnesslib/pagecheck.py	1.7.0	85735f8a648a6e3b940c6f04371f155af4f7e398354f3af589e9d93cfca72d34	web,mobile
 lib/harnesslib/schema.py	.claude/harness/lib/harnesslib/schema.py	1.7.0	0a3d167d6f0a54536d43f482ac5ee3764845d30426a82b0f8d0b05d7cfad4dad	web,mobile
