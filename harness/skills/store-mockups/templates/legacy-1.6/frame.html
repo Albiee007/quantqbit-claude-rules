@@ -1,0 +1,257 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- This page runs from <kit>/.build/, so every relative URL below resolves against the kit folder. -->
+<base href="../">
+<title>Store frame</title>
+<!-- Store-mockup frame. Rendered by render_frames.py as .build/frame.html?f=<index|fg>&s=<size-key>.
+     Config comes from .build/frames.generated.js, which render_frames.py writes from frames.json.
+     &probe=1 lists every caption text run (colour, box) for the contrast check; &nocap=1 hides the
+     captions so the check can sample the background behind them.
+     "layout": "classic"    each frame is self-contained (default)
+     "layout": "continuous" the gallery is one strip; frame i is a window onto it, so ribbons,
+                            coins and tilted phones continue across frame edges (objects.js) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  html, body { margin: 0; overflow: hidden; }
+  #canvas { position: relative; overflow: hidden; }
+  #strip { position: absolute; left: 0; top: 0; }
+  .glyph { position: absolute; font-family: Inter, sans-serif; font-weight: 800; color: rgba(255,255,255,.07); line-height: 1; user-select: none; }
+  .cap { position: absolute; text-align: center; color: #fff; font-family: Inter, sans-serif; }
+  .cap h1 { font-weight: 800; letter-spacing: -0.025em; line-height: 1.08; margin: 0 auto; }
+  .cap p { font-weight: 600; line-height: 1.3; margin: 0 auto; }
+  .device { position: absolute; background: #0e0f1c; box-shadow: 0 50px 90px rgba(8,6,40,.45), inset 0 0 0 3px #2b2d42; }
+  .device .glass { position: absolute; overflow: hidden; background: var(--bg); }
+  .obj { position: absolute; transform-origin: center; }
+  .chipf { position: absolute; background: #fff; border-radius: 999px; font-family: Inter, sans-serif; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 30px rgba(10,8,60,.35); }
+</style>
+</head>
+<body>
+<div id="canvas"></div>
+<script src=".build/frames.generated.js"></script>
+<script src=".build/icons.generated.js"></script>
+<script>
+/* Icon helper shared by screens.js and objects.js. A name may be "ion-name|material_name": the
+   half that matches the configured family is used (frames.json "icons": "ionicons" | "material"). */
+function I(name, size, color, extra) {
+  const [ion, ms] = String(name).includes('|') ? String(name).split('|') : [name, name];
+  const style = `font-size:${size}px;${color ? `color:${color};` : ''}${extra || ''}`;
+  if (window.ION && window.ION[ion] !== undefined) return `<span class="ion" style="${style}">${String.fromCodePoint(window.ION[ion])}</span>`;
+  return `<span class="ms" style="${style}">${ms}</span>`;
+}
+</script>
+<script src="demo-data.js"></script>
+<script src="screens.js"></script>
+<script src=".build/objects.js"></script>
+<!-- Optional: app-specific object types. A missing file is fine. -->
+<script src="custom-objects.js"></script>
+<script>
+const CFG = window.FRAMES;
+const B = Object.assign({ bg1: '#2a1bb0', bg2: '#3525cd', bg3: '#5b4ff0', accent: '#9ff3cf', sub: '#dcd9ff', ink: '#131b2e', glyphs: [] }, CFG.brand || {});
+const q = new URLSearchParams(location.search);
+const sizeKey = q.get('s');
+const [W, H, platform] = CFG.sizes[sizeKey];
+const canvas = document.getElementById('canvas');
+Object.assign(canvas.style, { width: W + 'px', height: H + 'px' });
+const style = document.createElement('style');
+style.textContent = `.cap h1 em { font-style: normal; color: ${B.accent}; } .cap.dark h1 { color: ${B.ink}; } .cap.dark h1 em { color: ${B.bg2}; }
+  .cap p { color: ${B.sub}; } .cap.dark p { color: #464555; } .chipf { color: ${B.bg2}; }`;
+document.head.appendChild(style);
+const GRADIENT = `radial-gradient(120% 60% at 85% 0%, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 60%), linear-gradient(165deg, ${B.bg1} 0%, ${B.bg2} 45%, ${B.bg3} 100%)`;
+
+const SW = 900, SH = platform === 'ios' ? 1950 : 2000;
+const DEV_W = SW + 52, DEV_H = SH + 52;
+
+function screenHTML(name) {
+  if (!SCREENS[name]) throw new Error(`screens.js has no screen named "${name}"`);
+  return `<div class="screen ${platform}" style="height:${SH}px">${statusBar(platform)}${SCREENS[name](platform)}<div class="homebar"></div></div>`;
+}
+
+/* A phone at scale s. Returns an element; the caller positions it. */
+function deviceEl(name, s) {
+  const Bz = 26 * s, R = 118 * s;
+  const d = document.createElement('div');
+  d.className = 'device';
+  Object.assign(d.style, { width: SW * s + 2 * Bz + 'px', height: SH * s + 2 * Bz + 'px', borderRadius: R + 'px' });
+  d.innerHTML = `<div class="glass" style="left:${Bz}px;top:${Bz}px;width:${SW * s}px;height:${SH * s}px;border-radius:${R - Bz}px">
+    <div style="transform:scale(${s});transform-origin:0 0;width:${SW}px;height:${SH}px;position:relative">${screenHTML(name)}</div></div>`;
+  return d;
+}
+
+function glyphs(parent, list, offsetX = 0) {
+  list.forEach((ch, i) => {
+    const spots = [[-0.06, 0.30, 0.42], [0.78, 0.46, 0.36], [0.70, 0.02, 0.22], [-0.04, 0.78, 0.30], [0.82, 0.84, 0.26]];
+    const [x, y, size] = spots[i % spots.length];
+    const g = document.createElement('div');
+    g.className = 'glyph'; g.textContent = ch;
+    Object.assign(g.style, { left: offsetX + x * W + 'px', top: y * H + 'px', fontSize: size * W + 'px' });
+    parent.appendChild(g);
+  });
+}
+
+/* Caption block for one frame; returns the element (already attached) so callers can measure it. */
+function caption(parent, fr, left) {
+  const wide = W / H > 0.6;
+  const hs = Math.min(W * (wide ? 0.066 : 0.074), H * 0.04);
+  const c = fr.caption || {};
+  const cap = document.createElement('div');
+  cap.className = 'cap' + (c.tone === 'dark' ? ' dark' : '');
+  Object.assign(cap.style, { left: left + 'px', width: W + 'px' });
+  cap.innerHTML = `<h1 style="font-size:${hs}px;max-width:${W * 0.86}px">${fr.head || ''}</h1>
+    ${fr.sub ? `<p style="font-size:${hs * 0.44}px;max-width:${W * 0.8}px;margin-top:${hs * 0.36}px">${fr.sub}</p>` : ''}`;
+  parent.appendChild(cap);
+  if (c.pos === 'bottom') cap.style.top = H - cap.getBoundingClientRect().height - H * 0.05 + 'px';
+  else cap.style.top = H * 0.045 + 'px';
+  return cap;
+}
+
+/* ---------------- classic: one self-contained frame ---------------- */
+function storeFrame(fr) {
+  canvas.style.background = GRADIENT;
+  glyphs(canvas, B.glyphs);
+  const cap = caption(canvas, fr, 0);
+  const wide = W / H > 0.6;
+  const top = cap.getBoundingClientRect().bottom + H * 0.03;
+  const s = Math.min((H - top - H * 0.025) / DEV_H, (W * (wide ? 0.66 : 0.8)) / DEV_W);
+  const d = deviceEl(fr.screen, s);
+  Object.assign(d.style, { left: (W - DEV_W * s) / 2 + 'px', top: top + 'px' });
+  canvas.appendChild(d);
+}
+
+/* ---------------- continuous: one strip, this frame is a window onto it ---------------- */
+function continuousStrip(index) {
+  const N = CFG.frames.length;
+  const G = (CFG.gutter || 0) * (W / 1080);
+  const stripW = N * W + (N - 1) * G;
+  const left = (i) => i * (W + G);
+  const strip = document.createElement('div');
+  strip.id = 'strip';
+  Object.assign(strip.style, { width: stripW + 'px', height: H + 'px', transform: `translateX(${-left(index)}px)` });
+  canvas.appendChild(strip);
+
+  // Backgrounds: one gradient across the strip, or one entry per frame.
+  const bg = CFG.background || { mode: 'continuous' };
+  if (bg.mode === 'per-frame') {
+    CFG.frames.forEach((_, i) => {
+      const b = (bg.frames || [])[i] || {};
+      const el = document.createElement('div');
+      const css = b.type === 'solid' ? b.color
+        : b.type === 'image' ? `center / cover no-repeat url("${b.src}")`
+        : b.css || GRADIENT;
+      Object.assign(el.style, { position: 'absolute', left: left(i) + 'px', top: 0, width: W + G + 'px', height: H + 'px', background: css });
+      strip.appendChild(el);
+    });
+  } else {
+    strip.style.background = bg.css || `linear-gradient(100deg, ${(bg.stops || [B.bg1, B.bg2, B.bg3]).join(', ')})`;
+  }
+  if (bg.glyphs !== false) CFG.frames.forEach((_, i) => glyphs(strip, B.glyphs.slice(i % 2, i % 2 + 2), left(i)));
+
+  const u = {
+    W, H, B, I, esc, stripW,
+    X: (x) => x * (W + G), Y: (y) => y * H, S: (w) => w * W,
+    device: (name, widthPx) => deviceEl(name, widthPx / DEV_W).outerHTML,
+  };
+  const place = (o) => {
+    const render = OBJECTS[o.type];
+    if (!render) throw new Error(`unknown object type "${o.type}" (add it to custom-objects.js)`);
+    if (o.type === 'ribbon') { strip.insertAdjacentHTML('beforeend', render(o, u)); return; }
+    const el = document.createElement('div');
+    el.className = 'obj';
+    const w = u.S(o.w ?? 0.3);
+    Object.assign(el.style, { left: u.X(o.x ?? 0) + 'px', top: u.Y(o.y ?? 0.5) + 'px', width: w + 'px', fontSize: w / 10 + 'px',
+      opacity: o.opacity ?? 1, transform: `translate(-50%, -50%) rotate(${o.rotate || 0}deg)` });
+    if (o.style) el.style.cssText += ';' + o.style;
+    el.innerHTML = render(o, u);
+    strip.appendChild(el);
+  };
+  const objs = CFG.objects || [];
+  objs.filter((o) => o.z === 'back' || o.type === 'ribbon' && o.z !== 'front').forEach(place);
+
+  // Per-frame caption and primary phone (the phone always stays inside its own frame).
+  CFG.frames.forEach((fr, i) => {
+    const cap = caption(strip, fr, left(i));
+    if (!fr.screen) return;
+    const dv = fr.device || {};
+    const capRect = cap.getBoundingClientRect();
+    const bottomCap = (fr.caption || {}).pos === 'bottom';
+    const room = bottomCap ? capRect.top - H * 0.06 : H - (capRect.bottom + H * 0.03) - H * 0.025;
+    const wide = W / H > 0.6;
+    const bleed = dv.bleed === 'bottom' ? 1.18 : 1;
+    const s = Math.min(room / DEV_H, (W * (wide ? 0.66 : 0.8)) / DEV_W) * (dv.scale || 1) * bleed;
+    const d = deviceEl(fr.screen, s);
+    const cx = left(i) + (dv.x ?? 0.5) * W;
+    const top = dv.y !== undefined ? dv.y * H - (DEV_H * s) / 2 : bottomCap ? H * 0.05 : capRect.bottom + H * 0.03;
+    Object.assign(d.style, { left: cx - (DEV_W * s) / 2 + 'px', top: top + 'px', transform: `rotate(${dv.rotate || 0}deg)` });
+    strip.appendChild(d);
+  });
+
+  objs.filter((o) => !(o.z === 'back' || o.type === 'ribbon' && o.z !== 'front')).forEach(place);
+}
+
+function featureGraphic(fg) {
+  canvas.style.background = GRADIENT;
+  glyphs(canvas, B.glyphs.slice(0, 2));
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  Object.assign(cap.style, { left: '64px', width: '520px', textAlign: 'left', top: '0', bottom: '0', display: 'flex', flexDirection: 'column', justifyContent: 'center' });
+  cap.innerHTML = `<div style="display:flex;align-items:center;gap:16px;margin-bottom:22px">
+      ${fg.icon ? `<img src="${fg.icon}" style="width:64px;height:64px;border-radius:16px;box-shadow:0 6px 16px rgba(0,0,0,.25)">` : ''}
+      <span style="font-size:34px;font-weight:800;letter-spacing:-.01em">${fg.title || ''}</span></div>
+    <h1 style="font-size:50px;margin:0;text-align:left">${fg.tagline || ''}</h1>
+    <p style="font-size:21px;margin:18px 0 0;text-align:left;max-width:470px">${fg.sub || ''}</p>`;
+  canvas.appendChild(cap);
+  const d = deviceEl(fg.screen, 0.36);
+  Object.assign(d.style, { left: '650px', top: '46px' });
+  canvas.appendChild(d);
+  (fg.chips || []).slice(0, 4).forEach((c, i) => {
+    const [x, y, dd] = [[604, 92, 62], [952, 150, 54], [606, 330, 54], [948, 380, 50]][i];
+    const el = document.createElement('div');
+    el.className = 'chipf'; el.textContent = c;
+    Object.assign(el.style, { left: x + 'px', top: y + 'px', width: dd + 'px', height: dd + 'px', fontSize: dd * 0.5 + 'px' });
+    canvas.appendChild(el);
+  });
+}
+
+/* Contrast probe: every visible caption text run with its colour, weight and on-canvas boxes. */
+function probeCaptions() {
+  const runs = [];
+  document.querySelectorAll('.cap').forEach((cap) => {
+    const walker = document.createTreeWalker(cap, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const text = n.textContent.trim();
+      if (!text) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const rects = [...range.getClientRects()]
+        .map((r) => [Math.max(0, r.left), Math.max(0, r.top), Math.min(W, r.right), Math.min(H, r.bottom)])
+        .filter(([l, t, r, b]) => r - l >= 2 && b - t >= 2);
+      if (!rects.length) continue;
+      const cs = getComputedStyle(n.parentElement);
+      runs.push({ text: text.slice(0, 40), kind: n.parentElement.closest('h1') ? 'head' : 'sub', color: cs.color,
+        size: parseFloat(cs.fontSize), weight: Number(cs.fontWeight) || 400, rects });
+    }
+  });
+  const pre = document.createElement('pre');
+  pre.id = 'probe';
+  pre.style.display = 'none';
+  pre.textContent = JSON.stringify({ W, H, runs });
+  document.body.appendChild(pre);
+}
+
+// Load every face first: captions are measured to place the phones.
+Promise.all(['800 40px Inter', '400 20px Roboto', '500 20px Roboto', '700 20px Roboto', '400 20px Inter', '600 20px Inter',
+  '700 20px Inter', '24px "Material Symbols Rounded"', '20px Ionicons'].map((f) => document.fonts.load(f).catch(() => null))).then(() => {
+  if (q.get('f') === 'fg') featureGraphic(CFG.featureGraphic);
+  else if (CFG.layout === 'continuous') continuousStrip(Number(q.get('f')));
+  else storeFrame(CFG.frames[Number(q.get('f'))]);
+  if (q.get('nocap')) document.head.insertAdjacentHTML('beforeend', '<style>.cap { visibility: hidden !important; }</style>');
+  if (q.get('probe')) probeCaptions();
+  document.title = 'ready';
+});
+</script>
+</body>
+</html>

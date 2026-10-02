@@ -130,14 +130,22 @@ else
   hc_warn "shellcheck not installed — skipped (CI runs it)"
 fi
 if hc_python >/dev/null; then
-  while IFS= read -r f; do
-    hc_py -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$f" 2>/dev/null || e "invalid JSON: ${f#"$ROOT"/}"
-  done < <(find "$H" "$ROOT/.claude-plugin" -name '*.json' 2>/dev/null)
-  # Skill scripts: syntax only (compile in memory; no __pycache__ is written).
-  while IFS= read -r f; do
-    hc_py -c 'import sys; compile(open(sys.argv[1], encoding="utf-8").read(), sys.argv[1], "exec")' "$f" 2>/dev/null \
-      || e "python syntax error: ${f#"$ROOT"/}"
-  done < <(find "$H" -name '*.py' 2>/dev/null)
+  # One Python process for every file (spawning one per file is slow on Windows). Prints the bad ones.
+  # Relative paths: Windows Python can't open MSYS /c/... paths read from stdin.
+  while IFS=$'	' read -r kind f; do
+    [[ -n "$f" ]] && e "$kind: $f"
+  done < <( cd "$ROOT" && { find harness .claude-plugin -name '*.json'; find harness -name '*.py'; } 2>/dev/null | hc_py -c '
+import json, sys
+for f in sys.stdin.read().splitlines():
+    try:
+        text = open(f, encoding="utf-8").read()
+        if f.endswith(".json"):
+            json.loads(text)
+        else:
+            compile(text, f, "exec")  # syntax only, in memory: no __pycache__
+    except Exception:
+        print(("invalid JSON" if f.endswith(".json") else "python syntax error") + "	" + f)
+' )
 else
   hc_warn "python not found — JSON parse and Python syntax checks skipped"
 fi

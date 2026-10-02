@@ -31,7 +31,7 @@ release_dest() { # src (relative to harness/) -> dest (relative to project); emp
     rules/*)            echo ".claude/rules/harness/${1#rules/}" ;;
     skills/*)           echo ".claude/skills/${1#skills/}" ;;
     agents/*)           echo ".claude/agents/${1#agents/}" ;;
-    hooks/*|snippets/*|bin/*) echo ".claude/harness/$1" ;;
+    hooks/*|snippets/*|bin/*|lib/*) echo ".claude/harness/$1" ;;
     README.md)          echo ".claude/harness/README.md" ;;
     settings.base.json) echo ".claude/harness/settings.base.json" ;;
     dotfiles/harness.gitignore) echo ".claude/harness/.gitignore" ;;

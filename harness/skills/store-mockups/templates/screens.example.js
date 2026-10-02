@@ -18,8 +18,8 @@ function statusBar(p) {
 }
 
 /* Bottom tab bar. raised=true draws the active tab as a lifted circle with the bar edge
-   rising to meet it; set it only if the real app does this. */
-function tabBar(active, tabs, raised = true) {
+   rising to meet it; pass it only if the real app does this. */
+function tabBar(active, tabs, raised = false) {
   const w = 900 / tabs.length, cx = w / 2 + active * w, a = cx - 140, b = cx + 140, top = 45;
   const edge = raised
     ? `M0 ${top} H${a} C${a + 45} ${top} ${a + 55} ${top - 22} ${cx} ${top - 22} C${b - 55} ${top - 22} ${b - 45} ${top} ${b} ${top} H900`

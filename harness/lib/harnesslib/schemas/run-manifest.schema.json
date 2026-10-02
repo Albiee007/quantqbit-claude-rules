@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harnesslib/run-manifest.schema.json",
+  "title": "Media production run manifest (one immutable file per run), schema version 1",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "family", "mode", "tool", "startedAt", "finishedAt", "engine", "inputs", "approvals", "fonts", "outputs", "checks", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$" },
+    "family": { "enum": ["store", "marketing", "icon", "illustration"] },
+    "mode": { "enum": ["production", "legacy"] },
+    "tool": { "type": "string", "maxLength": 80 },
+    "startedAt": { "type": "string" },
+    "finishedAt": { "type": "string" },
+    "engine": {
+      "type": "object",
+      "required": ["api"],
+      "additionalProperties": false,
+      "properties": {
+        "api": { "type": "integer" },
+        "harness": { "type": "string", "maxLength": 20 },
+        "browser": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "required": ["config"],
+      "additionalProperties": false,
+      "properties": {
+        "config": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "direction": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "concept": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "license": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "approvals": { "type": "array", "items": { "type": "string" } },
+    "fonts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["family", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "family": { "type": "string" },
+          "source": { "enum": ["local", "system"] },
+          "weight": { "type": "number" },
+          "style": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "seed": { "type": "null" },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "bytes"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0 },
+          "size": { "type": "array", "items": { "type": "integer" } }
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["result"],
+        "additionalProperties": false,
+        "properties": {
+          "result": { "enum": ["PASS", "FAIL", "SKIPPED", "REVIEW REQUIRED"] },
+          "detail": { "type": "string", "maxLength": 2000 }
+        }
+      }
+    },
+    "status": { "enum": ["complete", "review-required", "failed"] }
+  }
+}

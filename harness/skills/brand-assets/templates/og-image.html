@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <title>Social preview</title>
-<!-- Social / Open Graph image, 1200 x 630. Copy it, replace the {{…}} placeholders and brand
+<!-- DEPRECATED in harness 1.7.0: new social, Open Graph, email-header and banner images are canvas
+     entries (brand/canvas.json + {"canvas": "<id>"} in brand/exports.json), drawn in the approved
+     marketing concept's look. This file stays only so existing copies keep working; it is removed in
+     a later major release (see CHANGELOG). Do not start new work from it.
+     Social / Open Graph image, 1200 x 630. Copy it, replace the {{…}} placeholders and brand
      colours, then export:
        python .claude/skills/brand-assets/scripts/export_svg.py og-image.html --size 1200x630 --flatten "#ffffff" --out public
      Keep text inside the central 1080 x 540 area. Some platforms crop to 1.91:1 or to a square. -->

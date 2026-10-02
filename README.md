@@ -10,7 +10,8 @@
 | **Mandatory skills** | **coding-standards**: SOLID, naming, errors, testing, OWASP Top 10:2025, review checklist · **design-patterns**: a decision gate plus all 23 GoF patterns with examples, architectural patterns, anti-patterns · **ui-ux**: 30 Laws of UX, Nielsen heuristics, WCAG 2.2 AA, Gestalt, DTCG tokens, Material 3, Apple HIG · **typography**: context-aware hierarchy, font metrics and pairing, variable fonts, multilingual and RTL text, loading and licensing, platform text scaling · **color-science**: palettes and themes, CVD, color spaces and gamut mapping, Oklab/CAM16, data-viz color, ICC, print and HDR · **seo**: technical SEO, E-E-A-T, schema, Core Web Vitals, AI search (GEO), hreflang, local, a 0–100 audit score |
 | **Path-scoped rules** | coding, tests, security, ui-ux, seo, bash, powershell, ansible, compose/Dockerfile, terraform |
 | **Agents** (all Opus) | `explorer` → `implementor` / `infra-implementor` → `verifier` → `reviewer` (lenses: code, patterns, ux, seo, security) |
-| **Mobile store, brand & story art** (mobile profile; brand and story art also web) | Agents `screen-capturer` → `store-creative` / `listing-copywriter` / `icon-creator` / `brand-asset-creator` / `illustrator` → `store-precheck-auditor`, each with its own skill: **mobile-screen-capture** (read-only ADB/iOS device tours) · **store-mockups** (storyboard, demo-data ledger, HTML screen rebuilds in one reusable kit; `render --all` makes every Play/App Store size + feature graphic, contact sheet and caption contrast check) · **store-listing** (claims truth table, ASO, limit + guardrail checker) · **store-submission-precheck** (release gate, store specs, consistency checks) · **app-icons** (iOS/adaptive/monochrome/notification/web sets + audit) · **brand-assets** (logo system, tokens, a lean export plan for splash and social images; also web) · **story-art** (context pack, one scene per feature pillar, locked style bible, generation via the session's provider (Canva MCP by default), owner-approved contact sheet, budgeted AVIF/WebP export with provenance; also web) |
+| **Creative direction** (web and mobile) | Agent `creative-director` and skill **creative-direction**: a project-specific direction (`brand/direction.json`) built from the project's own evidence with ui-ux, typography and color-science; a concept round where the creators propose genuinely different options; owner approvals bound to the exact inputs they approved; production renders that follow the approved concept, with run manifests. Shared colour, token and type tools (`palette.py`, `type_scale.py`) and a media library ship in `.claude/harness/lib/` |
+| **Mobile store, brand & story art** (mobile profile; brand and story art also web) | Agents `screen-capturer` → `store-creative` / `listing-copywriter` / `icon-creator` / `brand-asset-creator` / `illustrator` → `store-precheck-auditor`, each with its own skill: **mobile-screen-capture** (read-only ADB/iOS device tours) · **store-mockups** (store concepts and drafts, storyboard, demo-data ledger, HTML screen rebuilds in one reusable kit; `render --all` makes every Play/App Store size + feature graphic in the approved concept, with contact sheet, contrast and font checks; 1.6 kits render unchanged) · **store-listing** (claims truth table, ASO, limit + guardrail checker) · **store-submission-precheck** (release gate, store specs, consistency checks) · **app-icons** (iOS/adaptive/monochrome/notification/web sets + audit) · **brand-assets** (logo system, tokens, a lean export plan for splash images and social/OG/email/banner canvases in the approved marketing concept; also web) · **story-art** (illustration concepts from a broad style vocabulary, context pack, one scene per feature pillar, style bible from the approved concept, generation via the session's provider (Canva MCP documented), owner-approved contact sheet, budgeted AVIF/WebP export with provenance; also web) |
 | **Hooks** (pure bash) | `guard` (enforces Opus, blocks real `.env` files), `prompt-router` and `file-context` (inject mandatory checklists), `session-start`, `post-edit-lint` |
 | **Settings** | Generated from the harness base plus the project's own `settings.project.json` |
 
@@ -57,12 +58,15 @@ harness/                 SOURCE OF TRUTH (vendored into projects)
   skills/                  coding-standards, design-patterns, ui-ux, typography,
                            color-science, seo, harness,
                            mobile-screen-capture, store-mockups, store-listing,
-                           store-submission-precheck, app-icons, brand-assets, story-art
+                           store-submission-precheck, app-icons, brand-assets, story-art,
+                           creative-direction
   agents/                  explorer, implementor, infra-implementor, verifier, reviewer,
                            screen-capturer, store-creative, listing-copywriter,
                            store-precheck-auditor, icon-creator, brand-asset-creator,
-                           illustrator
+                           illustrator, creative-director
   hooks/ snippets/ bin/    enforcement hooks, injected checklists, doctor + sync bootstrap
+  lib/                     media library (web, mobile): colour, tokens, type, schemas,
+                           approvals, art-direction runtime and canvas page
   settings.base.json       base settings (Opus force, deny rules, hooks)
   profiles.tsv             which files ship to which profile (web, mobile, backend, infra)
   manifest.tsv             generated: per-file dest, version, hash, profiles
@@ -85,6 +89,9 @@ bash tests/hooks.test.sh; bash tests/validate.test.sh; bash tests/sync.test.sh
 bash tests/helpers.test.sh; bash tests/scaffold.test.sh
 bash tests/store-assets.test.sh          # needs Pillow
 bash tests/story-art.test.sh             # needs Pillow (AVIF checks need Pillow 11.3+)
+bash tests/color-tools.test.sh           # colour, token and type tools (stdlib only)
+bash tests/creative-direction.test.sh    # direction, concepts, approvals, gates (Pillow for the render cases)
+bash tests/media-variety.test.sh         # two fictional projects, same screens, different looks (Chrome)
 # After a renderer refactor: prove generated output is unchanged versus a ref.
 SCAFFOLD_EQUIV_BASE=main bash tests/scaffold-equiv.test.sh
 # Also install, type-check, test and build the generated JavaScript starters:

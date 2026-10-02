@@ -26,6 +26,14 @@ description: Mandatory, context-aware typography companion to ui-ux for every UI
 5. **Verify** every required check below on the representative screens and every supported script ([accessibility-checks](references/accessibility-checks.md), [multilingual-and-rtl](references/multilingual-and-rtl.md)).
 6. **Record** significant decisions (new family, scale change, new script, licence) as a short decision record in the existing design docs: the design-system doc, tokens README, ADR folder or `brand/README.md`. Don't start a new doc tree when one exists; create a single file only when nothing exists.
 
+## Tools
+`python .claude/skills/typography/scripts/type_scale.py` (stdlib; DTCG 2025.10 is the interchange, platform forms go in `$extensions["org.quantqbit.platform"]`):
+- `scale --base 16 --ratio 1.2 --steps caption,body,h3,h2,h1 --body body [--platform web,android,ios,rn] [--fluid 360:1440 --max-ratio 1.25]`: a scale with rem / `clamp()` (with a rem term) / sp / pt / React Native values. The ratio is your stated heuristic.
+- `media --canvas-width 1080 --display-width 320 --min headline=22,sub=14`: canvas px for raster media (store frames, social images) that keep a minimum size at the smallest display.
+- `font --name display --family X --source local --file path:700 --license ... --license-evidence ...` (or `--source system --availability ...`): the font record the media renderers read (files with sha256, weights, scripts, licence evidence).
+- `check --tokens <file>`: every font record (files present and unchanged, licence evidence).
+With `--out <tokens file>` they merge into the existing file without overwriting (a conflict writes nothing; `--replace` names a change; the old file is kept as `.bak`).
+
 ## Decision rules
 - **Hierarchy uses size, weight, space and color together.** Size alone produces a scale with too many steps. Add a level only when content has a real level for it.
 - **Scale ratio follows density and viewport range.** Dense dashboards and data tools need tight ratios and few levels; editorial and marketing pages can use wider ratios and larger display sizes. Fluid ranges for wide viewport spans. A modular scale is one option, not a mandate.

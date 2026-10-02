@@ -27,6 +27,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # store-render parity check renders with the v1.6.1 scripts (git archive v1.6.1)
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -52,8 +54,23 @@ jobs:
         run: python -m pip install -q "pillow>=10" && bash tests/store-assets.test.sh
       - name: Story art export tests (fixtures generated with Pillow)
         run: bash tests/story-art.test.sh
+      - name: Colour, token and type tool tests (stdlib only)
+        run: bash tests/color-tools.test.sh
+      - name: Creative direction, concepts, approvals and production gates
+        run: bash tests/creative-direction.test.sh
       - name: Store render, brand export and icon tests (headless Chrome from the runner image)
         run: bash tests/store-render.test.sh
+      - name: Media variety demonstration (two projects, same screens, different approved looks)
+        env:
+          VARIETY_SHEET: ${{ runner.temp }}/variety-sheet-${{ matrix.os }}.png
+        run: bash tests/media-variety.test.sh
+      - name: Upload the variety sheet for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: variety-sheet-${{ matrix.os }}
+          path: ${{ runner.temp }}/variety-sheet-${{ matrix.os }}.png
+          if-no-files-found: ignore
       - name: Sync scenario tests
         run: bash tests/sync.test.sh
       - name: macOS stock bash 3.2 compatibility (hooks + sync + scaffold)

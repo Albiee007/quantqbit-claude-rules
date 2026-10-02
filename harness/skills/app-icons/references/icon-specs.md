@@ -23,6 +23,6 @@ Store listing sizes are in [store-specs](../../store-submission-precheck/referen
 ## Design rules for all platforms
 - **One strong, simple shape** that survives 16 px and a circle mask. Test the icon at 16, 29, 40, 48 and 64 px.
 - **No words.** At most one letter, and only if it's the brand mark.
-- **Contrast:** at least 3:1 between the glyph and the background (WCAG non-text contrast).
+- **Contrast:** an app icon is branding, so WCAG sets no threshold for it; `make_icon_set.py` reports the glyph's contrast on its background for every set, and a project can set a target (`--mark-contrast`, or `qualityTarget` in the icon concept). Low contrast loses the mark at 16–29 px, so aim high and look at the preview sheet.
 - **Consistency:** the same mark on the store icon, the launcher, the splash and the favicon, and the same colours as the brand tokens.
 - **No third-party marks** (Apple, Google, payment networks) inside the icon.

@@ -7,6 +7,12 @@
 #     with the checklist and "load the skills, then retry" — the retry is allowed.
 #     ui names ui-ux, typography and color-science together in that one deny.
 #     Set checklists=inform in .claude/harness.config to only inform instead.
+#   * media (brand/ direction, tokens, concepts, canvases, logos; mockup-kit config;
+#     story-art plans): gated like ui, naming creative-direction with typography,
+#     color-science and ui-ux. The direction and brief can be drafted before any
+#     approval: the gate only asks for the skills. Approvals are enforced by the
+#     production commands, not here.
+#   * brand/approvals.json is never edited by hand (direction.py approve writes it).
 #   * security / store / infra: the checklist is added as context (never blocks).
 # The gate has its own marker per agent context and topic, so a checklist the
 # prompt router already showed does not skip it. Checklist text itself is not repeated.
@@ -40,6 +46,16 @@ hh_gate() {
 }
 
 hh_config checklists; mode="$HH_V"
+case "$p" in
+  */brand/approvals.json)
+    hh_deny "Harness: brand/approvals.json records the owner's decisions and is written only by direction.py approve, run by the main session after the owner decides (skill creative-direction). Don't edit it by hand." ;;
+esac
+case "$p" in
+  */brand/direction.json|*/brand/BRIEF.md|*/brand/canvas.json|*/brand/exports.json|*/brand/tokens.json|*/brand/concepts/*|\
+  */brand/*.svg|*/frames.json|*/custom-objects.js|*/out/story-art/*/plan.md)
+    [[ "$mode" != "inform" ]] && hh_gate media creative-direction typography color-science ui-ux
+    hh_add_snippet media ;;
+esac
 case "$p" in
   *.tsx|*.jsx|*.vue|*.svelte|*.astro|*.html|*.htm|*.css|*.scss|*.sass|*.less|*.swift|*.xib|*.storyboard|\
   */res/layout/*|*/res/values/*|*Screen.kt|*View.kt|*Component.kt|*Activity.kt|*Fragment.kt|*/tailwind.config.*|\

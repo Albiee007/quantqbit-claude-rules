@@ -1,0 +1,18 @@
+{
+  "out": "out",
+  "icons": "material",
+  "brand": {
+    "bg1": "#123456"
+  },
+  "sizes": [
+    "play-phone"
+  ],
+  "frames": [
+    {
+      "id": "01-home",
+      "screen": "home",
+      "head": "Only bg1 is set, <em>the rest falls back</em>",
+      "sub": "The 1.6 defaults fill the missing brand keys"
+    }
+  ]
+}

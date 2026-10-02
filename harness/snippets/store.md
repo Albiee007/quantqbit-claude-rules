@@ -1,5 +1,5 @@
 Store & brand checklist (mobile releases):
-- Delegate by persona: screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator / illustrator → store-precheck-auditor.
+- Delegate by persona: creative-director (direction, concepts) → screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator / illustrator → store-precheck-auditor.
 - Sizes and limits come from store-submission-precheck/references/store-specs.md only. Never quote them from memory.
 - Screenshots: faithful rebuilds of real screens, fictional consistent demo data, no alpha, exact store sizes.
 - Copy: every claim backed by code; Android-only and Premium features marked or left out per platform; no fixed prices.
