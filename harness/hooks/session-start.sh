@@ -39,11 +39,17 @@ fi
 
 msg="QuantQbit agent harness v$ver (profiles: $profiles).
 Agents (all Opus): explorer → implementor / infra-implementor → verifier → reviewer (lens: code|patterns|ux|seo|security).
-Mandatory skills: ui-ux (UI work), seo (public web pages), design-patterns (before any abstraction), coding-standards (always).
+Mandatory skills: ui-ux + typography + color-science (UI work), seo (public web pages), design-patterns (before any abstraction), coding-standards (always).
 Project overrides: .claude/rules/project/ and CLAUDE.md. Do not edit harness:managed files."
-# The store and brand roster ships to mobile projects only; mention it only where installed.
-[[ -f "$HH_ROOT/.claude/agents/store-creative.md" ]] && msg+="
-Store agents: screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator → store-precheck-auditor (skills: mobile-screen-capture, store-mockups, store-listing, app-icons, brand-assets, store-submission-precheck)."
+# Mention only the rosters that are installed: the store roster ships to mobile
+# projects; web projects get the brand and art agents alone.
+if [[ -f "$HH_ROOT/.claude/agents/store-creative.md" ]]; then
+  msg+="
+Store agents: screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator / illustrator → store-precheck-auditor (skills: mobile-screen-capture, store-mockups, store-listing, app-icons, brand-assets, story-art, store-submission-precheck)."
+elif [[ -f "$HH_ROOT/.claude/agents/illustrator.md" ]]; then
+  msg+="
+Brand and art agents: brand-asset-creator → illustrator (skills: brand-assets, story-art)."
+fi
 [[ -f "$lock" ]] || msg+="
 WARNING: .claude/harness/lock is missing, so harness files are untracked. Run harness sync."
 [[ $conflict -eq 1 ]] && msg+="

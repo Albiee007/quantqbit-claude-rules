@@ -5,7 +5,7 @@ Detail lives in skills and path-scoped rules. This file stays short on purpose.
 
 ## 1. Precedence
 - Project instructions (`CLAUDE.md`, `AGENTS.md`, `.claude/rules/project/`) override harness rules where they conflict.
-- **Not overridable:** secrets/`.env` handling (§8), the Opus model policy (§2), and accessibility minimums (skill `ui-ux`).
+- **Not overridable:** secrets/`.env` handling (§8), the Opus model policy (§2), and accessibility minimums (skills `ui-ux`, `typography`, `color-science`).
 - If two instructions conflict and neither clearly wins, ask the user. Do not pick one silently.
 
 ## 2. Model: Opus only
@@ -25,6 +25,7 @@ Detail lives in skills and path-scoped rules. This file stays short on purpose.
 | Shell, PowerShell, Ansible, Compose, Terraform, CI change | `infra-implementor` |
 | After every change | `verifier` (lint, typecheck, tests, syntax checks) |
 | Before calling a non-trivial change done | `reviewer` with the right lens: `code`, `patterns`, `ux`, `seo`, `security` or `all` |
+| Story or scenario art for a site, store listing or campaign (web, mobile) | `illustrator` (owner approves every image before it ships) |
 | Mobile store release (mobile profile) | `screen-capturer` (device captures) → `store-creative` (screenshots, feature graphic) ∥ `listing-copywriter` (listing text) ∥ `icon-creator` (app icons) ∥ `brand-asset-creator` (logo, splash, social) → `store-precheck-auditor` (release gate, never edits) |
 
 - Never delegate understanding: read the explorer's findings yourself before planning.
@@ -37,14 +38,15 @@ Load the skill **before** starting the matching work. This is required, not opti
 
 | Work | Skill |
 |---|---|
-| Any UI: screens, components, styles, layout, forms, UI copy, design tokens | `ui-ux` |
+| Any UI: screens, components, styles, layout, forms, UI copy, design tokens | `ui-ux` + `typography` + `color-science` |
 | Public web pages, routes, metadata/head, sitemap, robots, structured data, content | `seo` |
 | Introducing a pattern, abstraction, new layer, interface, or refactoring architecture | `design-patterns` (run the decision gate first) |
 | Writing or reviewing any code | `coding-standards` (always in effect) |
 | Store screenshots, listing copy, app icons, logos, or a store submission (mobile projects) | `store-mockups`, `store-listing`, `app-icons`, `brand-assets`; `store-submission-precheck` before submitting |
+| Illustrations, hero or feature-row artwork, story or scene art (web and mobile projects) | `story-art` |
 
 Hooks inject a short checklist when a prompt or file matches one of these. That checklist does not replace the skill.
-The first UI or SEO file write in each agent context is denied once: read the named `.claude/skills/<skill>/SKILL.md`, apply it, then retry the same write.
+The first UI or SEO file write in each agent context is denied once: read every named `.claude/skills/<skill>/SKILL.md` (UI names `ui-ux`, `typography`, `color-science` in one deny), apply them, then retry the same write.
 
 ## 6. Verification before "done"
 Run the checks that match the change, and report the actual result:

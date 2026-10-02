@@ -66,6 +66,9 @@ expect "allow Test-Path .env"         guard.sh '{"tool_name":"PowerShell","tool_
 echo "prompt-router"
 expect "UI prompt → ui checklist"      prompt-router.sh '{"session_id":"a1","prompt":"Make the login screen responsive"}' 'ui-ux'
 expect "same topic not repeated"       prompt-router.sh '{"session_id":"a1","prompt":"tweak the button color"}' ''
+expect "font/palette prompt → all three UI skills" prompt-router.sh '{"session_id":"a20","prompt":"change the typeface and palette"}' 'ui-ux, typography, color-science'
+expect "oklch prompt → ui checklist"   prompt-router.sh '{"session_id":"a21","prompt":"convert the brand ramp to oklch"}' 'typography, color-science'
+expect "UI checklist deduped per session" prompt-router.sh '{"session_id":"a20","prompt":"tweak the font sizes"}' ''
 expect "SEO prompt → seo checklist"    prompt-router.sh '{"session_id":"a2","prompt":"add meta description and sitemap"}' 'Load skill: seo'
 expect "pattern prompt → gate"         prompt-router.sh '{"session_id":"a3","prompt":"Should we add a factory here?"}' 'design-patterns'
 expect "design pattern ≠ UI"           prompt-router.sh '{"session_id":"a4","prompt":"which design pattern fits?"}' 'design-patterns'
@@ -78,6 +81,14 @@ expect "infra for github actions"      prompt-router.sh '{"session_id":"a11","pr
 expect "store prompt → store checklist" prompt-router.sh '{"session_id":"a12","prompt":"refresh the play store listing and screenshots"}' 'Load skill: store-submission-precheck'
 expect "app icon prompt → store checklist" prompt-router.sh '{"session_id":"a13","prompt":"fix the adaptive icon"}' 'store-creative'
 expect "no store for plain storage prompt" prompt-router.sh '{"session_id":"a14","prompt":"explain how the storage cache works"}' ''
+expect "story art prompt → art checklist" prompt-router.sh '{"session_id":"a14b","prompt":"make story art for the feature rows"}' 'Brand & story art checklist'
+expect "hero image prompt → art checklist" prompt-router.sh '{"session_id":"a14c","prompt":"regenerate the hero image"}' 'Load skill: story-art'
+expect "no art for plain scene prompt" prompt-router.sh '{"session_id":"a14d","prompt":"fix the scene graph loader"}' ''
+# A web install has the art snippet but not the store snippet.
+mv "$P/.claude/harness/snippets/store.md" "$P/store.md.off"
+expect "web: illustration prompt → art checklist" prompt-router.sh '{"session_id":"a14e","prompt":"add illustrations to the landing sections"}' 'export_art.py'
+expect "web: logo prompt → art checklist" prompt-router.sh '{"session_id":"a14f","prompt":"design a new logo"}' 'brand-asset-creator'
+mv "$P/store.md.off" "$P/.claude/harness/snippets/store.md"
 expect "plain prompt → nothing"        prompt-router.sh '{"session_id":"a6","prompt":"what does this function return?"}' ''
 expect "valid JSON escaping"           prompt-router.sh '{"session_id":"a7","prompt":"fix \"auth\" token\nflow"}' '"additionalContext":"Harness'
 
@@ -94,8 +105,20 @@ expect "sub-agent gets its own gate"       file-context.sh '{"session_id":"b5","
 expect "agent_id in tool_input ignored"    file-context.sh '{"session_id":"b5","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/X.tsx","agent_id":"evil"}}' ''
 run prompt-router.sh '{"session_id":"b6","prompt":"restyle the navbar"}' >/dev/null
 expect "gate still applies after prompt checklist" file-context.sh '{"session_id":"b6","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Nav.tsx"}}' 'deny'
+out="$(run file-context.sh '{"session_id":"b10","tool_name":"Write","tool_input":{"file_path":"/p/src/theme/tokens.css"}}')"
+if [[ $(grep -o '"permissionDecision":"deny"' <<<"$out" | wc -l) -eq 1 ]] && grep -q 'mandatory skills' <<<"$out" \
+   && grep -q 'ui-ux/SKILL.md' <<<"$out" && grep -q 'typography/SKILL.md' <<<"$out" && grep -q 'color-science/SKILL.md' <<<"$out"; then
+  pass=$((pass+1)); echo "  [OK] one UI deny names ui-ux, typography and color-science"
+else fail=$((fail+1)); echo "  [FAIL] UI deny should name all three skills once — got: ${out:0:200}"; fi
+expect "retry after three-skill deny allowed" file-context.sh '{"session_id":"b10","tool_name":"Write","tool_input":{"file_path":"/p/src/theme/tokens.css"}}' ''
+expect "no second deny for another UI file"   file-context.sh '{"session_id":"b10","tool_name":"Write","tool_input":{"file_path":"/p/src/styles/app.scss"}}' ''
+expect "SEO deny keeps singular wording"      file-context.sh '{"session_id":"b12","tool_name":"Write","tool_input":{"file_path":"/p/public/robots.txt"}}' 'falls under a mandatory skill\.'
 printf 'checklists=inform\n' > "$P/.claude/harness.config"
 expect "inform mode adds context only"     file-context.sh '{"session_id":"b7","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Y.tsx"}}' '"additionalContext"'
+out="$(run file-context.sh '{"session_id":"b11","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Z.tsx"}}')"
+if ! grep -q 'deny' <<<"$out" && grep -q 'ui-ux, typography, color-science' <<<"$out"; then
+  pass=$((pass+1)); echo "  [OK] inform mode names all three skills without denying"
+else fail=$((fail+1)); echo "  [FAIL] inform mode — got: ${out:0:200}"; fi
 rm -f "$P/.claude/harness.config"
 
 echo "session-start"
@@ -112,7 +135,13 @@ out="$(run session-start.sh '{"session_id":"c4"}')"
 grep -q 'store-creative' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] store roster shown without store agents"; } || { pass=$((pass+1)); echo "  [OK] no store roster when store agents absent"; }
 mkdir -p "$P/.claude/agents" && : > "$P/.claude/agents/store-creative.md"
 expect "store roster when installed" session-start.sh '{"session_id":"c5"}' 'store-precheck-auditor'
+expect "store roster names the illustrator" session-start.sh '{"session_id":"c6"}' 'illustrator'
+: > "$P/.claude/agents/illustrator.md"
+out="$(run session-start.sh '{"session_id":"c7"}')"
+[[ "$(grep -o 'illustrator' <<<"$out" | wc -l | tr -d ' ')" -eq 1 ]] && { pass=$((pass+1)); echo "  [OK] mobile: one roster line, not two"; } || { fail=$((fail+1)); echo "  [FAIL] mobile roster repeats the illustrator"; }
 rm -f "$P/.claude/agents/store-creative.md"
+expect "web roster when only the art agents are installed" session-start.sh '{"session_id":"c8"}' 'Brand and art agents: brand-asset-creator → illustrator'
+rm -f "$P/.claude/agents/illustrator.md"
 
 echo "post-edit-lint"
 printf 'if [ x\n' > "$P/bad.sh"

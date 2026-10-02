@@ -7,10 +7,10 @@ This project vendors the QuantQbit agent harness: shared agent rules, skills, ag
 | Path | Owner | May I edit it? |
 |---|---|---|
 | `.claude/rules/harness/*` | harness | No. Override in `.claude/rules/project/` |
-| `.claude/skills/{coding-standards,design-patterns,ui-ux,seo,harness}/` | harness | No. Add your own skills under other names |
-| `.claude/skills/{mobile-screen-capture,store-mockups,store-listing,store-submission-precheck,app-icons,brand-assets}/` (mobile; `brand-assets` also web) | harness | No. Copy templates into your project before editing them |
+| `.claude/skills/{coding-standards,design-patterns,ui-ux,typography,color-science,seo,harness}/` | harness | No. Add your own skills under other names |
+| `.claude/skills/{mobile-screen-capture,store-mockups,store-listing,store-submission-precheck,app-icons,brand-assets,story-art}/` (mobile; `brand-assets` and `story-art` also web) | harness | No. Copy templates into your project before editing them |
 | `.claude/agents/{explorer,implementor,infra-implementor,reviewer,verifier}.md` | harness | No. Add your own agents under other names |
-| `.claude/agents/{screen-capturer,store-creative,listing-copywriter,store-precheck-auditor,icon-creator,brand-asset-creator}.md` (mobile; `brand-asset-creator` also web) | harness | No |
+| `.claude/agents/{screen-capturer,store-creative,listing-copywriter,store-precheck-auditor,icon-creator,brand-asset-creator,illustrator}.md` (mobile; `brand-asset-creator` and `illustrator` also web) | harness | No |
 | `.claude/harness/*` (hooks, snippets, bin, lock, this README), `.claude/.gitattributes` | harness | No |
 | `.claude/settings.json` | **generated** | No. Edit `.claude/settings.project.json` instead, then re-sync |
 | `.claude/settings.project.json` | project | Yes: team-shared permissions, env and hooks |

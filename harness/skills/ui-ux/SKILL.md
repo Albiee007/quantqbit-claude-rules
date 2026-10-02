@@ -5,7 +5,7 @@ description: Mandatory UI/UX, accessibility (WCAG 2.2 AA) and design-system stan
 
 # UI/UX
 
-**Mandatory** for every change that touches a user interface: web (React, Vue, Svelte, Astro, HTML/CSS), React Native, Android (Compose or XML), iOS/macOS (SwiftUI or UIKit). Follow the workflow, meet every minimum, and pass the pre-merge checklist before reporting UI work as done.
+**Mandatory** for every change that touches a user interface: web (React, Vue, Svelte, Astro, HTML/CSS), React Native, Android (Compose or XML), iOS/macOS (SwiftUI or UIKit). Follow the workflow, meet every minimum, and pass the pre-merge checklist before reporting UI work as done. Always load the companion skills [typography](../typography/SKILL.md) and [color-science](../color-science/SKILL.md) with this one: they own type and color decisions and their required checks.
 
 ## Precedence
 1. **Accessibility minimums (WCAG 2.2 AA plus platform minimums) are never overridable.** No project convention, design file, or user preference lowers them. If a design violates them, implement the accessible version and flag the difference.
@@ -17,7 +17,7 @@ Explicit user instructions win on style, never on rule 1.
 
 ## Workflow
 1. **Discover and reuse.** Before writing UI, find the existing design system: token files (`*.tokens.json`, `tokens/`, `theme.*`, `tailwind.config.*`, CSS custom properties, `Theme.kt`/`Color.kt`/`Type.kt`, `values/*.xml`, asset catalogs), the component library (`components/`, `ui/`, Storybook), and existing screens with similar patterns. **Reuse existing components and tokens. Never create a parallel button, color set, spacing scale, or theme.** Extend by adding a variant or prop to the existing component. If none exists, propose a minimal token set ([design-tokens-dtcg](references/design-tokens-dtcg.md)) and build on it.
-2. **Tokens.** Style only through semantic tokens or theme accessors. No raw hex, rgb, px, dp, pt, ms, or cubic-bezier in components. Add a token only for a real, repeated need, named by role.
+2. **Tokens.** Style only through semantic tokens or theme accessors. No raw hex, rgb, px, dp, pt, ms, or cubic-bezier in components. Add a token only for a real, repeated need, named by role. Type and color tokens follow the typography and color-science skills: adapt to project evidence, never impose a generic scale or palette.
 3. **Layout and responsive.** Mobile-first, content-driven breakpoints from tokens, a 4/8 spacing scale, container queries for components, safe areas and insets, reflow at 320 CSS px, readable measure ([responsive-layout](references/responsive-layout.md)).
 4. **Components and all states.** Implement every applicable state: loading (skeleton or progress), empty, error, partial, success, disabled (with a reason), offline, and long or overflow content. Include interaction states: hover, focus-visible, pressed, selected, disabled, error ([forms-and-states](references/forms-and-states.md)).
 5. **Content and microcopy.** Verb-first buttons, noun labels, the error formula (what happened plus how to fix it), sentence case, no hard-coded or concatenated strings, RTL-safe ([content-microcopy](references/content-microcopy.md)).
@@ -33,7 +33,7 @@ Every item must be true, or be reported as a known gap with a reason.
 2. No raw color, size, spacing, radius, shadow, or duration values in component code. Tokens and theme only.
 
 **Accessibility (WCAG 2.2 AA)**
-3. Text contrast is at least **4.5:1**. Large text (at least 24 px, or at least 18.5 px bold) is at least **3:1**. Checked in light **and** dark themes.
+3. Text contrast is at least **4.5:1**. Large text (at least 24 px, or at least 18.66 px (14 pt) bold) is at least **3:1**. Checked in every theme the project supports (light **and** dark where both exist).
 4. UI component boundaries, states, icons that carry meaning, and **focus indicators** are at least **3:1** against adjacent colors (1.4.11).
 5. Pointer targets are at least **24x24 CSS px** or meet the spacing exception (2.5.8). Touch: **44x44 pt** on iOS, **48x48 dp** on Android.
 6. Everything is operable by keyboard (and switch or screen reader) in a logical order, with no traps. Esc closes overlays, and focus returns to the trigger.
@@ -46,7 +46,7 @@ Every item must be true, or be reported as a known gap with a reason.
 13. Headings, landmarks, and a unique page or screen title are present. The language is set.
 
 **Layout and responsiveness**
-14. Works from **320 CSS px** to wide screens with **no horizontal scrolling** (1.4.10). Wide content is bounded (about 65-75ch for prose).
+14. Works from **320 CSS px** to wide screens with **no horizontal scrolling** (1.4.10), except content that needs two dimensions (data tables, maps, diagrams) scrolling inside its own container. Wide content is bounded (about 65-75ch for prose).
 15. Text scales to **200%** (browser zoom, Dynamic Type, Android font scale) without clipping or overlap. No fixed-height text containers. Zoom is never disabled.
 16. Safe areas, system bars, notches, and the on-screen keyboard never cover content or controls.
 
@@ -97,7 +97,7 @@ Full list with examples: [laws-of-ux](references/laws-of-ux.md). Heuristics: [ni
 - [design-tokens-dtcg](references/design-tokens-dtcg.md): DTCG 2025.10 format, token tiers, naming, theming, rules
 - [material3](references/material3.md): M3 color roles, type scale, shape, elevation, layout, motion
 - [apple-hig](references/apple-hig.md): targets, text sizes, Dynamic Type, SF Symbols, safe areas, navigation
-- [typography-color](references/typography-color.md): type scale, measure, line height, contrast math, palettes, dark mode
+- [typography-color](references/typography-color.md): compatibility overview (contrast floor, quick defaults) linking to the `typography` and `color-science` skills
 - [responsive-layout](references/responsive-layout.md): breakpoints, grids, spacing, container queries, safe areas
 - [forms-and-states](references/forms-and-states.md): forms, validation, and every UI state
 - [motion](references/motion.md): durations, easing, reduced motion

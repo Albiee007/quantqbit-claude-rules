@@ -11,7 +11,7 @@ paths:
 
 # UI/UX Rules
 
-**Load skill `ui-ux` before any UI change (mandatory).** It holds the workflow, the pre-merge checklist, and platform references. These rules are the non-negotiable floor.
+**Load skills `ui-ux`, `typography` and `color-science` before any UI change (mandatory).** They hold the workflow, the pre-merge checklists, and platform references; advanced references load only when the task needs them. These rules are the non-negotiable floor.
 
 ## Precedence
 Accessibility minimums below are never overridable. Project design-system tokens and components override generic values. Then platform guidelines (Material 3, Apple HIG, web conventions).
@@ -22,7 +22,7 @@ Accessibility minimums below are never overridable. Project design-system tokens
 - Spacing on the 4/8 scale. Type from the type scale. Breakpoints from tokens.
 
 ## Accessibility minimums (WCAG 2.2 AA)
-- Contrast: text **4.5:1**. Large text (at least 24 px, or at least 18.5 px bold) **3:1**. UI boundaries, meaningful icons, and focus indicators **3:1**. Check light and dark.
+- Contrast: text **4.5:1**. Large text (at least 24 px, or at least 18.66 px (14 pt) bold) **3:1**. UI boundaries, meaningful icons, and focus indicators **3:1**. Check light and dark.
 - Targets: at least **24x24 CSS px** (or spacing exception). **44x44 pt** on iOS. **48x48 dp** on Android.
 - Full keyboard operability, logical focus order, no traps. Focus always **visible** and **not obscured** by sticky UI.
 - Native semantics first. Every control has an accessible name containing its visible label. Decorative media hidden.
@@ -43,4 +43,4 @@ Implement every applicable state: loading (skeleton or progress), empty (with CT
 - Follow platform conventions: system Back, navigation patterns, type styles, and dark mode that follows the system.
 
 ## Done means
-The `ui-ux` pre-merge checklist passes, automated a11y checks run where available, and unverified items are reported.
+The `ui-ux` pre-merge checklist and the `typography` and `color-science` required checks pass, automated a11y checks run where available, and unverified items are reported.

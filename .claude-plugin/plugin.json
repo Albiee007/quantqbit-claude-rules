@@ -1,7 +1,7 @@
 {
   "name": "quantqbit-claude-rules",
-  "version": "1.4.0",
-  "description": "QuantQbit agent harness: vendors git-tracked, conflict-safe agent rules, mandatory skills (coding-standards, design-patterns, ui-ux, seo), Opus-only agents (including mobile app-store agents: screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets) and hooks into each project via a transactional sync with a versioned lock; plus lint tooling (/init-project-rules) and buildable per-platform starters (/init-project-scaffold).",
+  "version": "1.6.0",
+  "description": "QuantQbit agent harness: vendors git-tracked, conflict-safe agent rules, mandatory skills (coding-standards, design-patterns, ui-ux, typography, color-science, seo), Opus-only agents (including mobile app-store agents: screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets; and an illustrator agent with the story-art skill for product story and scenario illustrations) and hooks into each project via a transactional sync with a versioned lock; plus lint tooling (/init-project-rules) and buildable per-platform starters (/init-project-scaffold).",
   "author": {
     "name": "QuantQbit"
   },
@@ -24,6 +24,8 @@
     "android",
     "agent-harness",
     "ui-ux",
+    "typography",
+    "color-science",
     "wcag",
     "seo",
     "design-patterns",
@@ -31,6 +33,8 @@
     "app-store",
     "play-store",
     "aso",
-    "app-icons"
+    "app-icons",
+    "illustration",
+    "story-art"
   ]
 }

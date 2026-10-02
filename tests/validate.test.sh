@@ -43,6 +43,10 @@ fresh; insert_after "$W/r/harness/skills/seo/SKILL.md" 2 'user-invokable: true'
 expect_fail "frontmatter typo key"      "unknown frontmatter key 'user-invokable'"
 fresh; subst "$W/r/harness/skills/ui-ux/SKILL.md" 's/^name: ui-ux$/name: uiux/'
 expect_fail "skill name != folder"      "name must equal folder"
+fresh; subst "$W/r/harness/skills/color-science/SKILL.md" 's/^name: color-science$/name: color/'
+expect_fail "color-science name != folder" "name must equal folder"
+fresh; subst "$W/r/harness/skills/typography/SKILL.md" '/^description:/s/Use when/Load for/'
+expect_fail "typography without Use when" "Use when"
 fresh; for i in $(seq 1 160); do echo "- filler $i" >> "$W/r/harness/core/00-core.md"; done
 expect_fail "core over budget"          "00-core.md is"
 fresh; printf 'a\r\nb\r\n' >> "$W/r/harness/rules/tests.md"

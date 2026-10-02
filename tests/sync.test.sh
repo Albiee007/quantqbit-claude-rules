@@ -307,19 +307,62 @@ check "doctor names the path" grep -q '.claude/skills/' "$WORK/doc.log"
 echo "29. mobile profile installs the store and brand agents and skills"
 R21="$(new_repo mobile)"
 run "$R21" --profiles mobile; check "mobile install exits 0" test $? -eq 0
-for a in screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator; do
+for a in screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator; do
   check "agent $a installed" test -f "$R21/.claude/agents/$a.md"
 done
-for s in mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets; do
+for s in mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets story-art; do
   check "skill $s installed" test -f "$R21/.claude/skills/$s/SKILL.md"
 done
 check "store snippet installed" test -f "$R21/.claude/harness/snippets/store.md"
+check "art snippet installed" test -f "$R21/.claude/harness/snippets/art.md"
 check "kit template copied verbatim" grep -q 'window.FRAMES' "$R21/.claude/skills/store-mockups/templates/frame.html"
 check "seo skill not in mobile" test ! -e "$R21/.claude/skills/seo"
 R22="$(new_repo webonly)"
 run "$R22" --profiles web; check "web install exits 0" test $? -eq 0
 check "web gets brand-assets" test -f "$R22/.claude/skills/brand-assets/SKILL.md"
+check "web gets story-art" test -f "$R22/.claude/skills/story-art/scripts/export_art.py"
+check "web gets illustrator" test -f "$R22/.claude/agents/illustrator.md"
 check "web skips store-mockups" test ! -e "$R22/.claude/skills/store-mockups"
+check "web gets the art snippet" test -f "$R22/.claude/harness/snippets/art.md"
+check "web skips the store snippet" test ! -e "$R22/.claude/harness/snippets/store.md"
+
+echo "30. typography and color-science ship with web and mobile only"
+for s in typography color-science; do
+  check "web gets $s" test -f "$R22/.claude/skills/$s/SKILL.md"
+  check "web gets $s references" test -f "$R22/.claude/skills/$s/references/sources.md"
+  check "mobile gets $s" test -f "$R21/.claude/skills/$s/SKILL.md"
+  check "backend skips $s" test ! -e "$R2/.claude/skills/$s"
+done
+R23="$(new_repo infraonly)"
+run "$R23" --profiles infra; check "infra install exits 0" test $? -eq 0
+check "infra skips typography" test ! -e "$R23/.claude/skills/typography"
+check "infra skips color-science" test ! -e "$R23/.claude/skills/color-science"
+R24="$(new_repo webshrink)"
+run "$R24" --profiles web --commit; check "web install (commit) ok" test $? -eq 0
+run "$R24" --profiles backend --commit; check "web → backend ok" test $? -eq 0
+check "profile shrink removes typography" test ! -e "$R24/.claude/skills/typography"
+check "profile shrink removes color-science" test ! -e "$R24/.claude/skills/color-science"
+# An install made by a release without the two skills gains them on update.
+OLD="$WORK/src-old"; mkdir -p "$OLD"
+cp -R "$SRC/harness" "$SRC/scaffold" "$OLD/"
+rm -rf "$OLD/harness/skills/typography" "$OLD/harness/skills/color-science"
+grep -v -e '^skills/typography/' -e '^skills/color-science/' "$SRC/harness/profiles.tsv" > "$OLD/harness/profiles.tsv"
+echo 1.5.0 > "$OLD/VERSION"
+grep -v -e 'skills/typography/' -e 'skills/color-science/' "$SRC/harness/manifest.tsv" > "$OLD/harness/manifest.tsv"
+bash "$OLD/scaffold/lib/release.sh" >"$WORK/out.log" 2>&1; check "old source manifest built" test $? -eq 0
+R25="$(new_repo upgrade)"
+bash "$OLD/scaffold/sync.sh" --target "$R25" --profiles web --commit >"$WORK/out.log" 2>&1
+check "old release installs without the skills" test ! -e "$R25/.claude/skills/typography"
+run "$R25" --commit; check "update exits 0" test $? -eq 0
+check "update adds typography" test -f "$R25/.claude/skills/typography/SKILL.md"
+check "update adds color-science" test -f "$R25/.claude/skills/color-science/SKILL.md"
+check "update records them in the lock" grep -q 'skills/color-science/SKILL.md' "$R25/.claude/harness/lock"
+R26="$(new_repo ownskill)"; mkdir -p "$R26/.claude/skills/typography"
+echo "mine" > "$R26/.claude/skills/typography/SKILL.md"
+git -C "$R26" add -A; git -C "$R26" commit -qm own
+run "$R26" --profiles web; check "own typography skill blocks (exit 1)" test $? -eq 1
+check "CONFLICT-UNMANAGED names typography" grep -q 'CONFLICT-UNMANAGED.*skills/typography' "$WORK/out.log"
+check "reserved list names color-science" grep -q 'color-science' "$WORK/out.log"
 
 echo
 echo "sync tests: $pass passed, $fail failed"

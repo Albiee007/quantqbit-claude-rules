@@ -9,5 +9,6 @@ UI checklist (web / React Native / Android / iOS):
 - States: loading, empty, error, partial, success, disabled, offline, long/zero/many items.
 - Motion 100-500 ms with token easing. Respect reduced motion.
 - Verb-first buttons. No hard-coded or concatenated strings. Start/end (RTL-safe) layout.
+- Type and color: reuse project tokens, adapt to project evidence (no universal scale/palette), check text scaling, CVD, and every theme.
 - Follow platform conventions (Material 3, Apple HIG, web). Self-review with the pre-merge checklist.
-Load skill: ui-ux (mandatory for UI work).
+Load skills: ui-ux, typography, color-science (all mandatory for UI work).
