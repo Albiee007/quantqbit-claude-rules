@@ -8,11 +8,14 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import time
 from pathlib import Path
+from typing import Callable
 
 from .fsutil import OperationalError
 
 TIMEOUT_S = 120  # one page render; a hung browser is an operational failure, not a wait forever
+GRACE_S = 3  # once the output is complete, how long the browser gets to exit on its own
 
 
 def _kill_group(proc: subprocess.Popen) -> None:
@@ -30,29 +33,54 @@ def _kill_group(proc: subprocess.Popen) -> None:
             pass
 
 
-def _run(argv: list[str], timeout: float) -> tuple[int, bytes, bytes]:
+def _run(argv: list[str], timeout: float,
+         done: Callable[[Path, Path], bool] | None = None) -> tuple[int, bytes, bytes]:
     """Run the browser with a hard time limit; returns (exit code, stdout, stderr).
 
     Output goes to temporary files, not pipes: browser helpers inherit the descriptors and can
     outlive the browser, and waiting for a pipe to close would then never end, even after a
     timeout. The browser gets its own process group so a timeout stops the helpers too, and any
-    still running after a normal exit are stopped as well."""
-    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+    still running after a normal exit are stopped as well.
+
+    `done(stdout_path, stderr_path)` says the result is complete. The browser does not always
+    exit after that (seen on macOS while Google's updater runs on first launch), so it gets
+    GRACE_S seconds and is then stopped, and the run counts as finished."""
+    # Not TemporaryDirectory: on Windows a helper that outlives the browser keeps the files open,
+    # and failing to delete them must not fail the render.
+    tmp = tempfile.mkdtemp(prefix="harness-browser-")
+    try:
+        out_path, err_path = Path(tmp) / "stdout", Path(tmp) / "stderr"
         extra = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"
                  else {"start_new_session": True})
-        proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **extra)
-        try:
-            rc = proc.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            _kill_group(proc)
-            proc.kill()
-            proc.wait()
-            raise
+        with open(out_path, "wb") as out, open(err_path, "wb") as err:
+            proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **extra)
+        deadline = time.monotonic() + timeout
+        complete_at = None
+        while True:
+            try:
+                rc = proc.wait(timeout=0.1)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+            now = time.monotonic()
+            if complete_at is None and done is not None and done(out_path, err_path):
+                complete_at = now
+            if complete_at is not None and now - complete_at >= GRACE_S:
+                _kill_group(proc)
+                proc.kill()
+                proc.wait()
+                rc = 0
+                break
+            if now >= deadline:
+                _kill_group(proc)
+                proc.kill()
+                proc.wait()
+                raise subprocess.TimeoutExpired(argv, timeout)
         if os.name != "nt":
             _kill_group(proc)
-        out.seek(0)
-        err.seek(0)
-        return rc, out.read(), err.read()
+        return rc, out_path.read_bytes(), err_path.read_bytes()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def find_chrome(explicit: str | None) -> str:
@@ -100,7 +128,8 @@ def screenshot(chrome: str, url: str, size: tuple[int, int], dest: Path, budget_
     with tempfile.TemporaryDirectory() as tmp:
         try:
             rc, _, err = _run(cmd(chrome, str(Path(tmp) / "profile"), size, budget_ms, transparent)
-                              + [f"--screenshot={dest}", url], TIMEOUT_S)
+                              + [f"--screenshot={dest}", url], TIMEOUT_S,
+                              lambda _o, e: b"bytes written to file" in e.read_bytes() and Path(dest).is_file())
         except subprocess.TimeoutExpired:
             raise OperationalError(f"{Path(dest).name}: the browser did not finish within {TIMEOUT_S} s") from None
     if rc != 0 or not Path(dest).is_file():
@@ -111,7 +140,7 @@ def dump_dom(chrome: str, url: str, size: tuple[int, int], budget_ms: int = 8000
     with tempfile.TemporaryDirectory() as tmp:
         try:
             rc, out, err = _run(cmd(chrome, str(Path(tmp) / "profile"), size, budget_ms) + ["--dump-dom", url],
-                                TIMEOUT_S)
+                                TIMEOUT_S, lambda o, _e: o.read_bytes().rstrip().endswith(b"</html>"))
         except subprocess.TimeoutExpired:
             raise OperationalError(f"--dump-dom did not finish within {TIMEOUT_S} s") from None
     if rc != 0:

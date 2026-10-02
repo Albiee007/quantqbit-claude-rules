@@ -32,7 +32,7 @@ hooks/prompt-router.sh	.claude/harness/hooks/prompt-router.sh	1.7.0	3cadf59b38c5
 hooks/session-start.sh	.claude/harness/hooks/session-start.sh	1.7.0	2ab1bb1d13b0bc79f350bc5bc0844c96275aa796c78e8dafcd7a2bf3c5878fc5	all
 lib/README.md	.claude/harness/lib/README.md	1.7.0	d3315bb834aea9583f78ad82e3a6a6216f3c74c413d7504951698d8d4c709c86	web,mobile
 lib/harnesslib/__init__.py	.claude/harness/lib/harnesslib/__init__.py	1.7.0	22bb2a7c1228b3006f6c6b60590bb85feecff350e4f4ac498fdfd30c06c10e55	web,mobile
-lib/harnesslib/browser.py	.claude/harness/lib/harnesslib/browser.py	1.7.0	081cfeffc11aec3bbb7be81b5e0942548c0932168189997a56e8f57d7654ffe9	web,mobile
+lib/harnesslib/browser.py	.claude/harness/lib/harnesslib/browser.py	1.7.0	ceb0dd1a55722a8e92d59e044299c4b6e84d59f82c6f162c1bbfcbff4580a331	web,mobile
 lib/harnesslib/color.py	.claude/harness/lib/harnesslib/color.py	1.7.0	45304e9ec24344aceebe6109c649f2bb3bd3a7499563f03d256ede7b9ae86d8a	web,mobile
 lib/harnesslib/contrast.py	.claude/harness/lib/harnesslib/contrast.py	1.7.0	f86156c1d0bbf427a747a55d50064c21c0257ab9105d1fc4429208a3d5b242d8	web,mobile
 lib/harnesslib/direction.py	.claude/harness/lib/harnesslib/direction.py	1.7.0	a1a9aa8864ee2b5cd56846d9fda2934c3f3c899cda2796e2bd2be7915d8112e0	web,mobile
