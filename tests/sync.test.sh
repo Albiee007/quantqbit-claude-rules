@@ -316,6 +316,13 @@ R20="$(new_repo ignoredlater)"; run "$R20" --profiles all
 printf '/.claude/skills/\n' > "$R20/.gitignore"
 bash "$R20/.claude/harness/bin/harness-doctor.sh" > "$WORK/doc.log" 2>&1; check "doctor flags ignored harness files (exit 2)" test $? -eq 2
 check "doctor names the path" grep -q '.claude/skills/' "$WORK/doc.log"
+R19b="$(new_repo ignoredall)"; printf 'dist\n.claude/\n' > "$R19b/.gitignore"
+git -C "$R19b" add .gitignore; git -C "$R19b" commit -qm ignore
+run "$R19b" --profiles all --commit; check "a rule hiding all of .claude/ is refused (exit 1)" test $? -eq 1
+check "and the fix keeps only the local settings ignored" grep -q 'Replace that line with' "$WORK/out.log"
+check "without the skills-only example" bash -c "! grep -q 'For example, replace' '$WORK/out.log'"
+printf 'dist\n.claude/settings.local.json\n' > "$R19b/.gitignore"; git -C "$R19b" commit -qam narrow
+run "$R19b" --profiles all --commit; check "that fix works (exit 0)" test $? -eq 0
 
 echo "29. mobile profile installs the store and brand agents and skills"
 R21="$(new_repo mobile)"

@@ -484,6 +484,20 @@ if [[ $in_git -eq 1 && $uninstall -eq 0 ]]; then
       hc_fail "these harness files are ignored by git, so teammates would never get them — nothing was written:"
     fi
     printf '%s\n' "$ignored" | awk -F'\t' '{ printf "    %-50s (rule %s)\n", $2, $1 }' >&2
+    # A rule that hides all of .claude/ gets its own advice: the harness is meant to be committed,
+    # and only Claude Code's per-person files stay ignored.
+    if printf '%s\n' "$ignored" | cut -f1 | sed 's/^[^:]*:[0-9]*://' \
+         | grep -qxE '/?\.claude(/|/\*|/\*\*)?'; then
+      {
+        printf '  Fix: a rule ignores all of .claude/, but the harness is meant to be committed so every\n'
+        printf '       teammate and session gets the same rules. Replace that line with\n'
+        printf '         .claude/settings.local.json\n'
+        printf '       (per-person settings stay private), then re-run.\n'
+      } >&2
+      if [[ $dry -eq 1 ]]; then ignored=""; else exit 1; fi
+    fi
+  fi
+  if [[ -n "$ignored" ]]; then
     # The suggested exceptions name the harness skills this profile actually installs.
     {
       printf '  Fix: narrow that rule so the harness paths are not ignored. For example, replace\n'

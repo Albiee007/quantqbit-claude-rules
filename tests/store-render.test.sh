@@ -29,7 +29,13 @@ trap 'rm -rf "$W"' EXIT
 pass=0; fail=0
 
 ok()    { pass=$((pass + 1)); printf '  [OK] %s\n' "$*"; }
-bad()   { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$*"; tail -n 15 "$W/out" 2>/dev/null | sed 's/^/        /'; }
+bad()   { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$*"; tail -n 15 "$W/out" 2>/dev/null | sed 's/^/        /'
+          annotate "$*"; }
+annotate() { # on GitHub Actions, a failure also becomes an annotation (readable without the log)
+  [[ "${GITHUB_ACTIONS:-}" == "true" ]] || return 0
+  local body; body="$(tail -n 8 "$W/out" 2>/dev/null | cut -c1-300 | sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }')"
+  printf '::error title=store-render: %s::%s\n' "${1//::/ }" "$body"
+}
 check() { local d="$1"; shift; if "$@"; then ok "$d"; else bad "$d"; fi; }
 run()   { local rc; ( cd "$W/proj" && hc_py "$@" ) > "$W/out" 2>&1; rc=$?; echo "$rc" > "$W/rc"; return 0; }
 runin() { local dir="$1" rc; shift; ( cd "$dir" && hc_py "$@" ) > "$W/out" 2>&1; rc=$?; echo "$rc" > "$W/rc"; return 0; }
@@ -150,6 +156,20 @@ if [[ -z "$CHROME" ]]; then
   if [[ "${CI:-}" == "true" ]]; then bad "Chrome, Chromium or Edge is required in CI for the render tests"
   else echo "[SKIP] rendering cases: no Chrome, Chromium or Edge found"; fi
 else
+  echo "== browser smoke test ($CHROME)"
+  printf '<!doctype html><body style="margin:0;background:#123456"></body>' > "$W/proj/smoke.html"
+  run -c "import sys, time; sys.path.insert(0, sys.argv[1]); from pathlib import Path; from harnesslib import browser
+browser.TIMEOUT_S = 90; t = time.time()
+print(browser.version(sys.argv[2]))
+browser.screenshot(sys.argv[2], Path(sys.argv[3]).resolve().as_uri(), (64, 64), Path(sys.argv[4]).resolve(), 1000)
+print(f'screenshot in {time.time() - t:.1f} s')" "$ROOT/harness/lib" "$CHROME" smoke.html smoke.png
+  cat "$W/out"
+  if ! rc 0; then
+    bad "headless Chrome can take one screenshot within 90 s"
+    echo "store render tests: $pass passed, $fail failed (stopped: the browser does not work here)"
+    exit 1
+  fi
+  ok "headless Chrome takes a screenshot"; rm -f "$W/proj/smoke.html" "$W/proj/smoke.png"
   echo "== legacy 1.6 kit: render --all with $CHROME"
   mkdir -p "$W/proj/legacy/out/play/phone"
   hc_py -c "import sys; from PIL import Image; Image.new('RGB', (1080, 1920)).save(sys.argv[1])" "$W/proj/legacy/out/play/phone/99-unknown.png"
@@ -221,7 +241,7 @@ exec "%s" --use-mock-keychain --password-store=basic --no-default-browser-check 
       if [[ "$k" == continuous ]]; then mkdir -p "$W/proj/p-$k/assets"; cp "$W/proj/pano/assets/photo.png" "$W/proj/p-$k/assets/"; fi
       edit "$W/proj/p-$k/frames.json" 'cfg["sizes"] = ["play-phone"]'
       # shellcheck disable=SC2086  # $PYCMD may be "py -3"
-      ( cd "$W/proj" && CHROME="$OLDCHROME" perl -e 'alarm shift; exec @ARGV' 600 $PYCMD           "$OLD/harness/skills/store-mockups/scripts/render_frames.py" render "p-$k" --sizes play-phone --out "old-$k" )         > "$W/out" 2>&1; echo $? > "$W/rc"
+      ( cd "$W/proj" && CHROME="$OLDCHROME" perl -e 'alarm shift; exec @ARGV' 300 $PYCMD           "$OLD/harness/skills/store-mockups/scripts/render_frames.py" render "p-$k" --sizes play-phone --out "old-$k" )         > "$W/out" 2>&1; echo $? > "$W/rc"
       oldrc=$(cat "$W/rc")
       run "$RENDER" render "p-$k" --sizes play-phone --out "new-$k"
       check "$k: both renders succeed" bash -c "[[ $oldrc == 0 && \$(cat '$W/rc') == 0 ]]"
