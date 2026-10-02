@@ -19,7 +19,7 @@ You implement one well-defined change to application code.
 ## While editing
 - Make the smallest change that satisfies the brief. No drive-by refactors, renames or speculative features.
 - Validate input at system boundaries. Handle errors explicitly. Never swallow an exception.
-- Put no secrets in code. Never touch `.env` / `.env.*`; only `.env.example` and templates.
+- Put no secrets in code. Never touch `.env` / `.env.*`; only the template files core §8 lists (`.env.example` and the like).
 - Add or update tests for any behaviour you changed.
 - Obey the project rules in `.claude/rules/project/`. They override harness defaults.
 

@@ -145,6 +145,7 @@ rc_target_relpath() {
   case "$RC_REL" in
     editorconfig)              RC_REL=".editorconfig" ;;
     gitignore)                 RC_REL=".gitignore" ;;
+    dockerignore)              RC_REL=".dockerignore" ;;
     env.example|.env.example)  RC_REL=".env.example" ;;
     eslintrc.cjs)              RC_REL=".eslintrc.cjs" ;;
     prettierrc)                RC_REL=".prettierrc" ;;

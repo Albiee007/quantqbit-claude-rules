@@ -6,6 +6,7 @@
 #   kept-local file deliberately kept diverged (sync --keep)
 #   unmanaged  file inside a harness-owned dir that the lock doesn't know
 #   conflict   git merge-conflict markers in the lock
+#   hooks off  a settings file sets "disableAllHooks": true
 #   ignore     CLAUDE.local.md / settings.local.json not gitignored, or harness files gitignored
 #   behind     a newer harness version is available (if the source is found)
 # Usage: bash .claude/harness/bin/harness-doctor.sh [--quiet]
@@ -66,6 +67,19 @@ for d in .claude/rules/harness .claude/harness/hooks .claude/harness/snippets .c
     rel="${f#"$ROOT"/}"
     grep -qF $'\t'"$rel"$'\t' "$rows" || warn "unmanaged file in harness-owned dir: $rel (move it to .claude/rules/project/)"
   done < <(find "$ROOT/$d" -type f)
+done
+
+# "disableAllHooks" anywhere above managed settings silently switches off every
+# harness guard and gate. Sync refuses it in settings.project.json; the
+# personal files can still set it, so say so.
+for f in "$ROOT/.claude/settings.json" "$ROOT/.claude/settings.local.json" "${HOME:-}/.claude/settings.json"; do
+  if [[ -f "$f" ]] && grep -qE '"disableAllHooks"[[:space:]]*:[[:space:]]*true' "$f"; then
+    if [[ "$f" == "$ROOT/.claude/settings.json" ]]; then
+      err "hooks off: .claude/settings.json sets disableAllHooks — no harness guard or gate runs; remove it and re-sync"
+    else
+      warn "hooks off: $f sets disableAllHooks — no harness guard or gate runs for you"
+    fi
+  fi
 done
 
 # Personal files must stay out of git.

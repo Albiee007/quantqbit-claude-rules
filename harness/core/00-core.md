@@ -64,7 +64,7 @@ If a check cannot run (tool missing, network blocked), say so and state what rem
 - Never hardcode user-specific absolute paths (`C:\Users\...`, `/home/...`, `/Users/...`).
 
 ## 8. Secrets and `.env`: never touch (critical)
-- Never read, write, edit, delete, restore, stage or commit `.env` / `.env.*` files. Only `.env.example` and `.env.template` may be edited.
+- Never read, write, edit, delete, restore, stage or commit `.env` / `.env.*` files. Only committed templates without real values may be edited: `.env.example`, `.env.template`, `.env.sample`, `.env.dist`, `.env.defaults`, `.env.schema`, and names ending in `.example`, `.template` or `.sample` (such as `.env.local.example`).
 - Never print secrets, tokens or credentials in output, logs, commits or PRs.
 - If a `.env` looks lost or broken, tell the user and let them fix it.
 - Reason: a past incident destroyed a developer's `.env`.

@@ -139,12 +139,21 @@ echo "12. project settings merge + Opus lock"
 R7="$(new_repo settings)"; mkdir -p "$R7/.claude"
 printf '{"model":"sonnet"}\n' > "$R7/.claude/settings.project.json"; git -C "$R7" add -A; git -C "$R7" commit -qm s
 run "$R7" --profiles all; check "non-Opus project model rejected" test $? -ne 0
+printf '{"disableAllHooks":true}
+' > "$R7/.claude/settings.project.json"; git -C "$R7" commit -qam d
+run "$R7" --profiles all; check "project disableAllHooks rejected" test $? -ne 0
+check "rejection names the key" grep -q 'disableAllHooks' "$WORK/out.log"
 printf '{"env":{"CLAUDE_CODE_SUBAGENT_MODEL":"haiku","FOO":"1"},"permissions":{"allow":["Bash(make test)"]}}\n' > "$R7/.claude/settings.project.json"
 git -C "$R7" commit -qam s2
 run "$R7" --profiles all; check "merge ok" test $? -eq 0
 check "project allow merged" grep -q 'Bash(make test)' "$R7/.claude/settings.json"
 check "subagent model stays opus" grep -q '"CLAUDE_CODE_SUBAGENT_MODEL": "opus"' "$R7/.claude/settings.json"
 check "project env kept" grep -q '"FOO": "1"' "$R7/.claude/settings.json"
+printf '{"disableAllHooks": true}
+' > "$R7/.claude/settings.local.json"
+HOME="$WORK/home" bash "$R7/.claude/harness/bin/harness-doctor.sh" >"$WORK/out.log" 2>&1
+check "doctor warns about personal disableAllHooks" grep -q 'hooks off: .*settings.local.json' "$WORK/out.log"
+rm -f "$R7/.claude/settings.local.json"
 
 echo "13. path with spaces"
 R8="$(new_repo "with space")"; run "$R8" --profiles all; check "install ok" test $? -eq 0
@@ -185,7 +194,7 @@ check "ui-ux still absent" test ! -e "$R10/.claude/skills/ui-ux"
 echo "18. existing settings.json + settings.project.json + v0.x entries migrate safely"
 R11="$(new_repo migrate)"; mkdir -p "$R11/.claude"
 cat > "$R11/.claude/settings.json" <<'JSON'
-{"model":"sonnet","permissions":{"allow":["Bash(make build)"],"deny":["Edit(**/.env.*)","Write(**/.env.*)","Bash(curl*)"]},
+{"model":"sonnet","disableAllHooks":true,"permissions":{"allow":["Bash(make build)"],"deny":["Edit(**/.env.*)","Write(**/.env.*)","Bash(curl*)"]},
  "hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"bash .claude/hooks/session-start-context.sh"}]}],
           "PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"bash .claude/hooks/post-edit-lint.sh"},{"type":"command","command":"echo keep-me"}]}]}}
 JSON
@@ -200,6 +209,7 @@ check "v0.x .env.* deny dropped" test -z "$(grep 'Edit(\*\*/.env.\*)' "$p")"
 check "v0.x hooks dropped" test -z "$(grep 'session-start-context' "$p")"
 check "unrelated hook kept" grep -q 'keep-me' "$p"
 check "non-Opus model dropped" test -z "$(grep '"model"' "$p")"
+check "disableAllHooks dropped" test -z "$(grep 'disableAllHooks' "$p" "$s")"
 check "generated settings has harness guard" grep -q 'guard.sh' "$s"
 
 echo "19. --theirs keeps a persistent backup"

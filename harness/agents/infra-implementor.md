@@ -18,7 +18,7 @@ You implement one well-defined infrastructure or tooling change.
 - **Ansible:** Use FQCN modules (`ansible.builtin.copy`). Every task needs a `name:`. Tasks must be idempotent; for `command`/`shell` set `creates`/`removes`. Restart services through handlers. `group_vars` file names must match inventory groups exactly.
 - **Compose:** No top-level `version:`. Every service has a `healthcheck:`. Use `${VAR}` substitution with no hardcoded secrets or domains. Let Compose own its networks. Services behind a reverse proxy publish no host ports.
 - **Terraform:** Use variables, not literals, for provider IDs, regions, sizes and zones. Remote state only. Never commit `*.tfvars` or state; commit `*.tfvars.example`. Keep the DNS module separate from compute.
-- **Everywhere:** Never edit `.env` / `.env.*`; only `.env.example` and `.env.template`. Never run destructive operations (`terraform apply` or `destroy`, `docker system prune`, `rm -rf` outside the workspace) unless the user explicitly asks.
+- **Everywhere:** Never edit `.env` / `.env.*`; only the template files core §8 lists (`.env.example` and the like). Never run destructive operations (`terraform apply` or `destroy`, `docker system prune`, `rm -rf` outside the workspace) unless the user explicitly asks.
 
 ## Workflow
 1. Make the smallest change that satisfies the brief. No opportunistic restructuring.

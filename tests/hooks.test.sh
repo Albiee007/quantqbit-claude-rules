@@ -11,6 +11,7 @@ export TMPDIR="$P/tmp"; mkdir -p "$TMPDIR"
 trap 'rm -rf "$P"' EXIT
 mkdir -p "$P/.claude/harness/snippets"
 cp "$SRC"/harness/snippets/*.md "$P/.claude/harness/snippets/"
+for s in ui-ux typography color-science seo; do mkdir -p "$P/.claude/skills/$s"; : > "$P/.claude/skills/$s/SKILL.md"; done
 export CLAUDE_PROJECT_DIR="$P"
 pass=0; fail=0
 
@@ -39,6 +40,18 @@ expect "deny git add .env.local" guard.sh '{"tool_name":"Bash","tool_input":{"co
 expect "allow cp .env.example x" guard.sh '{"tool_name":"Bash","tool_input":{"command":"diff .env.example .env.template"}}' ''
 expect "allow process.env"       guard.sh '{"tool_name":"Bash","tool_input":{"command":"node -e \"console.log(process.env.HOME)\""}}' ''
 expect "allow unrelated tool"    guard.sh '{"tool_name":"Glob","tool_input":{"pattern":"**/.env"}}' ''
+
+echo "guard ↔ core: one .env exception list"
+core_names="$(grep -m1 'may be edited' "$SRC/harness/core/00-core.md" | grep -oE '`\.env\.[a-z]+`' | tr -d '`' | sort | xargs)"
+guard_names="$(grep -m1 '^ENV_OK_RE=' "$HK/guard.sh" | grep -oE '\([a-z|]+\)' | head -n1 | tr -d '()' | tr '|' ' ' | xargs -n1 | sed 's/^/.env./' | sort | xargs)"
+if [[ -n "$core_names" && "$core_names" == "$guard_names" ]]; then pass=$((pass+1)); echo "  [OK] core and guard list the same names ($core_names)"
+else fail=$((fail+1)); echo "  [FAIL] core lists '$core_names', guard allows '$guard_names'"; fi
+for n in $core_names .env.local.example; do
+  expect "allow $n" guard.sh "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/p/$n\"}}" ''
+done
+for n in .env.local .env.backup .env.prod .env.example.bak; do
+  expect "deny $n" guard.sh "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"/p/$n\"}}" 'deny'
+done
 
 echo "guard (gaps found in live verification)"
 expect "deny glob cat .env*"          guard.sh '{"tool_name":"Bash","tool_input":{"command":"cat .env*"}}' 'deny'
@@ -95,6 +108,13 @@ expect "valid JSON escaping"           prompt-router.sh '{"session_id":"a7","pro
 echo "file-context"
 expect "new .tsx → ui"       file-context.sh '{"session_id":"b1","tool_name":"Write","tool_input":{"file_path":"/p/src/components/Card.tsx"}}' 'ui-ux'
 expect "robots.txt → seo"    file-context.sh '{"session_id":"b2","tool_name":"Write","tool_input":{"file_path":"/p/public/robots.txt"}}' 'seo'
+expect "backend API route → no seo gate" file-context.sh '{"session_id":"b2a","tool_name":"Write","tool_input":{"file_path":"/p/src/api/v1/users/routes/users.routes.ts"}}' 'security'
+out="$(run file-context.sh '{"session_id":"b2b","tool_name":"Write","tool_input":{"file_path":"/p/server/routes/index.ts"}}')"
+grep -q 'permissionDecision\|SEO checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] server route gated by seo — got: ${out:0:120}"; } || { pass=$((pass+1)); echo "  [OK] server route not gated by seo"; }
+mv "$P/.claude/skills/seo" "$P/.claude/skills/seo.off"
+out="$(run file-context.sh '{"session_id":"b2c","tool_name":"Write","tool_input":{"file_path":"/p/public/robots.txt"}}')"
+grep -q 'permissionDecision' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] gate fired for an uninstalled skill"; } || { pass=$((pass+1)); echo "  [OK] no gate when the skill is not installed"; }
+mv "$P/.claude/skills/seo.off" "$P/.claude/skills/seo"
 expect "auth route → security" file-context.sh '{"session_id":"b3","tool_name":"Edit","tool_input":{"file_path":"/p/src/auth/login.ts"}}' 'security'
 expect "app.json → store checklist" file-context.sh '{"session_id":"b8","tool_name":"Edit","tool_input":{"file_path":"/p/mobile/app.json"}}' 'store-submission-precheck'
 expect "store-assets file → store checklist" file-context.sh '{"session_id":"b9","tool_name":"Write","tool_input":{"file_path":"C:\\p\\mobile\\store-assets\\LISTING.md"}}' 'store'
@@ -112,6 +132,12 @@ if [[ $(grep -o '"permissionDecision":"deny"' <<<"$out" | wc -l) -eq 1 ]] && gre
 else fail=$((fail+1)); echo "  [FAIL] UI deny should name all three skills once — got: ${out:0:200}"; fi
 expect "retry after three-skill deny allowed" file-context.sh '{"session_id":"b10","tool_name":"Write","tool_input":{"file_path":"/p/src/theme/tokens.css"}}' ''
 expect "no second deny for another UI file"   file-context.sh '{"session_id":"b10","tool_name":"Write","tool_input":{"file_path":"/p/src/styles/app.scss"}}' ''
+mv "$P/.claude/skills/typography" "$P/.claude/skills/typography.off"; mv "$P/.claude/skills/color-science" "$P/.claude/skills/color-science.off"
+out="$(run file-context.sh '{"session_id":"b13","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Old.tsx"}}')"
+if grep -q 'falls under a mandatory skill\.' <<<"$out" && grep -q 'ui-ux/SKILL.md' <<<"$out" && ! grep -q 'typography/SKILL.md' <<<"$out"; then
+  pass=$((pass+1)); echo "  [OK] UI deny lists only the installed skills"
+else fail=$((fail+1)); echo "  [FAIL] partial install deny — got: ${out:0:200}"; fi
+mv "$P/.claude/skills/typography.off" "$P/.claude/skills/typography"; mv "$P/.claude/skills/color-science.off" "$P/.claude/skills/color-science"
 expect "SEO deny keeps singular wording"      file-context.sh '{"session_id":"b12","tool_name":"Write","tool_input":{"file_path":"/p/public/robots.txt"}}' 'falls under a mandatory skill\.'
 printf 'checklists=inform\n' > "$P/.claude/harness.config"
 expect "inform mode adds context only"     file-context.sh '{"session_id":"b7","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Y.tsx"}}' '"additionalContext"'

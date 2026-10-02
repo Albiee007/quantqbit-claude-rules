@@ -4,7 +4,9 @@
 #   1. Agent/Task calls that request a non-Opus model (harness Opus policy).
 #   2. Read/Edit/Write/NotebookEdit of real .env files (.env, .env.local,
 #      .env.staging, .ENV …) and Grep calls whose path/glob targets them.
-#      Allowed: .env.example, .env.template, .env.sample, .env.dist, .env.defaults.
+#      Allowed: .env.example, .env.template, .env.sample, .env.dist, .env.defaults,
+#      .env.schema and names ending .example/.template/.sample. Core §8 lists
+#      the same set; tests/hooks.test.sh keeps the two in step.
 #   3. Bash/PowerShell commands that name a real .env file or a .env* glob.
 #      Exclusion arguments (--exclude=.env*, -g '!.env') and read-only metadata
 #      commands (ls, stat, test, git status/check-ignore/ls-files) are allowed.

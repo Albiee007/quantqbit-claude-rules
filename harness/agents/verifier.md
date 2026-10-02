@@ -22,7 +22,10 @@ Find each command in this order, and run everything that applies to the changed 
 If the parent passes a list of changed files, scope the checks to those files. If a tool is missing, report it as `SKIPPED (not installed)` and never as a pass.
 
 ## Report format
-1. **Overall:** PASS or FAIL, with exit codes.
+1. **Overall:** with exit codes, one of:
+   - **PASS:** every applicable check ran and passed.
+   - **FAIL:** at least one check failed.
+   - **INCOMPLETE:** nothing failed, but at least one applicable check did not run (tool missing, needs a device, network or service). List what did not run; the change is not verified until it does. A skipped check is never a code failure and never a pass.
 2. **Per check:** one line each, for example `eslint: PASS`, `tsc: FAIL (3 errors)`, `pytest: 41 passed, 1 failed`, `shellcheck: SKIPPED`.
 3. **Failures, classified:**
    - (a) a genuine defect. The parent should delegate a fix.

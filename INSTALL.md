@@ -121,6 +121,7 @@ Resolving conflicts:
 **Settings merge rules:**
 - Objects merge recursively.
 - Arrays are unioned, so harness deny rules and hooks cannot be dropped.
+- `"disableAllHooks": true` is refused (on migration it is removed), since it would switch every harness hook off.
 - For scalar values, the project wins.
 - `env.CLAUDE_CODE_SUBAGENT_MODEL*` stays locked to Opus, and a non-Opus `model` is rejected.
 
@@ -144,10 +145,11 @@ It reports:
 3. **Hard enforcement:**
    - `CLAUDE_CODE_SUBAGENT_MODEL=opus` forces Opus: verified on Claude Code 2.1.214, where it overrides agent frontmatter. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` is set as well, for versions that support it.
    - The `guard` hook denies non-Opus Agent calls. It also denies Read/Edit/Write/Grep calls and Bash/PowerShell commands that name a real `.env` file or a `.env*` glob, in any letter case. `.env.example` and similar templates stay allowed. This is best-effort pattern matching: it cannot see indirect reads such as `grep -r .` or `find -exec cat`, so add `.env*` and `!.env.example` to your root `.gitignore` (sync does not do this for you). Gitignore does not stop an agent reading a file; it keeps secrets out of commits.
-   - `file-context` denies the first UI or SEO file write in each agent context once (even if the prompt router already showed the checklist), with the checklist and the skill to load; the retry is allowed. Set `checklists=inform` in `harness.config` to only add the checklist instead.
+   - `file-context` denies the first UI or SEO file write in each agent context once (even if the prompt router already showed the checklist), with the checklist and the skill to load; the retry is allowed. It gates only skills the project's profiles install, and server paths (`api/`, `server/`, `backend/`, `controllers/`, `middlewares/`) never get the SEO gate. The gate is a reminder, not proof: it does not check that the skill was actually read before the retry. Set `checklists=inform` in `harness.config` to only add the checklist instead.
    - Each hook typically takes 0.1–0.3 s on an idle Windows machine and 1–2 s under load or antivirus scanning (mostly bash start-up); less on macOS and Linux.
    - `harness:managed vX` stamps show each file's own `file_version`: files unchanged since an earlier release keep the older number. That is expected.
    - `permissions.deny` blocks `git add -A`, force-push and `rm -rf /`.
+   - **Limit:** all of this is project-level policy. A personal `.claude/settings.local.json` or `~/.claude/settings.json` can still set `disableAllHooks` or relax permissions; `harness doctor` reports `disableAllHooks` wherever it finds it. Enforcement nobody can override needs [managed settings](https://code.claude.com/docs/en/settings#settings-files) deployed by an administrator.
 
 > **Note:** project settings use `defaultMode: "plan"`, which takes precedence over a personal `bypassPermissions` default. Override it in `.claude/settings.project.json` if your team prefers another mode.
 

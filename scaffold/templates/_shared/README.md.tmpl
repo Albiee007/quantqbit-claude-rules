@@ -19,6 +19,7 @@ See the platform-specific commands in the stamped `package.json` / `build.gradle
 ```bash
 # install deps
 npm install        # or ./gradlew dependencies for Android
+                   # commit package-lock.json: the Dockerfile installs with `npm ci`
 
 # build smoke test
 npm run build      # or ./gradlew assembleDebug

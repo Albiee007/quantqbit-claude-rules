@@ -8,6 +8,29 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.6.1] - 2026-10-02
+
+Fixes from an external review of the scaffold templates and harness enforcement (prepared as 1.5.1, released after 1.6.0). Each finding was reproduced before it was fixed.
+
+### Security
+- **Frontend sign-in placeholder** (`--with-auth`): the form had no submit handler or method, so the browser's default GET put the email and password in the URL. It now uses `method="post"`, calls `preventDefault()` and routes the values to the `signIn()` stub. A new `SignInForm.test.tsx` checks that submission is prevented and the password never reaches the URL.
+- **Backend compose stack:** every port binds to `127.0.0.1`. Mongo now requires root credentials, and Postgres no longer uses the fixed password `postgres`: both come from `.env`, and compose refuses to start while any is empty. Mongo and Postgres have health checks, and `app` waits for them.
+- **Docker builds:** backend and frontend get a `.dockerignore` (`.env*` except `.env.example`, `.git`, `.claude`, `node_modules`, build output), so secrets and history no longer enter the build context. The backend image runs as the `node` user.
+
+### Fixed
+- **Reproducible images:** both Dockerfiles copy `package-lock.json` and install with `npm ci` (they used `npm install` from `package.json` alone). The README tells you to commit the lockfile.
+- **Hooks can't be switched off from project settings:** `settings_merge.py` refuses `"disableAllHooks": true` in `settings.project.json` and removes it when migrating an existing `settings.json`. `harness doctor` reports it in the generated settings (error) and in `settings.local.json` or `~/.claude/settings.json` (warning).
+- **Skill gates fit the installed profiles:** `file-context` gates only skills that are installed (for UI, the deny lists whichever of `ui-ux`, `typography` and `color-science` are present), so a backend-only project is no longer told to load an absent SEO skill. Server paths (`api/`, `server/`, `backend/`, `controllers/`, `middlewares/`) never get the SEO gate, even inside a `routes/` folder.
+- **One `.env` exception list:** core §8 said only `.env.example` and `.env.template` could be edited, while the guard also allowed `.sample`, `.dist`, `.defaults`, `.schema` and `*.example|template|sample` names. Core, the implementor agents and the guard now list the same set, and a hook test fails if they drift apart.
+- **Verifier:** a new **INCOMPLETE** overall result for runs where nothing failed but a required check did not run. A skipped check no longer rolls up into PASS.
+
+### Changed
+- INSTALL and GETTING-STARTED explain that the skill gate is a reminder (it can't confirm the skill was read), and that project-level settings can still be overridden by personal settings. Enforcement nobody can override needs managed settings.
+
+### Upgrade notes
+- **Projects scaffolded earlier** don't change on harness sync, because scaffold templates are stamped once. Apply the fixes by hand: guard `SignInForm`'s submit, bind compose ports to `127.0.0.1` with credentials from `.env`, add a `.dockerignore`, switch to `npm ci`, and add `USER node`.
+- **New compose stack:** set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MONGO_ROOT_USER` and `MONGO_ROOT_PASSWORD` in `.env` before `docker compose up`. Commit `package-lock.json` before `docker build`.
+- If `settings.project.json` sets `disableAllHooks`, sync now fails. Remove the key and re-run.
 ## [1.6.0] - 2026-10-02
 
 Typography and color get their own specialist skills. The single `typography-color.md` reference imposed one universal type scale, a family and weight cap, a 60/30/10 split and a fixed dark-surface hex, whatever the project, and had almost no color-science depth. The new skills discover the project's context first, reuse its tokens, adapt to evidence, and keep standards apart from heuristics.

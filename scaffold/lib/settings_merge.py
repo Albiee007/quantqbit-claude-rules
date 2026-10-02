@@ -16,6 +16,9 @@ Merge semantics (documented in INSTALL.md):
     harness deny-list and hooks can never be dropped by a project
   * scalars: project wins, EXCEPT locked keys (below), which keep the base value
   * top-level "model", if the project sets one, must be Opus-family
+  * top-level "disableAllHooks" may not be true: it switches off every
+    harness hook. (A personal settings.local.json can still set it; doctor
+    reports that. Only managed settings can enforce hooks for real.)
 
 Exit codes: 0 ok, 2 policy violation / bad input.
 """
@@ -83,6 +86,10 @@ def merge(base, proj, path=()):
     return proj
 
 
+def disables_hooks(settings):
+    return settings.get("disableAllHooks") not in (None, False)
+
+
 def is_opus(model):
     return "opus" in str(model).lower()
 
@@ -141,11 +148,17 @@ def main():
             note('removed "model": "%s" (harness policy is Opus; a personal model choice belongs in '
                  '.claude/settings.local.json)' % model)
             del merged["model"]
+        if disables_hooks(merged):
+            note('removed "disableAllHooks" (it switches off every harness hook)')
+            del merged["disableAllHooks"]
     else:
         model = proj.get("model")
         if model is not None and not is_opus(model):
             fail('project settings set model "%s"; harness policy requires Opus '
                  '(a personal choice belongs in .claude/settings.local.json)' % model)
+        if disables_hooks(proj):
+            fail('project settings set "disableAllHooks"; it switches off every harness hook '
+                 '(guards, gates, context). Remove it from .claude/settings.project.json')
         merged = merge(base, proj)
 
     with open(args[2], "w", encoding="utf-8", newline="\n") as fh:

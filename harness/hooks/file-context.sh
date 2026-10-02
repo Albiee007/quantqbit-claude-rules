@@ -22,15 +22,21 @@ p="${p//\\//}"
 shopt -s nocasematch
 
 # hh_gate <topic> <skill>... — first write for this topic in this agent context:
-# mark the gate and queue the skills for one deny. If the marker cannot be
-# written, fall back to inform so the gate can never deny forever.
+# mark the gate and queue the skills for one deny. Skills this project's
+# profiles don't install are dropped (the deny would point at a missing file);
+# if none is installed, there is no gate. If the marker cannot be written,
+# fall back to inform so the gate can never deny forever.
 enforce=(); gate_text=""
 hh_gate() {
-  hh_topic_marker "gate-$1"
+  local topic="$1" s have=()
+  shift
+  for s in "$@"; do [[ -f "$HH_ROOT/.claude/skills/$s/SKILL.md" ]] && have+=("$s"); done
+  [[ ${#have[@]} -gt 0 ]] || return 0
+  hh_topic_marker "gate-$topic"
   [[ -e "$HH_V" ]] && return 0
   : > "$HH_V" 2>/dev/null || return 0
-  enforce+=("${@:2}")
-  hh_snippet_text "$1"; gate_text+="$HH_V"$'\n'
+  enforce+=("${have[@]}")
+  hh_snippet_text "$topic"; gate_text+="$HH_V"$'\n'
 }
 
 hh_config checklists; mode="$HH_V"
@@ -41,7 +47,11 @@ case "$p" in
     [[ "$mode" != "inform" ]] && hh_gate ui ui-ux typography color-science
     hh_add_snippet ui ;;
 esac
-case "$p" in
+# Server-side code (API routes, controllers, middleware) is never a public
+# page, even when it lives in a routes/ folder.
+server=0
+case "$p" in */api/*|*/server/*|*/backend/*|*/controllers/*|*/middlewares/*) server=1 ;; esac
+[[ $server -eq 0 ]] && case "$p" in
   */pages/*|*/app/*/page.*|*/app/page.*|*/app/*layout.*|*/routes/*|*.astro|*.mdx|*/robots.txt|*/robots.ts|*sitemap*|\
   */index.html|*/head.*|*seo*|*metadata*|*/site.webmanifest|*/manifest.json)
     [[ "$mode" != "inform" ]] && hh_gate seo seo

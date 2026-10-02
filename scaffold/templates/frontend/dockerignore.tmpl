@@ -1,0 +1,29 @@
+# ${PROJECT_NAME} — Docker build context exclusions.
+# Everything not listed here is sent to the builder and can land in a layer or
+# the build cache, so secrets, history and local builds stay out.
+
+# --- secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- VCS / tooling ---
+.git
+.gitignore
+.claude
+.vscode
+.idea
+
+# --- local installs and output (rebuilt inside the image) ---
+node_modules
+dist
+build
+coverage
+*.log
+
+# --- container files themselves ---
+Dockerfile*
+docker-compose*.yml
+.dockerignore

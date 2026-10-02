@@ -138,7 +138,7 @@ Push the branch and open a PR. After it merges, **teammates need to do nothing e
 After pulling a project that has the harness, just use Claude Code as usual. You will notice:
 - **Session start:** a short "QuantQbit agent harness vX" summary listing the agents and mandatory skills.
 - **Checklists:** prompts about UI, SEO, refactoring, security or infra get the relevant checklist added automatically.
-- **The first UI or SEO file write in each agent is paused once:** "falls under mandatory skills…". Claude loads the named skills (for UI: ui-ux, typography and color-science, in one pause) and retries, and the retry goes through.
+- **The first UI or SEO file write in each agent is paused once:** "falls under mandatory skills…". Claude loads the named skills (for UI: ui-ux, typography and color-science, in one pause) and retries, and the retry goes through. The pause only reminds; it can't confirm the skills were read. Backend profiles without the UI or SEO skills never see it.
 - **Blocked actions:** the guard hook blocks direct `.env` access and non-Opus sub-agents (best-effort pattern matching); permission rules block the common forms of `git add -A` and `git push --force`. Keep `.env*` in your root `.gitignore` (with `!.env.example`); the harness does not add it for you.
 - **Plan mode by default:** Claude plans first. See the table below to change this.
 

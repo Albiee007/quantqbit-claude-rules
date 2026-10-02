@@ -71,7 +71,7 @@ render_frontend_required_dirs() {
 
 render_frontend_should_skip() {
   case "$1" in
-    src/features/auth/*) [[ "$WITH_AUTH" != "true" ]] && return 0 ;;
+    src/features/auth/*|src/tests/unit/SignInForm.test.tsx) [[ "$WITH_AUTH" != "true" ]] && return 0 ;;
   esac
   return 1
 }

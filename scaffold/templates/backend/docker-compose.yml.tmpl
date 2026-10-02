@@ -1,4 +1,7 @@
 # ${PROJECT_NAME} — local development compose stack.
+# Ports bind to 127.0.0.1 only, so the databases are not reachable from the
+# network. Credentials come from .env (see .env.example); compose refuses to
+# start while any of them is empty.
 
 services:
   app:
@@ -7,17 +10,27 @@ services:
       dockerfile: Dockerfile
     container_name: ${PROJECT_SLUG}-app
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     env_file: .env
     depends_on:
-      - mongo
-      - postgres
+      mongo:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   mongo:
     image: mongo:7
     container_name: ${PROJECT_SLUG}-mongo
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?set MONGO_ROOT_USER in .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     volumes:
       - mongo_data:/data/db
 
@@ -25,11 +38,16 @@ services:
     image: postgres:16-alpine
     container_name: ${PROJECT_SLUG}-postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: ${PROJECT_SLUG}
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
