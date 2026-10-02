@@ -48,7 +48,10 @@ def cmd(chrome: str, profile: str, size: tuple[int, int], budget_ms: int = 8000,
     c = [chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1"]
     if transparent:
         c.append("--default-background-color=00000000")
+    # --use-mock-keychain / --password-store=basic: headless Chrome on macOS can otherwise block on
+    # keychain access (CI runners, locked sessions). They don't change what is rendered.
     return c + [f"--user-data-dir={profile}", "--allow-file-access-from-files", "--no-first-run",
+                "--no-default-browser-check", "--use-mock-keychain", "--password-store=basic",
                 f"--window-size={size[0]},{size[1]}", f"--virtual-time-budget={budget_ms}"]
 
 

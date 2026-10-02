@@ -204,13 +204,24 @@ else
 
   echo "== legacy pixel parity with the v1.6.1 scripts"
   OLD="$W/v161"; mkdir -p "$OLD"
+  # The v1.6.1 scripts start Chrome without the macOS keychain flags and without timeouts: give
+  # them the same flags through a wrapper (not on Windows, where a script can't stand in for an
+  # .exe and the flags aren't needed) and bound each render.
+  OLDCHROME="$CHROME"; PYCMD="$(hc_python)"
+  if [[ "$(uname -s)" != MINGW* && "$(uname -s)" != MSYS* && "$(uname -s)" != CYGWIN* ]]; then
+    printf '#!/bin/sh
+exec "%s" --use-mock-keychain --password-store=basic --no-default-browser-check "$@"
+' "$CHROME" > "$W/chrome-wrapper"
+    chmod +x "$W/chrome-wrapper"; OLDCHROME="$W/chrome-wrapper"
+  fi
   if git -C "$ROOT" archive v1.6.1 harness/skills/store-mockups harness/skills/store-submission-precheck 2>/dev/null | tar -x -C "$OLD" 2>/dev/null; then
     check "the frozen engine is byte-identical to v1.6.1" bash -c "cmp -s '$OLD/harness/skills/store-mockups/templates/frame.html' '$SK/store-mockups/templates/legacy-1.6/frame.html' && cmp -s '$OLD/harness/skills/store-mockups/templates/objects.js' '$SK/store-mockups/templates/legacy-1.6/objects.js'"
     for k in classic continuous minimal-brand; do
       rm -rf "$W/proj/p-$k"; cp -R "$LEGACY/$k" "$W/proj/p-$k"
       if [[ "$k" == continuous ]]; then mkdir -p "$W/proj/p-$k/assets"; cp "$W/proj/pano/assets/photo.png" "$W/proj/p-$k/assets/"; fi
       edit "$W/proj/p-$k/frames.json" 'cfg["sizes"] = ["play-phone"]'
-      run "$OLD/harness/skills/store-mockups/scripts/render_frames.py" render "p-$k" --sizes play-phone --out "old-$k"
+      # shellcheck disable=SC2086  # $PYCMD may be "py -3"
+      ( cd "$W/proj" && CHROME="$OLDCHROME" perl -e 'alarm shift; exec @ARGV' 600 $PYCMD           "$OLD/harness/skills/store-mockups/scripts/render_frames.py" render "p-$k" --sizes play-phone --out "old-$k" )         > "$W/out" 2>&1; echo $? > "$W/rc"
       oldrc=$(cat "$W/rc")
       run "$RENDER" render "p-$k" --sizes play-phone --out "new-$k"
       check "$k: both renders succeed" bash -c "[[ $oldrc == 0 && \$(cat '$W/rc') == 0 ]]"

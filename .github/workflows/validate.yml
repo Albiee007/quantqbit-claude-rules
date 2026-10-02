@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   harness:
+    timeout-minutes: 75  # a hung browser fails the job instead of holding it for six hours
     strategy:
       fail-fast: false
       matrix:
