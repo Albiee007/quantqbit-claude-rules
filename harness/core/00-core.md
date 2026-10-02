@@ -25,13 +25,15 @@ Detail lives in skills and path-scoped rules. This file stays short on purpose.
 | Shell, PowerShell, Ansible, Compose, Terraform, CI change | `infra-implementor` |
 | After every change | `verifier` (lint, typecheck, tests, syntax checks) |
 | Before calling a non-trivial change done | `reviewer` with the right lens: `code`, `patterns`, `ux`, `seo`, `security` or `all` |
-| Story or scenario art for a site, store listing or campaign (web, mobile) | `illustrator` (owner approves every image before it ships) |
-| Mobile store release (mobile profile) | `screen-capturer` (device captures) → `store-creative` (screenshots, feature graphic) ∥ `listing-copywriter` (listing text) ∥ `icon-creator` (app icons) ∥ `brand-asset-creator` (logo, splash, social) → `store-precheck-auditor` (release gate, never edits) |
+| Any media asset: store screenshots or panorama, feature graphic, social/OG/email/banner image, logo, app icon, story art (web, mobile) | `creative-director` (direction; owner approves once) → only the creators the request needs, in concept mode, in parallel → `creative-director` (critique) → owner picks → production → `creative-director` (review). Unchanged approved work skips the concept round |
+| Story or scenario art for a site, store listing or campaign (web, mobile) | `illustrator`, from the approved illustration concept (owner approves every image before it ships) |
+| Mobile store release (mobile profile) | `screen-capturer` (device captures) → `store-creative` (screenshots, feature graphic) ∥ `listing-copywriter` (listing text) ∥ `icon-creator` (app icons) ∥ `brand-asset-creator` (logo, splash, social) → `store-precheck-auditor` (release gate, never edits); visuals follow the media row |
 
 - Never delegate understanding: read the explorer's findings yourself before planning.
 - Brief sub-agents fully: goal, files, constraints, the definition of done. They start with no context.
 - Independent work runs in parallel. Dependent work runs in sequence.
 - Review what a worker produced before reporting it. A worker saying "done" is not proof.
+- Owner approvals (creative direction, concepts, images) are recorded by you, the main session, after the owner decides (`direction.py approve`). Never let a worker approve, and never treat a recommendation as a decision.
 
 ## 5. Mandatory skills
 Load the skill **before** starting the matching work. This is required, not optional.
@@ -42,6 +44,7 @@ Load the skill **before** starting the matching work. This is required, not opti
 | Public web pages, routes, metadata/head, sitemap, robots, structured data, content | `seo` |
 | Introducing a pattern, abstraction, new layer, interface, or refactoring architecture | `design-patterns` (run the decision gate first) |
 | Writing or reviewing any code | `coding-standards` (always in effect) |
+| Any media asset (store visuals, social/OG/email/banner images, logos, app icons, story art) | `creative-direction` + `typography` + `color-science` + `ui-ux`, plus the family skill below |
 | Store screenshots, listing copy, app icons, logos, or a store submission (mobile projects) | `store-mockups`, `store-listing`, `app-icons`, `brand-assets`; `store-submission-precheck` before submitting |
 | Illustrations, hero or feature-row artwork, story or scene art (web and mobile projects) | `story-art` |
 

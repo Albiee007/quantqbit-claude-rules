@@ -53,6 +53,8 @@ run "$R" --profiles all --commit; check "install exits 0" test $? -eq 0
 check "lock written" test -f "$R/.claude/harness/lock"
 check "CLAUDE.md seeded (no AGENTS.md)" test -f "$R/CLAUDE.md"
 check "core rule present" test -f "$R/.claude/rules/harness/00-core.md"
+check "the creative-director, its skill and the media library are installed" test -f "$R/.claude/agents/creative-director.md" -a -f "$R/.claude/skills/creative-direction/SKILL.md" -a -f "$R/.claude/harness/lib/harnesslib/color.py"
+check "the media library imports from its installed path" bash -c "cd '$R' && PYTHONDONTWRITEBYTECODE=1 python '$R/.claude/skills/creative-direction/scripts/direction.py' --help >/dev/null 2>&1 || PYTHONDONTWRITEBYTECODE=1 python3 '$R/.claude/skills/creative-direction/scripts/direction.py' --help >/dev/null 2>&1"
 check "tree committed clean" test -z "$(git -C "$R" status --porcelain)"
 run "$R"; check "re-sync exits 0" test $? -eq 0
 check "re-sync changes nothing" grep -q '0 file(s) changed' "$WORK/out.log"
@@ -65,6 +67,7 @@ check "CLAUDE.md NOT created" test ! -e "$R2/CLAUDE.md"
 check "backend profile skips ui-ux skill" test ! -e "$R2/.claude/skills/ui-ux"
 check "backend profile skips store agents" test ! -e "$R2/.claude/agents/store-creative.md"
 check "backend profile skips store skills" test ! -e "$R2/.claude/skills/store-mockups"
+check "backend profile skips creative direction and the media library" test ! -e "$R2/.claude/agents/creative-director.md" -a ! -e "$R2/.claude/skills/creative-direction" -a ! -e "$R2/.claude/harness/lib"
 
 echo "3. locally modified harness file aborts, nothing written"
 echo "local tweak" >> "$R/.claude/rules/harness/coding.md"; git -C "$R" commit -qam tweak
@@ -317,19 +320,24 @@ check "doctor names the path" grep -q '.claude/skills/' "$WORK/doc.log"
 echo "29. mobile profile installs the store and brand agents and skills"
 R21="$(new_repo mobile)"
 run "$R21" --profiles mobile; check "mobile install exits 0" test $? -eq 0
-for a in screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator; do
+for a in creative-director screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator; do
   check "agent $a installed" test -f "$R21/.claude/agents/$a.md"
 done
-for s in mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets story-art; do
+for s in creative-direction mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets story-art; do
   check "skill $s installed" test -f "$R21/.claude/skills/$s/SKILL.md"
 done
 check "store snippet installed" test -f "$R21/.claude/harness/snippets/store.md"
 check "art snippet installed" test -f "$R21/.claude/harness/snippets/art.md"
+check "media snippet installed" test -f "$R21/.claude/harness/snippets/media.md"
+check "the media library and its schemas are installed" test -f "$R21/.claude/harness/lib/harnesslib/schemas/direction.schema.json" -a -f "$R21/.claude/harness/lib/media/artdir.js"
+check "the frozen 1.6 engine is installed" test -f "$R21/.claude/skills/store-mockups/templates/legacy-1.6/frame.html"
 check "kit template copied verbatim" grep -q 'window.FRAMES' "$R21/.claude/skills/store-mockups/templates/frame.html"
 check "seo skill not in mobile" test ! -e "$R21/.claude/skills/seo"
 R22="$(new_repo webonly)"
 run "$R22" --profiles web; check "web install exits 0" test $? -eq 0
 check "web gets brand-assets" test -f "$R22/.claude/skills/brand-assets/SKILL.md"
+check "web gets the creative-director and the media library" test -f "$R22/.claude/agents/creative-director.md" -a -f "$R22/.claude/harness/lib/harnesslib/direction.py"
+check "web gets no store agents" test ! -e "$R22/.claude/agents/store-creative.md"
 check "web gets story-art" test -f "$R22/.claude/skills/story-art/scripts/export_art.py"
 check "web gets illustrator" test -f "$R22/.claude/agents/illustrator.md"
 check "web skips store-mockups" test ! -e "$R22/.claude/skills/store-mockups"
@@ -373,6 +381,11 @@ git -C "$R26" add -A; git -C "$R26" commit -qm own
 run "$R26" --profiles web; check "own typography skill blocks (exit 1)" test $? -eq 1
 check "CONFLICT-UNMANAGED names typography" grep -q 'CONFLICT-UNMANAGED.*skills/typography' "$WORK/out.log"
 check "reserved list names color-science" grep -q 'color-science' "$WORK/out.log"
+R27="$(new_repo owndirector)"; mkdir -p "$R27/.claude/agents"
+echo "mine" > "$R27/.claude/agents/creative-director.md"
+git -C "$R27" add -A; git -C "$R27" commit -qm own
+run "$R27" --profiles web; check "own creative-director agent blocks (exit 1)" test $? -eq 1
+check "the reserved list names creative-direction" grep -q 'creative-direction' "$WORK/out.log"
 
 echo
 echo "sync tests: $pass passed, $fail failed"

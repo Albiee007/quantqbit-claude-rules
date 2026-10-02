@@ -57,6 +57,14 @@ Theme items apply in every theme the project supports; dark and high-contrast on
 - [ ] **Print or measured color:** named output profile, rendering intent (and BPC choice), soft proof done, measurement condition and instrument stated, ΔE formula and tolerance stated, observer and adaptation stated, uncertainty reported ([color-management](references/color-management.md), [perceptual-spaces](references/perceptual-spaces.md) for the ΔE formula, [foundations](references/foundations.md) for observer and adaptation).
 - [ ] **Decisions recorded** in the project's existing docs with rationale and assumptions.
 
+## Tools
+`python .claude/skills/color-science/scripts/palette.py` (stdlib; sRGB IEC 61966-2-1, D65, WCAG 2.x luminance; ratios compared at full precision, printed truncated):
+- `ramp --name brand --seed "#hex"` (or `--hue --chroma`) `[--lightness L1,..]`: an OKLCH tonal ramp with stated lightness steps and tapered chroma, gamut-mapped to sRGB (CSS Color 4), with each step's contrast against white and black.
+- `contrast FG BG [--size px --weight w | --large | --non-text] [--tokens f]`: one pair, composited first; exits 1 below the threshold.
+- `check --tokens f --pairs pairs.json`: the pairs you actually use, in the report format below.
+- `convert COLOR`: sRGB, OKLab, OKLCH and gamut status.
+With `--out <tokens file>`, `ramp` merges into the existing DTCG file without overwriting (`--replace` names a change; the old file is kept as `.bak`). CVD simulation, ΔE2000 and harmony generators are not part of the tool yet: run CVD checks with a simulator and report them as supplementary.
+
 ## Reporting
 - Section 1, **WCAG 2.2 conformance:** each pair or element, measured ratio (truncated to 2 decimals, never rounded up), threshold, pass/fail, theme and state.
 - Section 2, **Supplementary:** APCA, ΔE, CVD simulation, gamut notes. Labeled informative.

@@ -2,7 +2,16 @@
 
 The first 2–3 screenshots do most of the converting: many users never scroll the gallery. Plan the set as one story, not as a tour of the tabs.
 
-## Order (8 frames is a good default; both stores allow up to 8 on Play and 10 on iOS)
+## Structure
+Pick the structure from the positioning and the audience, not from habit. Common ones:
+- **Promise first** (below): the classic conversion order.
+- **Problem, then resolution:** the frustration, then the app removing it, one step per frame.
+- **A day with the app:** one persona's day, morning to evening, each frame a moment.
+- **Jobs to be done:** one frame per job the audience hires the app for, in order of how often they do it.
+
+Play shows up to 8 screenshots per device type, the App Store up to 10. Use as many as the story needs; fewer strong frames beat filler.
+
+### Promise first
 1. **The promise.** The one screen that shows what the app is for, with a headline that states the positioning.
 2. **The differentiator.** The feature competitors don't have (e.g. bills in any currency on a trip).
 3. **Its payoff.** The screen that proves the differentiator works (e.g. "what's left, who holds it").

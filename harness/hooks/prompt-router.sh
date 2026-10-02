@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # === harness prompt router (UserPromptSubmit) ===
 # Keyword-routes the user's prompt to the mandatory skill checklists
-# (ui, seo, patterns, security, store, art, infra). Each checklist is injected at most
+# (ui, seo, patterns, security, store, art, media, infra). Each checklist is injected at most
 # once per session. Pure bash; no subprocesses on the hot path.
 set -uo pipefail
 # shellcheck source=_lib.sh
@@ -41,6 +41,15 @@ fi
 # Brand and story art (web and mobile; a no-op where the snippet isn't installed).
 if [[ "$prompt" =~ $B(illustrations?|artwork|story[[:space:]]art|scene[[:space:]]art|hero[[:space:]](image|art|illustration)s?|logos?|brand[[:space:]](assets?|identity|kit))$E ]]; then
   hh_add_snippet art
+fi
+# Any media asset: the creative-direction checklist (web and mobile; a no-op elsewhere).
+# UI banners, icon buttons and icon fonts are UI work, not media.
+media_text="$prompt"
+for neg in "cookie banner" "consent banner" "error banner" "alert banner" "banner component" "icon button" "icon font"; do
+  media_text="${media_text//$neg/ }"
+done
+if [[ "$media_text" =~ $B(banners?|panoram(a|as|ic)|og[[:space:]-]?images?|open[[:space:]]graph[[:space:]]images?|social[[:space:]](images?|cards?|previews?|posts?)|share[[:space:]]images?|feature[[:space:]]graphics?|store[[:space:]](screenshots?|visuals?|assets?)|app[[:space:]]screenshots?|mockups?|app[[:space:]]icons?|launcher[[:space:]]icons?|logos?|illustrations?|story[[:space:]]art|hero[[:space:]](image|art|illustration)s?|creative[[:space:]]direction|art[[:space:]]direction|mood[[:space:]]?boards?|visual[[:space:]]identity|brand[[:space:]](assets?|identity|kit|look)|promo[[:space:]](images?|graphics?)|posters?|email[[:space:]]headers?|marketing[[:space:]](images?|visuals?|assets?))$E ]]; then
+  hh_add_snippet media
 fi
 if [[ "$prompt" =~ $B(docker|compose|dockerfile|ansible|playbook|terraform|deploy(ment)?|ci/cd|ci[[:space:]](pipeline|workflow|job)|pipeline|github[[:space:]]actions|bash|shell[[:space:]]script|powershell|ps1|nginx|traefik|kubernetes|k8s|helm|infra(structure)?)$E ]]; then
   hh_add_snippet infra

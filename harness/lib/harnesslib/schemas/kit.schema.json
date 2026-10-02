@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harnesslib/kit.schema.json",
+  "title": "Store mockup kit config (frames.json), format 2",
+  "description": "Format 2 kits take their look from the approved store concept (brand/direction.json + brand/concepts/store/...). A frames.json without 'format' is a 1.6 kit and renders through the legacy-1.6 adapter.",
+  "type": "object",
+  "required": ["format", "artDirection", "frames"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": 2 },
+    "artDirection": {
+      "type": "object",
+      "required": ["family"],
+      "additionalProperties": false,
+      "properties": { "family": { "const": "store" } }
+    },
+    "style": { "enum": ["classic", "continuous"] },
+    "out": { "type": "string", "format": "relpath" },
+    "icons": { "enum": ["material", "ionicons", "none"] },
+    "iconsFont": { "type": "string", "format": "relpath", "pattern": "\\.(woff2?|ttf|otf)$" },
+    "uiFonts": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["family", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "family": { "type": "string", "pattern": "^[A-Za-z0-9 _-]{1,60}$" },
+          "source": { "enum": ["local", "system"] },
+          "platform": { "enum": ["android", "ios"] },
+          "files": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["path", "weight"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "format": "relpath", "pattern": "\\.(woff2?|ttf|otf)$" },
+                "weight": { "type": "number", "minimum": 100, "maximum": 1000 },
+                "style": { "enum": ["normal", "italic"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "props": { "type": "array", "uniqueItems": true, "items": { "enum": ["finance"] } },
+    "sizes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["play-phone", "play-tab7", "play-tab10", "ios-69", "ios-69-1320", "ios-65", "ios-ipad13"] } },
+    "gutter": { "type": "number", "minimum": 0, "maximum": 200 },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "x-uniqueKey": "id",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+          "screen": { "type": ["string", "null"], "pattern": "^[A-Za-z_$][A-Za-z0-9_$]{0,63}$" },
+          "kicker": { "type": "string", "maxLength": 60 },
+          "head": { "type": "string", "maxLength": 160 },
+          "sub": { "type": "string", "maxLength": 200 },
+          "platforms": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["android", "ios"] } },
+          "layout": { "type": "string", "pattern": "^[a-z][a-z-]{0,23}$" },
+          "background": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,23}$" },
+          "caption": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": { "pos": { "enum": ["top", "bottom"] } }
+          },
+          "device": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 1 },
+              "y": { "type": "number", "minimum": 0, "maximum": 1 },
+              "scale": { "type": "number", "minimum": 0.3, "maximum": 1.6 },
+              "rotate": { "type": "number", "minimum": -30, "maximum": 30 },
+              "bleed": { "enum": ["none", "bottom"] }
+            }
+          }
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": { "type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$" } }
+      }
+    },
+    "featureGraphic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "screen": { "type": ["string", "null"], "pattern": "^[A-Za-z_$][A-Za-z0-9_$]{0,63}$" },
+        "title": { "type": "string", "maxLength": 40 },
+        "tagline": { "type": "string", "maxLength": 80 },
+        "sub": { "type": "string", "maxLength": 140 },
+        "icon": { "type": "string", "format": "relpath", "pattern": "\\.(png|svg)$" },
+        "layout": { "enum": ["split-device-right", "split-device-left", "centered-type"] },
+        "background": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,23}$" }
+      }
+    }
+  }
+}

@@ -2,20 +2,23 @@
    Everything inside .screen is laid out at 900 logical px wide, the width a 1080 px
    capture is viewed at in most tools. That way sizes can be copied straight from the
    reference captures. frame.html scales the whole screen to fit each canvas.
-   REPLACE the tokens below with the app's real theme tokens (light theme). */
+   REPLACE every token below with the app's real theme tokens (light theme). The grey
+   placeholders are deliberately plain: they are the app's UI, not the store art direction,
+   which comes from the approved store concept. */
 
-/* Ionicons (frames.json "icons": "ionicons") is loaded by .build/icons.generated.js from the app's node_modules. */
+/* Ionicons (frames.json "icons": "ionicons") is loaded by .build/icons.generated.js from the app's node_modules.
+   App UI fonts (frames.json "uiFonts") set --font-ui-android and --font-ui-ios in .build/fonts.generated.css. */
 
 :root {
-  --bg: #faf8ff; --surface: #fff; --surfaceAlt: #f2f3ff; --surfaceContainer: #eaedff;
-  --hairline: #e4e5f3; --hairlineStrong: #c7c4d8;
-  --ink: #131b2e; --inkMuted: #464555; --inkSubtle: #777587;
-  --brand: #3525cd; --brandBright: #4f46e5; --brandTint: #e2dfff;
-  --positive: #006c4a; --positiveTint: #82f5c1; --onPositiveTint: #00714e;
-  --negative: #950029; --negativeTint: #ffdada;
-  --warningTint: #fef3c7; --onWarningTint: #92400e;
-  --success: #16a34a; --danger: #dc2626;
-  --radius-card: 30px;
+  --bg: #f6f6f6; --surface: #ffffff; --surfaceAlt: #f0f0f0; --surfaceContainer: #e8e8e8;
+  --hairline: #e0e0e0; --hairlineStrong: #c4c4c4;
+  --ink: #1d1d1d; --inkMuted: #555555; --inkSubtle: #767676;
+  --brand: #3f3f3f; --brandBright: #5a5a5a; --brandTint: #e6e6e6;
+  --positive: #2f6b3a; --positiveTint: #dcefdf; --onPositiveTint: #23552c;
+  --negative: #8c2f2f; --negativeTint: #f6dddd;
+  --warningTint: #f7ecd2; --onWarningTint: #6b4f12;
+  --success: #2f6b3a; --danger: #8c2f2f;
+  --radius-card: 24px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -24,8 +27,8 @@
   letter-spacing: normal; text-transform: none; white-space: nowrap; font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; }
 
 .screen { position: absolute; left: 0; top: 0; width: 900px; overflow: hidden; background: var(--bg); color: var(--ink);
-  font-family: Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-.screen.ios { font-family: Inter, Roboto, system-ui, sans-serif; letter-spacing: -0.2px; }
+  font-family: var(--font-ui-android, system-ui), system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.screen.ios { font-family: var(--font-ui-ios, var(--font-ui-android, system-ui)), system-ui, sans-serif; }
 .num { font-variant-numeric: tabular-nums; }
 
 /* --- system chrome --- */
@@ -33,7 +36,7 @@
 .ios .sb { height: 118px; padding: 20px 70px 0 82px; font-size: 34px; font-weight: 600; }
 .sb .icons { display: flex; gap: 12px; align-items: center; }
 .island { position: absolute; left: 50%; top: 26px; width: 250px; height: 74px; margin-left: -125px; background: #000; border-radius: 40px; }
-.homebar { position: absolute; bottom: 14px; left: 50%; width: 300px; margin-left: -150px; height: 10px; border-radius: 6px; background: #131b2e; z-index: 30; }
+.homebar { position: absolute; bottom: 14px; left: 50%; width: 300px; margin-left: -150px; height: 10px; border-radius: 6px; background: var(--ink); z-index: 30; }
 .android .homebar { width: 220px; margin-left: -110px; height: 8px; bottom: 16px; opacity: .75; }
 
 /* --- page scaffolding --- */
@@ -78,10 +81,10 @@
 /* --- controls --- */
 .seg { display: flex; background: var(--surfaceContainer); border-radius: 22px; padding: 8px; }
 .seg > div { flex: 1; text-align: center; padding: 20px 0; font-size: 29px; font-weight: 500; color: var(--inkMuted); border-radius: 16px; }
-.seg > .on { background: #fff; color: var(--brand); font-weight: 600; box-shadow: 0 2px 6px rgba(20,20,60,.12); }
+.seg > .on { background: #fff; color: var(--brand); font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
 .chip { padding: 12px 30px; border-radius: 30px; font-size: 26px; font-weight: 600; border: 2px solid var(--hairline); background: var(--surfaceAlt); color: var(--inkMuted); }
 .chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
-.fab { position: absolute; right: 40px; width: 118px; height: 118px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; box-shadow: 0 12px 26px rgba(53,37,205,.35); z-index: 19; }
+.fab { position: absolute; right: 40px; width: 118px; height: 118px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; box-shadow: 0 12px 26px rgba(0,0,0,.25); z-index: 19; }
 
 /* --- tab bar; the active tab can be raised (set .raised on .tabbar) --- */
 .tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 300px; z-index: 20; }
@@ -91,11 +94,11 @@
 .tabbar .tab > span:first-child { display: block; margin: 0 auto 12px; }
 .tabbar .tab.on { color: var(--brand); }
 .tabbar.raised .tab.on > span:first-child { visibility: hidden; }
-.tabbar .bubble { position: absolute; top: -32px; width: 150px; height: 150px; border-radius: 50%; background: rgba(123,112,235,.25); display: grid; place-items: center; }
-.tabbar .bubble > div { width: 126px; height: 126px; border-radius: 50%; background: linear-gradient(180deg, var(--brandBright) 0%, var(--brand) 55%); color: #fff; display: grid; place-items: center; box-shadow: 0 10px 22px rgba(53,37,205,.35); }
+.tabbar .bubble { position: absolute; top: -32px; width: 150px; height: 150px; border-radius: 50%; background: color-mix(in oklab, var(--brand) 25%, transparent); display: grid; place-items: center; }
+.tabbar .bubble > div { width: 126px; height: 126px; border-radius: 50%; background: linear-gradient(180deg, var(--brandBright) 0%, var(--brand) 55%); color: #fff; display: grid; place-items: center; box-shadow: 0 10px 22px rgba(0,0,0,.25); }
 
 /* --- bottom sheets --- */
-.scrim { position: absolute; inset: 0; background: rgba(19,27,46,.45); z-index: 25; }
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); z-index: 25; }
 .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 44px 44px 0 0; z-index: 26; padding: 0 56px; }
-.sheet .grab { width: 96px; height: 10px; border-radius: 5px; background: #d5d3e6; margin: 20px auto 0; }
+.sheet .grab { width: 96px; height: 10px; border-radius: 5px; background: var(--hairlineStrong); margin: 20px auto 0; }
 .sheet .head { display: flex; justify-content: space-between; align-items: center; padding: 40px 0 34px; border-bottom: 2px solid var(--hairline); font-size: 44px; font-weight: 700; }

@@ -11,7 +11,7 @@ export TMPDIR="$P/tmp"; mkdir -p "$TMPDIR"
 trap 'rm -rf "$P"' EXIT
 mkdir -p "$P/.claude/harness/snippets"
 cp "$SRC"/harness/snippets/*.md "$P/.claude/harness/snippets/"
-for s in ui-ux typography color-science seo; do mkdir -p "$P/.claude/skills/$s"; : > "$P/.claude/skills/$s/SKILL.md"; done
+for s in ui-ux typography color-science seo creative-direction; do mkdir -p "$P/.claude/skills/$s"; : > "$P/.claude/skills/$s/SKILL.md"; done
 export CLAUDE_PROJECT_DIR="$P"
 pass=0; fail=0
 
@@ -102,8 +102,22 @@ mv "$P/.claude/harness/snippets/store.md" "$P/store.md.off"
 expect "web: illustration prompt → art checklist" prompt-router.sh '{"session_id":"a14e","prompt":"add illustrations to the landing sections"}' 'export_art.py'
 expect "web: logo prompt → art checklist" prompt-router.sh '{"session_id":"a14f","prompt":"design a new logo"}' 'brand-asset-creator'
 mv "$P/store.md.off" "$P/.claude/harness/snippets/store.md"
+expect "panorama prompt → media checklist" prompt-router.sh '{"session_id":"m1","prompt":"our panoramic store screenshots all look the same"}' 'Media checklist'
+expect "og image prompt → media checklist" prompt-router.sh '{"session_id":"m2","prompt":"make a new OG image for the blog"}' 'creative-director'
+expect "banner prompt → media checklist" prompt-router.sh '{"session_id":"m3","prompt":"design a promo banner for the launch"}' 'direction.py approve'
+expect "art direction prompt → media checklist" prompt-router.sh '{"session_id":"m4","prompt":"set the art direction for the brand"}' 'Media checklist'
+out="$(run prompt-router.sh '{"session_id":"m5","prompt":"fix the cookie banner component spacing"}')"
+grep -q 'Media checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] a UI cookie banner routed to media"; } || { pass=$((pass+1)); echo "  [OK] a cookie banner is UI, not media"; }
+out="$(run prompt-router.sh '{"session_id":"m6","prompt":"swap the icon font in the settings screen"}')"
+grep -q 'Media checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] an icon font routed to media"; } || { pass=$((pass+1)); echo "  [OK] an icon font is not media"; }
+out="$(run prompt-router.sh '{"session_id":"m7","prompt":"design a new logo and an og image"}')"
+[[ "$(grep -o 'Media checklist' <<<"$out" | wc -l | tr -d ' ')" -eq 1 ]] && { pass=$((pass+1)); echo "  [OK] the media checklist is injected once"; } || { fail=$((fail+1)); echo "  [FAIL] media checklist repeated"; }
 expect "plain prompt → nothing"        prompt-router.sh '{"session_id":"a6","prompt":"what does this function return?"}' ''
 expect "valid JSON escaping"           prompt-router.sh '{"session_id":"a7","prompt":"fix \"auth\" token\nflow"}' '"additionalContext":"Harness'
+
+expect "a sub-agent cannot record an approval" guard.sh '{"session_id":"g1","agent_id":"a-9","agent_type":"store-creative","tool_name":"Bash","tool_input":{"command":"python .claude/skills/creative-direction/scripts/direction.py approve --gate concept --family store --concept x --by me --evidence y"}}' 'only the main session records owner approvals'
+expect "the main session can record one" guard.sh '{"session_id":"g1","tool_name":"Bash","tool_input":{"command":"python .claude/skills/creative-direction/scripts/direction.py approve --gate direction --by Owner --evidence chat"}}' ''
+expect "a sub-agent may check status" guard.sh '{"session_id":"g1","agent_id":"a-9","tool_name":"Bash","tool_input":{"command":"python .claude/skills/creative-direction/scripts/direction.py status"}}' ''
 
 echo "file-context"
 expect "new .tsx → ui"       file-context.sh '{"session_id":"b1","tool_name":"Write","tool_input":{"file_path":"/p/src/components/Card.tsx"}}' 'ui-ux'
@@ -139,7 +153,18 @@ if grep -q 'falls under a mandatory skill\.' <<<"$out" && grep -q 'ui-ux/SKILL.m
 else fail=$((fail+1)); echo "  [FAIL] partial install deny — got: ${out:0:200}"; fi
 mv "$P/.claude/skills/typography.off" "$P/.claude/skills/typography"; mv "$P/.claude/skills/color-science.off" "$P/.claude/skills/color-science"
 expect "SEO deny keeps singular wording"      file-context.sh '{"session_id":"b12","tool_name":"Write","tool_input":{"file_path":"/p/public/robots.txt"}}' 'falls under a mandatory skill\.'
+out="$(run file-context.sh '{"session_id":"d1","tool_name":"Write","tool_input":{"file_path":"/p/brand/direction.json"}}')"
+if grep -q '"permissionDecision":"deny"' <<<"$out" && grep -q 'creative-direction/SKILL.md' <<<"$out" && grep -q 'color-science/SKILL.md' <<<"$out"; then
+  pass=$((pass+1)); echo "  [OK] the first direction write is denied once, naming creative-direction and color-science"
+else fail=$((fail+1)); echo "  [FAIL] media gate — got: ${out:0:200}"; fi
+expect "retry of the direction write allowed (drafting needs no approval)" file-context.sh '{"session_id":"d1","tool_name":"Write","tool_input":{"file_path":"/p/brand/direction.json"}}' ''
+expect "a kit frames.json falls under the media gate" file-context.sh '{"session_id":"d2","tool_name":"Edit","tool_input":{"file_path":"C:\\p\\store-assets\\mockup-kit\\frames.json"}}' 'creative-direction'
+expect "approvals are never hand-edited" file-context.sh '{"session_id":"d3","tool_name":"Edit","tool_input":{"file_path":"/p/brand/approvals.json"}}' 'written only by direction.py approve'
+expect "approvals stay denied on retry" file-context.sh '{"session_id":"d3","tool_name":"Edit","tool_input":{"file_path":"/p/brand/approvals.json"}}' '"permissionDecision":"deny"'
+out="$(run file-context.sh '{"session_id":"d4","tool_name":"Write","tool_input":{"file_path":"/p/mobile/store-assets/LISTING.md"}}')"
+grep -q 'creative-direction' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] LISTING.md got the media gate"; } || { pass=$((pass+1)); echo "  [OK] LISTING.md is copy, not media"; }
 printf 'checklists=inform\n' > "$P/.claude/harness.config"
+expect "inform mode: the media gate only informs" file-context.sh '{"session_id":"d5","tool_name":"Write","tool_input":{"file_path":"/p/brand/canvas.json"}}' '"additionalContext"'
 expect "inform mode adds context only"     file-context.sh '{"session_id":"b7","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Y.tsx"}}' '"additionalContext"'
 out="$(run file-context.sh '{"session_id":"b11","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Z.tsx"}}')"
 if ! grep -q 'deny' <<<"$out" && grep -q 'ui-ux, typography, color-science' <<<"$out"; then
@@ -162,11 +187,12 @@ grep -q 'store-creative' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] store r
 mkdir -p "$P/.claude/agents" && : > "$P/.claude/agents/store-creative.md"
 expect "store roster when installed" session-start.sh '{"session_id":"c5"}' 'store-precheck-auditor'
 expect "store roster names the illustrator" session-start.sh '{"session_id":"c6"}' 'illustrator'
+expect "store roster starts with the creative-director" session-start.sh '{"session_id":"c6b"}' 'Store agents: creative-director'
 : > "$P/.claude/agents/illustrator.md"
 out="$(run session-start.sh '{"session_id":"c7"}')"
 [[ "$(grep -o 'illustrator' <<<"$out" | wc -l | tr -d ' ')" -eq 1 ]] && { pass=$((pass+1)); echo "  [OK] mobile: one roster line, not two"; } || { fail=$((fail+1)); echo "  [FAIL] mobile roster repeats the illustrator"; }
 rm -f "$P/.claude/agents/store-creative.md"
-expect "web roster when only the art agents are installed" session-start.sh '{"session_id":"c8"}' 'Brand and art agents: brand-asset-creator → illustrator'
+expect "web roster when only the art agents are installed" session-start.sh '{"session_id":"c8"}' 'Brand and art agents: creative-director (direction, concept critique) → brand-asset-creator / illustrator'
 rm -f "$P/.claude/agents/illustrator.md"
 
 echo "post-edit-lint"

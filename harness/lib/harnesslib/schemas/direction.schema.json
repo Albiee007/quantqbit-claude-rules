@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harnesslib/direction.schema.json",
+  "title": "Creative direction (brand/direction.json), schema version 1",
+  "description": "The machine-readable authority for a project's visual direction. Token-valued fields are token references; everything else is a typed literal. Approvals live in brand/approvals.json, never here.",
+  "type": "object",
+  "required": ["schemaVersion", "project", "revision", "tokens", "context", "mood", "families"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "project": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "revision": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "summary": { "type": "string", "maxLength": 600 },
+    "tokens": {
+      "type": "object",
+      "required": ["source", "roles", "fonts"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "format": "relpath", "pattern": "\\.json$" },
+        "roles": {
+          "type": "object",
+          "required": ["canvas", "ink", "inkMuted", "accent"],
+          "propertyNames": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,31}$" },
+          "additionalProperties": { "$ref": "#/$defs/tokenRef" }
+        },
+        "fonts": {
+          "type": "object",
+          "required": ["display", "text"],
+          "propertyNames": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,31}$" },
+          "additionalProperties": { "$ref": "#/$defs/tokenRef" }
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "required": ["facts", "preferences", "inferences", "openQuestions"],
+      "additionalProperties": false,
+      "properties": {
+        "facts": { "type": "array", "maxItems": 40, "items": { "$ref": "#/$defs/fact" } },
+        "preferences": { "type": "array", "maxItems": 40, "items": { "$ref": "#/$defs/preference" } },
+        "inferences": { "type": "array", "maxItems": 40, "items": { "$ref": "#/$defs/inference" } },
+        "openQuestions": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 3, "maxLength": 300 } }
+      }
+    },
+    "mood": {
+      "type": "object",
+      "required": ["keywords", "axes"],
+      "additionalProperties": false,
+      "properties": {
+        "keywords": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "type": "string", "minLength": 2, "maxLength": 40 } },
+        "axes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "calm-energetic": { "$ref": "#/$defs/axis" },
+            "playful-serious": { "$ref": "#/$defs/axis" },
+            "warm-cool": { "$ref": "#/$defs/axis" },
+            "organic-geometric": { "$ref": "#/$defs/axis" },
+            "minimal-rich": { "$ref": "#/$defs/axis" },
+            "editorial-product": { "$ref": "#/$defs/axis" },
+            "classic-contemporary": { "$ref": "#/$defs/axis" }
+          }
+        }
+      }
+    },
+    "references": { "type": "array", "maxItems": 12, "items": { "$ref": "#/$defs/reference" } },
+    "antiReferences": { "type": "array", "maxItems": 12, "items": { "$ref": "#/$defs/reference" } },
+    "keep": { "type": "array", "maxItems": 12, "items": { "type": "string", "minLength": 2, "maxLength": 200 } },
+    "motif": {
+      "type": "object",
+      "required": ["idea"],
+      "additionalProperties": false,
+      "properties": {
+        "idea": { "type": "string", "minLength": 3, "maxLength": 300 },
+        "asset": { "type": "string", "format": "relpath", "pattern": "\\.svg$" }
+      }
+    },
+    "families": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "store": { "$ref": "#/$defs/family" },
+        "marketing": { "$ref": "#/$defs/family" },
+        "icon": { "$ref": "#/$defs/family" },
+        "illustration": { "$ref": "#/$defs/family" }
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "maxItems": 20,
+      "x-uniqueKey": "id",
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+          "text": { "type": "string", "minLength": 3, "maxLength": 400 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "tokenRef": { "type": "string", "pattern": "^\\{[A-Za-z0-9_$-]+(\\.[A-Za-z0-9_$-]+)*\\}$" },
+    "axis": { "type": "number", "minimum": -1, "maximum": 1 },
+    "fact": {
+      "type": "object",
+      "required": ["text", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "minLength": 3, "maxLength": 300 },
+        "source": { "type": "string", "minLength": 2, "maxLength": 300 }
+      }
+    },
+    "preference": {
+      "type": "object",
+      "required": ["text", "by", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "minLength": 3, "maxLength": 300 },
+        "by": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "evidence": { "type": "string", "minLength": 3, "maxLength": 300 }
+      }
+    },
+    "inference": {
+      "type": "object",
+      "required": ["text", "basis"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "minLength": 3, "maxLength": 300 },
+        "basis": { "type": "string", "minLength": 3, "maxLength": 300 }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "required": ["what", "why"],
+      "additionalProperties": false,
+      "properties": {
+        "what": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "why": { "type": "string", "minLength": 3, "maxLength": 300 }
+      }
+    },
+    "family": {
+      "type": "object",
+      "required": ["requested"],
+      "additionalProperties": false,
+      "properties": {
+        "requested": { "type": "boolean" },
+        "brief": { "type": "string", "maxLength": 600 },
+        "selected": { "type": "string", "format": "relpath", "pattern": "^brand/concepts/[a-z]+/[0-9]{8}-[0-9]{6}-[0-9a-f]{6}/[a-z0-9][a-z0-9-]*\\.json$" }
+      }
+    }
+  }
+}

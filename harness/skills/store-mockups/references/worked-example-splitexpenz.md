@@ -32,7 +32,7 @@ A real run with this kit, on an Expo expense-splitting app. It shows the decisio
 - **The FAB covered figures.** The floating add button hid a share amount (frame 2), the owners' shares (frame 3), a recurring amount (frame 7) and a bill count (frame 8). It was removed from those frames and kept where it covered nothing.
 - **A badge overlapped its label.** The "Current" badge on the month selector sat on top of the month name. It was moved to straddle the card's top edge.
 - **The totals didn't add up.** The first draft of the share list showed 3 of 5 owners, so the listed shares didn't sum to "Left". All 5 were added, and the list scrolls off the bottom of the frame.
-- **The spacing looked odd.** The caption font had wide gaps before full stops. Switching the headline font to Inter 800 with −0.025em tracking fixed it.
+- **The spacing looked odd.** The caption font had wide gaps before full stops. The fix was a headline face and tracking chosen with the typography skill for that project, not a harness default.
 - **Platform truth:** the Android Dashboard shows an "Import SMS" shortcut, and the iOS frames leave it out, matching the app's platform gate.
 
 ## Output

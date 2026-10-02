@@ -1,11 +1,16 @@
-<!-- Logo master template. Copy to brand/mark.svg and replace every {{…}} placeholder.
-     - The mark lives in a 1024 x 1024 viewBox with about 10% clear space on every side.
-     - Use flat shapes and the brand colour tokens only. No text inside the mark, no raster images,
-       no filters (export and launcher masks mangle them).
-     - Keep a mono variant (fill="#000000") and a reverse variant (fill="#FFFFFF") alongside this one. -->
+<!-- Logo master: construction guide only. It holds no mark on purpose: every direction starts from
+     its own idea (references/logo-principles.md), never from a shared placeholder shape.
+     Copy it to brand/mark.svg (or a direction file) and replace {{BRAND}} and {{MARK_GEOMETRY}}.
+     export_svg.py refuses a file that still holds a {{...}} placeholder.
+     Construction:
+     - 1024 x 1024 viewBox. Keep the mark inside the 820 x 820 live area (x/y 102-922): about 10%
+       clear space on every side, which launcher masks and the app-icon tile need.
+     - Centre optically, not mathematically: heavy-bottomed and pointed shapes usually sit a little
+       above the geometric centre. Check it at 32 px and inside a circle mask.
+     - Flat shapes filled from the brand colour tokens (brand/tokens.json). No text inside the mark,
+       no raster images, no filters, no effect the mark depends on (export and masks mangle them).
+     - Keep a mono variant (one fill) and a reverse variant (for dark backgrounds) alongside it. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <title>{{BRAND}} mark</title>
-  <!-- Replace this placeholder geometry with the real mark. -->
-  <circle cx="512" cy="512" r="400" fill="{{PRIMARY}}"/>
-  <path d="M352 560 L472 680 L704 376" fill="none" stroke="{{ON_PRIMARY}}" stroke-width="96" stroke-linecap="round" stroke-linejoin="round"/>
+  {{MARK_GEOMETRY}}
 </svg>

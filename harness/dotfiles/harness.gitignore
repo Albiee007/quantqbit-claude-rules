@@ -1,2 +1,5 @@
 .tmp/
 .backup/
+# Python caches if the media library (lib/) is imported outside the skill scripts.
+__pycache__/
+*.pyc

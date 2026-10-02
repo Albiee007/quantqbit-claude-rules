@@ -1,6 +1,6 @@
 ---
 name: app-icons
-description: Mobile app icon production and audit — iOS 1024 opaque icon (plus iOS 18 dark/tinted), Android adaptive foreground/background with safe zones, Android 13 monochrome themed icon, notification silhouette, Play 512 icon, favicon/PWA/maskable set, Expo app.json wiring, and in-app UI icon consistency. Use when creating or replacing an app icon, fixing launcher/notification icon problems, preparing icon assets for a store release, or auditing icon configuration.
+description: Mobile app icon production and audit in the project's own approved look — icon compositions (solid or OKLab gradient backgrounds, glyph scale and placement) from the creative direction with preview sheets, then the iOS 1024 opaque icon (plus iOS 18 dark/tinted), Android adaptive foreground/background with safe zones, Android 13 monochrome themed icon, notification silhouette, Play 512 icon, favicon/PWA/maskable set, Expo app.json wiring, and in-app UI icon consistency. Use when creating or replacing an app icon, fixing launcher/notification icon problems, preparing icon assets for a store release, or auditing icon configuration.
 ---
 
 # App Icons
@@ -9,7 +9,7 @@ Make one mark work everywhere, from a 1024 px store tile to a 24 dp status-bar s
 
 ## Inputs
 - **A master glyph:** SVG, or a transparent PNG of at least 1024 px. If only an SVG exists, export it with `brand-assets` (`export_svg.py --size 2048x2048`). If there's no mark yet, get one from `brand-asset-creator` first.
-- **The brand background colour and accent,** taken from the theme or brand tokens.
+- **The composition:** the owner-approved icon concept (`brand/direction.json`, skill `creative-direction`), or, for a project without a direction, the background colour from its theme or brand tokens.
 - **The project type:** Expo (`app.json`), native Android (`res/mipmap-*`, `ic_launcher.xml`) or native iOS (`Assets.xcassets/AppIcon.appiconset`).
 
 ## Workflow
@@ -24,15 +24,19 @@ Make one mark work everywhere, from a 1024 px store tile to a 24 dp status-bar s
 2. **Design check on the master:**
    - one simple shape that survives 16 px and a circle mask;
    - no text, and no third-party marks;
-   - at least 3:1 contrast on the background colour.
+   - enough contrast with the background to survive small sizes (reported every run; a project target, if set, is enforced).
 
-   Preview it at 16, 29, 40, 48 and 64 px before generating.
+   Preview it: `python .claude/skills/app-icons/scripts/make_icon_set.py preview --master <glyph.png> --from-direction . -o <sheet.png>` (16–180 px, light and dark wallpapers, circle and squircle masks, the monochrome silhouette).
+   When the icon concept isn't approved yet, propose 2–3 compositions in concept mode ([concept-round](../creative-direction/references/concept-round.md), [composition](references/composition.md)); the owner picks.
 3. **Generate the set:**
-   `python .claude/skills/app-icons/scripts/make_icon_set.py generate --master <glyph.png> --bg "#RRGGBB" --out assets/icons`
+   `python .claude/skills/app-icons/scripts/make_icon_set.py generate --master <glyph.png> --from-direction . --out assets/icons`
+   (a project without a direction: `--bg "#RRGGBB"`, or `--bg-style linear --bg A --bg2 B`)
+   - With `--from-direction` it refuses until the direction and icon concept are approved and current, and writes `brand/runs/icon/<run>.json`.
+   - Files are generated into a temporary folder and moved into `--out` together.
    - It produces the opaque iOS icon, the adaptive foreground and background, the monochrome and notification silhouettes, the Play 512, and the favicon, apple-touch, PWA and maskable icons.
    - It also writes `expo-icon-snippet.json`.
    - Add `--no-web` when the app has no web or PWA target: the favicon, apple-touch, PWA and maskable icons are then skipped.
-   - `--glyph-scale` (default 0.6) sets how much of the tile the glyph fills. The adaptive and maskable versions are capped to their safe zones automatically.
+   - `--glyph-scale` (default 0.6) and `--glyph-offset` set the glyph's size and placement ([composition](references/composition.md)). The adaptive and maskable versions are kept inside their safe zones automatically.
    - Monochrome and notification icons keep only the alpha channel. If the mark relies on inner colour contrast (e.g. a check drawn in brand colour inside a white disc), pass `--mono <cut-out.png>`, a single-colour master with those details transparent, or the silhouette becomes a solid blob. Always open `android/monochrome.png` and look at it.
 4. **Wire it up.**
    - **Expo:** merge the snippet into `app.json`: `icon`, `android.adaptiveIcon.{foregroundImage, backgroundColor, monochromeImage}`, and the `expo-notifications` `icon`/`color`. Add iOS dark and tinted variants via `ios.icon` if you have them.
@@ -46,7 +50,8 @@ Make one mark work everywhere, from a 1024 px store tile to a 24 dp status-bar s
 - **Never overwrite existing icon files in place** without the owner's go-ahead. Generate into a new folder, then switch the config.
 - **The iOS icon is always opaque, and the notification icon is always white on transparency.** These aren't style choices.
 - **Keep third-party logos out** of icons and UI icon sets (store IP rules).
-- **Changing the app icon changes the brand:** show the owner a before and after preview before switching the config.
+- **Changing the app icon changes the brand:** show the owner a before and after preview (`make_icon_set.py preview`) before switching the config.
+- **The look is the project's:** the background and composition come from the approved icon concept. No harness default colour or scale is a style choice.
 - **Store listing icons** (Play 512, App Store 1024) must match the launcher icon. `store-precheck-auditor` checks them against [store-specs](../store-submission-precheck/references/store-specs.md).
 
 ## Output
@@ -56,4 +61,6 @@ Make one mark work everywhere, from a 1024 px store tile to a 24 dp status-bar s
 ## References
 - [icon-specs](references/icon-specs.md): platform specs, safe zones, notification rules.
 - [in-app-icons](references/in-app-icons.md): UI icon family rules.
+- [composition](references/composition.md): background recipes, glyph scale and offset, mark contrast, the preview sheet.
+- Related skills: `creative-direction` (concepts, approvals), `brand-assets` (the mark), `color-science`.
 - Script: [make_icon_set.py](scripts/make_icon_set.py).

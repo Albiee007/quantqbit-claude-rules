@@ -10,6 +10,8 @@
 #   3. Bash/PowerShell commands that name a real .env file or a .env* glob.
 #      Exclusion arguments (--exclude=.env*, -g '!.env') and read-only metadata
 #      commands (ls, stat, test, git status/check-ignore/ls-files) are allowed.
+#   4. A sub-agent running `direction.py approve`: owner approvals are recorded by
+#      the main session after the owner decides (skill creative-direction).
 # It cannot see indirect reads (grep -r ., find -exec cat …): keep .env* files
 # gitignored. Any parsing miss simply allows the call.
 set -uo pipefail
@@ -62,6 +64,11 @@ case "$tool" in
     ;;
   Bash|PowerShell)
     hh_get command "$HH_TI"; cmd="$HH_V"
+    approve_re='direction\.py[^|;&]*[[:space:]]approve([[:space:]]|$)'
+    if [[ "$cmd" =~ $approve_re ]]; then
+      hh_get agent_id
+      [[ -n "$HH_V" ]] && hh_deny "Harness: only the main session records owner approvals (direction.py approve), after the owner has decided. Return the decision you need to your parent instead."
+    fi
     cmd="${cmd//\\//}"
     # Read-only metadata commands (ls, stat, test, git status/check-ignore/ls-files,
     # Test-Path, Get-Item, Get-ChildItem) may name .env files: they reveal

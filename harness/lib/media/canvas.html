@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Marketing canvas</title>
+<!-- Marketing canvas (social / Open Graph / email header / banner), built by export_svg.py into
+     brand/.build/canvas/<id>/ for one asset of brand/canvas.json. The look comes from the approved
+     marketing concept (direction.generated.js, fonts.generated.css); the words and slots come from
+     canvas.generated.js. ?probe=1 lists caption runs for the contrast and font checks; ?nocap=1
+     hides the captions so the check can sample what is behind them. -->
+<link rel="stylesheet" href="fonts.generated.css">
+<style>
+  html, body { margin: 0; overflow: hidden; }
+  #canvas { position: relative; overflow: hidden; }
+  .cap h1 em, .cap p em { font-style: inherit; }
+</style>
+</head>
+<body>
+<div id="canvas"></div>
+<script src="direction.generated.js"></script>
+<script src="canvas.generated.js"></script>
+<script src="artdir.js"></script>
+<script>
+const C = window.CANVAS;
+const AD = window.AD;
+const q = new URLSearchParams(location.search);
+const W = C.width, H = C.height;
+const canvas = document.getElementById('canvas');
+Object.assign(canvas.style, { width: W + 'px', height: H + 'px' });
+ArtDir.loadFaces(AD.faces, [], 8000).then(() => {
+  const bgName = C.asset.background || AD.defaultBackground;
+  canvas.style.background = ArtDir.background(ArtDir.bg(bgName));
+  if (AD.motif) ArtDir.motif(canvas, W, H);
+  const layout = ArtDir.layouts.canvas[C.asset.layout || AD.defaultLayout];
+  layout({ W, H, parent: canvas, asset: C.asset, bgName, slots: C.slots });
+  if (q.get('nocap')) document.head.insertAdjacentHTML('beforeend', '<style>.cap { visibility: hidden !important; }</style>');
+  if (q.get('probe')) ArtDir.probe(W, H);
+  document.title = 'ready';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harnesslib/canvas.schema.json",
+  "title": "Marketing canvases (brand/canvas.json), schema version 1",
+  "description": "Social, Open Graph, email-header and banner images built from the approved marketing concept. Copy is data: it is escaped, and only <em>…</em> survives as the accent.",
+  "type": "object",
+  "required": ["schemaVersion", "assets"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "x-uniqueKey": "id",
+      "items": {
+        "type": "object",
+        "required": ["id", "size", "copy"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+          "size": { "type": "string", "pattern": "^(og|square|story|email-header|[1-9][0-9]{1,3}x[1-9][0-9]{1,3})$" },
+          "layout": { "enum": ["type-start", "type-center", "split-image", "logo-band"] },
+          "background": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,23}$" },
+          "copy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kicker": { "type": "string", "maxLength": 60 },
+              "head": { "type": "string", "maxLength": 140 },
+              "sub": { "type": "string", "maxLength": 200 }
+            }
+          },
+          "slots": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "image": { "type": "string", "format": "relpath", "pattern": "\\.(png|jpe?g|webp|avif|svg)$" },
+              "logo": { "type": "string", "format": "relpath", "pattern": "\\.(svg|png)$" }
+            }
+          },
+          "imageLicense": { "type": "string", "minLength": 3, "maxLength": 300 }
+        }
+      }
+    }
+  }
+}
