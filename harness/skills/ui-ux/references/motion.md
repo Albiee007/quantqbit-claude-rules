@@ -34,6 +34,14 @@ Motion explains change (where something came from or went, what changed, what re
 - No auto-playing motion longer than 5 s without pause, stop, or hide (WCAG 2.2.2). Nothing flashes more than 3 times per second (2.3.1). Avoid sustained oscillation (Apple HIG notes about 0.2 Hz is especially uncomfortable).
 - Parallax, zoom, large-scale scaling, spinning, and panning of large areas are vestibular triggers. Avoid them, or remove them under reduced motion.
 
+## Micro-interactions
+For surface examples and card semantics, see [surfaces-and-cards](surfaces-and-cards.md). These are optional fallback defaults when project tokens are absent; define them in token sources, never as component literals.
+- Entrance stagger: 30–50 ms per item, at most six animated items and at most 300 ms maximum start delay. Remaining items appear without delay; staggering never gates input.
+- Hover: lift the whole interactive surface a few px and deepen from the rest to raised shadow token, only under `(hover: hover) and (pointer: fine)`. Change the shadow immediately or cross-fade a shadow layer with opacity; do not animate `box-shadow` against the compositor rule above.
+- Press: optional button scale about 0.97; keep keyboard and touch state feedback. Do not require hover capability for press feedback or entrances.
+- Use tokenized 150–300 ms, ease-out within the 100–500 ms UI range. The smaller stagger interval is a start delay, not a transition duration.
+- Reduced motion removes stagger delays, hover translation, and press scale. Gate their movement with `prefers-reduced-motion: no-preference` (or the native OS equivalent); preserve instant focus and state feedback. Motion confirms, never performs.
+
 ## Reduced motion (mandatory)
 Respect the OS setting on every platform:
 - Web: `@media (prefers-reduced-motion: reduce)`. Replace movement with opacity fades or instant changes. Keep essential feedback (focus, state change).

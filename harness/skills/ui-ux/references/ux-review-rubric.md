@@ -25,13 +25,13 @@ UI REVIEW: FAIL | NEEDS WORK | PASS
 
 ### 1. Accessibility (WCAG 2.2 AA): see [wcag-22-aa](wcag-22-aa.md)
 - **Critical:** Text contrast below 4.5:1 (or below 3:1 for large text). A control not operable by keyboard. A keyboard trap. No visible focus or `outline: none` without a replacement. Missing accessible name on an icon button. An input with no label. Focus entirely hidden by a sticky header. A target under 24x24 CSS px with no spacing exception. A drag-only interaction. A CAPTCHA or password field that blocks paste. Information conveyed by color alone. Horizontal scroll at 320 px. Auto-playing motion with no pause. Error not announced or not described in text.
-- **Major:** Wrong heading order. Missing landmarks or skip link. Focus not returned after closing a dialog. Status message not in a live region. Reduced motion ignored for non-essential animation. `aria-*` misuse where native semantics exist. Touch targets below the platform guideline (44 pt / 48 dp) but at least 24 px.
+- **Major:** Wrong heading order. Missing landmarks or skip link. Focus not returned after closing a dialog. Status message not in a live region. Reduced motion ignored for non-essential animation. `aria-*` misuse where native semantics exist. Touch targets below the platform guideline (44 pt / 48 dp) but at least 24 px. Clickable card built as a `div` with a click handler instead of a native title link, or interactive controls nested inside a stretched link. Escalate to Critical when keyboard access, names, or another WCAG floor fails.
 - **Minor:** Redundant `title` attributes. Verbose alt text. Decorative image not hidden.
 
 ### 2. Design-system compliance: see [design-tokens-dtcg](design-tokens-dtcg.md)
 - **Critical:** A new parallel component or theme that duplicates an existing one (a second Button or a second color system).
 - **Major:** Raw hex, px, dp, pt, or ms values in components. Primitive tokens used directly in components. A one-off component variant that should be a prop. Overriding component internals with ad-hoc CSS. Hand-editing generated token files.
-- **Minor:** Near-miss spacing (for example 14 px where the scale gives 12 or 16). Inconsistent radius or elevation among siblings.
+- **Minor:** Near-miss spacing (for example 14 px where the scale gives 12 or 16). Inconsistent radius or elevation among siblings. Nested radius not following outer − inset with a zero or small-token floor and token snapping. Inconsistent shadow direction or implied light source.
 
 ### 3. States and resilience: see [forms-and-states](forms-and-states.md)
 - **Critical:** Data loss on error or navigation. No error handling on an async action (silent failure). A double-submit that can create duplicate payments or records.
@@ -48,13 +48,14 @@ UI REVIEW: FAIL | NEEDS WORK | PASS
 - **Major:** Breakpoints not from tokens. Lines over about 80 characters. Fixed-height text containers. Hover-only actions on touch. Missing safe-area or inset handling.
 - **Minor:** Inconsistent alignment or grid. Unbalanced whitespace. Grouping that contradicts proximity.
 
-### 6. Visual hierarchy, typography, and color: see [typography](../../typography/SKILL.md), [color-science](../../color-science/SKILL.md), [gestalt](gestalt.md)
+### 6. Visual hierarchy, typography, and color: see [typography](../../typography/SKILL.md), [color-science](../../color-science/SKILL.md), [gestalt](gestalt.md), [surfaces-and-cards](surfaces-and-cards.md)
 - **Major:** No clear primary action, or several competing primaries. Type sizes or colors outside the project tokens, or a parallel scale or palette. Body text below the platform default or the project's body token without a recorded reason. Text that clips at 200% or the largest platform text size. A supported script with no font coverage. Dark or high-contrast theme not verified, or pairs failing contrast only in one theme. Status color without an icon or text. A supplementary metric (APCA, ΔE) reported as WCAG conformance. Color math with no stated space or white point.
-- **Minor:** Families or weights beyond the project system without a recorded rationale. Visible layout shift on font swap. Inconsistent icon style or size. Justified body text.
+- **Major (surfaces):** Several accent colors competing in one component. A card used for a form section. A card inside a card. Apply these craft heuristics after checking project design-system precedence; status colors with text or icons are not competing accents.
+- **Minor:** Families or weights beyond the project system without a recorded rationale. Visible layout shift on font swap. Inconsistent icon style or size. Justified body text. More than three text tiers without a project-system reason. Flat card disappearing into a same-color background (escalate if a required control boundary fails contrast).
 
 ### 7. Interaction and motion: see [motion](motion.md)
 - **Major:** No feedback within about 100 ms on press or submit. Animation blocks input. Animations over 500 ms on routine UI. Layout-property animations causing jank. Destructive action without undo or confirmation.
-- **Minor:** Easing mismatched (ease-in on enter). Inconsistent durations.
+- **Minor:** Easing mismatched (ease-in on enter). Inconsistent durations. Hover lift without `(hover: hover) and (pointer: fine)`. Stagger without a cap on total start delay.
 
 ### 8. Navigation and IA: see [navigation-and-ia](navigation-and-ia.md)
 - **Critical:** A dead end with no way back. Back or browser history broken. A modal with no close control.

@@ -65,6 +65,7 @@ R2="$(new_repo agents)"; echo "# agents" > "$R2/AGENTS.md"; git -C "$R2" add AGE
 run "$R2" --profiles backend; check "install ok" test $? -eq 0
 check "CLAUDE.md NOT created" test ! -e "$R2/CLAUDE.md"
 check "backend profile skips ui-ux skill" test ! -e "$R2/.claude/skills/ui-ux"
+check "backend skips surfaces-and-cards reference" test ! -e "$R2/.claude/skills/ui-ux/references/surfaces-and-cards.md"
 check "backend profile skips store agents" test ! -e "$R2/.claude/agents/store-creative.md"
 check "backend profile skips store skills" test ! -e "$R2/.claude/skills/store-mockups"
 check "backend profile skips creative direction and the media library" test ! -e "$R2/.claude/agents/creative-director.md" -a ! -e "$R2/.claude/skills/creative-direction" -a ! -e "$R2/.claude/harness/lib"
@@ -327,6 +328,7 @@ run "$R19b" --profiles all --commit; check "that fix works (exit 0)" test $? -eq
 echo "29. mobile profile installs the store and brand agents and skills"
 R21="$(new_repo mobile)"
 run "$R21" --profiles mobile; check "mobile install exits 0" test $? -eq 0
+check "mobile gets surfaces-and-cards reference" test -f "$R21/.claude/skills/ui-ux/references/surfaces-and-cards.md"
 for a in creative-director screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator; do
   check "agent $a installed" test -f "$R21/.claude/agents/$a.md"
 done
@@ -342,6 +344,7 @@ check "kit template copied verbatim" grep -q 'window.FRAMES' "$R21/.claude/skill
 check "seo skill not in mobile" test ! -e "$R21/.claude/skills/seo"
 R22="$(new_repo webonly)"
 run "$R22" --profiles web; check "web install exits 0" test $? -eq 0
+check "web gets surfaces-and-cards reference" test -f "$R22/.claude/skills/ui-ux/references/surfaces-and-cards.md"
 check "web gets brand-assets" test -f "$R22/.claude/skills/brand-assets/SKILL.md"
 check "web gets the creative-director and the media library" test -f "$R22/.claude/agents/creative-director.md" -a -f "$R22/.claude/harness/lib/harnesslib/direction.py"
 check "web gets no store agents" test ! -e "$R22/.claude/agents/store-creative.md"
