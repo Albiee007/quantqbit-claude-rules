@@ -19,11 +19,12 @@ Explicit user instructions win on style, never on rule 1.
 1. **Discover and reuse.** Before writing UI, find the existing design system: token files (`*.tokens.json`, `tokens/`, `theme.*`, `tailwind.config.*`, CSS custom properties, `Theme.kt`/`Color.kt`/`Type.kt`, `values/*.xml`, asset catalogs), the component library (`components/`, `ui/`, Storybook), and existing screens with similar patterns. **Reuse existing components and tokens. Never create a parallel button, color set, spacing scale, or theme.** Extend by adding a variant or prop to the existing component. If none exists, propose a minimal token set ([design-tokens-dtcg](references/design-tokens-dtcg.md)) and build on it.
 2. **Tokens.** Style only through semantic tokens or theme accessors. No raw hex, rgb, px, dp, pt, ms, or cubic-bezier in components. Add a token only for a real, repeated need, named by role. Type and color tokens follow the typography and color-science skills: adapt to project evidence, never impose a generic scale or palette.
 3. **Layout and responsive.** Mobile-first, content-driven breakpoints from tokens, a 4/8 spacing scale, container queries for components, safe areas and insets, reflow at 320 CSS px, readable measure ([responsive-layout](references/responsive-layout.md)).
-4. **Components and all states.** Implement every applicable state: loading (skeleton or progress), empty, error, partial, success, disabled (with a reason), offline, and long or overflow content. Include interaction states: hover, focus-visible, pressed, selected, disabled, error ([forms-and-states](references/forms-and-states.md)).
+4. **Components and all states.** Implement every applicable state: loading (skeleton or progress), empty, error, partial, success, disabled (with a reason), offline, and long or overflow content. Include interaction states: hover, focus-visible, pressed, selected, disabled, error ([forms-and-states](references/forms-and-states.md)). Cards and surfaces follow [surfaces-and-cards](references/surfaces-and-cards.md).
 5. **Content and microcopy.** Verb-first buttons, noun labels, the error formula (what happened plus how to fix it), sentence case, no hard-coded or concatenated strings, RTL-safe ([content-microcopy](references/content-microcopy.md)).
 6. **Accessibility pass.** Semantics (native elements first), names, roles, and states, keyboard and focus order, visible and unobscured focus, contrast, target size, labels, announcements, reduced motion, zoom and text scaling ([wcag-22-aa](references/wcag-22-aa.md)).
 7. **Platform check.** Web conventions, [material3](references/material3.md) (Android), or [apple-hig](references/apple-hig.md) (Apple). Use platform controls, navigation, type styles, and system settings (Dynamic Type, font scale, dark mode).
-8. **Self-review.** Run the checklist below, plus automated tools where available (axe or Lighthouse, jsx-a11y lint, Android Accessibility Scanner or Lint, Xcode Accessibility Inspector). Score with [ux-review-rubric](references/ux-review-rubric.md). Report anything not verified.
+8. **Polish pass.** Review hierarchy, spacing, text tiers and accent, depth, nested corners, and motion per [surfaces-and-cards](references/surfaces-and-cards.md). Project tokens override its fallback craft values.
+9. **Self-review.** Run the checklist below, plus automated tools where available (axe or Lighthouse, jsx-a11y lint, Android Accessibility Scanner or Lint, Xcode Accessibility Inspector). Score with [ux-review-rubric](references/ux-review-rubric.md). Report anything not verified.
 
 ## Pre-merge UI checklist
 Every item must be true, or be reported as a known gap with a reason.
@@ -61,6 +62,12 @@ Every item must be true, or be reported as a known gap with a reason.
 22. No hard-coded or concatenated UI strings. Plurals are handled. Logical (start/end) layout works in RTL.
 23. Platform conventions are followed (navigation, back behavior, type styles, dark mode following the system).
 24. One clear primary action per view. Visual grouping matches functional grouping.
+
+**Visual craft**
+25. One dominant element per component; at most three text tiers, each meeting contrast in every theme; one accent role per component, never color alone.
+26. Surface treatment matches its background (border / shadow or tonal / flat); dark theme uses borders and tonal surfaces, not shadows alone.
+27. Nested radii follow inner = max(0, outer − inset), snapped to a project radius token (or floored at its small radius token); siblings share radius and elevation tokens.
+28. Cards represent one entity and one action; web clickable surfaces use a single stretched title link with visible keyboard focus and selectable text regions, no cards inside cards, and one media aspect ratio per grid. Panels with multiple controls use explicit targets instead ([surfaces-and-cards](references/surfaces-and-cards.md)).
 
 ## Top UX laws to apply by default
 Full list with examples: [laws-of-ux](references/laws-of-ux.md). Heuristics: [nielsen-heuristics](references/nielsen-heuristics.md).
@@ -101,6 +108,7 @@ Full list with examples: [laws-of-ux](references/laws-of-ux.md). Heuristics: [ni
 - [responsive-layout](references/responsive-layout.md): breakpoints, grids, spacing, container queries, safe areas
 - [forms-and-states](references/forms-and-states.md): forms, validation, and every UI state
 - [motion](references/motion.md): durations, easing, reduced motion
+- [surfaces-and-cards](references/surfaces-and-cards.md): polish pass, surface treatments, nested radii, card semantics, media, and micro-interactions
 - [navigation-and-ia](references/navigation-and-ia.md): IA, navigation patterns, breadcrumbs, search, wayfinding
 - [content-microcopy](references/content-microcopy.md): labels, buttons, the error formula, i18n and RTL
 - [ux-review-rubric](references/ux-review-rubric.md): severity-based review rubric for reviewer agents

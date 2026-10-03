@@ -39,6 +39,7 @@ Rule: components reference semantic (or component) tokens. Semantic references p
 - Categories: `color`, `font`, `typography`, `space`, `size`, `radius`, `border`, `shadow`/`elevation`, `opacity`, `duration`, `easing`, `z` (layers), `breakpoint`.
 - States: `default`, `hover`, `pressed`/`active`, `focus`, `selected`, `disabled`, `error`, `visited`.
 - Name by role, not appearance. `color.text.danger`, not `color.red-text`.
+- Surface roles, when needed: `color.text.{primary,secondary,tertiary}`, `color.surface.default`, `color.border.{subtle,focus}`, `border.width.{subtle,focus}`, `shadow.surface.{rest,raised}`, `radius.surface` / `radius.surface-inner`, `space.surface.{inset,edge-inset}`, `space.focus.offset`, `offset.surface.hover`, `duration.surface`, `aspect.media.card` ([surfaces-and-cards](surfaces-and-cards.md)). Braces here list alternatives, not DTCG alias syntax; `aspect.media.card` is a `number` token emitted as a CSS ratio.
 
 ## Example (DTCG 2025.10)
 ```json
