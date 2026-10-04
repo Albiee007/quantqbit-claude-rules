@@ -216,6 +216,6 @@ if __name__ == "__main__":
         sys.exit(main())
     except Exception as e:  # noqa: BLE001
         if os.environ.get("GITHUB_ACTIONS"):
-            print(f"::error title=video M0 ({sys.platform}) crashed::{type(e).__name__}: {e}"[:900].replace("
-", " "))
+            msg = f"{type(e).__name__}: {e}".replace("\n", " ")[:900]
+            print(f"::error title=video M0 ({sys.platform}) crashed::{msg}")
         raise
