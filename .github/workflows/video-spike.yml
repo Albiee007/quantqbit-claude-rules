@@ -18,10 +18,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         variant: [default]
-        include:  # macOS showed history-dependent frames with the defaults; try the fixes
-          - {os: macos-latest, variant: raf, args: "--raf"}
-          - {os: macos-latest, variant: stages, args: "--flags='--run-all-compositor-stages-before-draw --disable-partial-raster --disable-checker-imaging'"}
-          - {os: macos-latest, variant: stages-raf, args: "--raf --flags='--run-all-compositor-stages-before-draw --disable-partial-raster --disable-checker-imaging'"}
     runs-on: ${{ matrix.os }}
     defaults:
       run:

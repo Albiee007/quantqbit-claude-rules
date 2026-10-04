@@ -36,7 +36,7 @@ RUNTIME = (HERE / "runtime.js").read_text(encoding="utf-8")
 URL = (HERE / "fixture.html").as_uri()
 failures: list[str] = []
 EXTRA: list[str] = []  # extra browser flags under test (--flags)
-RAF = False  # wait one native rAF after each seek (--raf)
+RAF = True  # wait one native rAF after each seek; macOS needs it (see the workflow history), --no-raf to test without
 res: dict = {}
 
 
@@ -83,7 +83,7 @@ def main() -> int:
     ap.add_argument("--ffmpeg")
     ap.add_argument("--trials", type=int, default=20)
     ap.add_argument("--flags", default="", help="extra browser flags, space separated")
-    ap.add_argument("--raf", action="store_true", help="wait one native rAF after each seek")
+    ap.add_argument("--no-raf", dest="raf", action="store_false", help="skip the native rAF wait after each seek")
     a = ap.parse_args()
     global RAF
     EXTRA[:] = a.flags.split()
@@ -131,8 +131,8 @@ def main() -> int:
         p.evaluate("fetch('https://example.com/x').then(()=>'ok',()=>'failed')")
         res["blocked"] = p.blocked
         check(any(u.startswith("https://example.com") for u in p.blocked), "remote request is blocked")
-        res["raf_vs_noraf_mismatch"] = [n for n in (15, 40, 50, 70) if pix(shot(p, n, raf=True))[0] != fwd[n][0]]
-        check(not res["raf_vs_noraf_mismatch"], "frames identical with and without the rAF wait")
+        # information only: without the wait macOS returned stale frames after backward seeks
+        res["other_raf_mode_mismatch"] = [n for n in (15, 40, 50, 70) if pix(shot(p, n, raf=not RAF))[0] != fwd[n][0]]
 
     with tempfile.TemporaryDirectory() as tmp:
         hang = Path(tmp) / "hang.html"
