@@ -51,6 +51,18 @@ def _scratch() -> Iterator[Path]:
             time.sleep(0.2)
 
 
+def spawn(argv: list[str], out_path: Path, err_path: Path) -> subprocess.Popen:
+    """Start the browser in its own process group with stdout/stderr going to files (see _run)."""
+    extra = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"
+             else {"start_new_session": True})
+    with open(out_path, "wb") as out, open(err_path, "wb") as err:
+        return subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **extra)
+
+
+scratch = _scratch
+kill_group = _kill_group
+
+
 def _shot_done(dest: Path) -> Callable[[Path, Path], bool]:
     return lambda _out, err: b"bytes written to file" in err.read_bytes() and Path(dest).is_file()
 
@@ -73,10 +85,7 @@ def _run(argv: list[str], timeout: float,
     GRACE_S seconds and is then stopped, and the run counts as finished."""
     with _scratch() as tmp:
         out_path, err_path = tmp / "stdout", tmp / "stderr"
-        extra = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"
-                 else {"start_new_session": True})
-        with open(out_path, "wb") as out, open(err_path, "wb") as err:
-            proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **extra)
+        proc = spawn(argv, out_path, err_path)
         deadline = time.monotonic() + timeout
         complete_at = None
         while True:
@@ -133,15 +142,18 @@ def version(chrome: str) -> str:
     return f"{Path(chrome).name} {m.group(1) if m else '(version not reported)'}"[:200]
 
 
-def cmd(chrome: str, profile: str, size: tuple[int, int], budget_ms: int = 8000, transparent: bool = False) -> list[str]:
+def cmd(chrome: str, profile: str, size: tuple[int, int], budget_ms: int | None = 8000,
+        transparent: bool = False) -> list[str]:
+    """budget_ms=None leaves out --virtual-time-budget (a DevTools session drives the page instead)."""
     c = [chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1"]
     if transparent:
         c.append("--default-background-color=00000000")
     # --use-mock-keychain / --password-store=basic: headless Chrome on macOS can otherwise block on
     # keychain access (CI runners, locked sessions). They don't change what is rendered.
-    return c + [f"--user-data-dir={profile}", "--allow-file-access-from-files", "--no-first-run",
-                "--no-default-browser-check", "--use-mock-keychain", "--password-store=basic",
-                f"--window-size={size[0]},{size[1]}", f"--virtual-time-budget={budget_ms}"]
+    c += [f"--user-data-dir={profile}", "--allow-file-access-from-files", "--no-first-run",
+          "--no-default-browser-check", "--use-mock-keychain", "--password-store=basic",
+          f"--window-size={size[0]},{size[1]}"]
+    return c + ([f"--virtual-time-budget={budget_ms}"] if budget_ms is not None else [])
 
 
 def screenshot(chrome: str, url: str, size: tuple[int, int], dest: Path, budget_ms: int = 8000,
