@@ -17,6 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        variant: [default]
+        include:  # macOS showed history-dependent frames with the defaults; try the fixes
+          - {os: macos-latest, variant: raf, args: "--raf"}
+          - {os: macos-latest, variant: stages, args: "--flags='--run-all-compositor-stages-before-draw --disable-partial-raster --disable-checker-imaging'"}
+          - {os: macos-latest, variant: stages-raf, args: "--raf --flags='--run-all-compositor-stages-before-draw --disable-partial-raster --disable-checker-imaging'"}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -37,9 +42,9 @@ jobs:
           esac
           ffmpeg -version | head -1
       - name: Run the M0 spike
-        run: python tests/spikes/video-m0/run.py --trials 30 | tee m0-${{ matrix.os }}.json
+        run: python tests/spikes/video-m0/run.py --trials 30 ${{ matrix.args }} | tee m0-${{ matrix.os }}-${{ matrix.variant }}.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: m0-${{ matrix.os }}
-          path: m0-${{ matrix.os }}.json
+          name: m0-${{ matrix.os }}-${{ matrix.variant }}
+          path: m0-${{ matrix.os }}-${{ matrix.variant }}.json

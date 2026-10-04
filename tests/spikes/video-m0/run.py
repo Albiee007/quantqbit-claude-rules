@@ -35,6 +35,8 @@ SIZE = (1080, 1920)
 RUNTIME = (HERE / "runtime.js").read_text(encoding="utf-8")
 URL = (HERE / "fixture.html").as_uri()
 failures: list[str] = []
+EXTRA: list[str] = []  # extra browser flags under test (--flags)
+RAF = False  # wait one native rAF after each seek (--raf)
 res: dict = {}
 
 
@@ -51,7 +53,8 @@ def open_page(b, url=URL):
     return p, p.evaluate("window.__hf.ready()")
 
 
-def shot(p, n, fmt="png", raf=False):
+def shot(p, n, fmt="png", raf=None):
+    raf = RAF if raf is None else raf
     p.evaluate(f"window.__hf.seek({n}/window.__hf.fps, {{raf: {str(raf).lower()}}})")
     return p.screenshot(fmt, 92 if fmt == "jpeg" else None)
 
@@ -62,7 +65,7 @@ def pix(png):
 
 
 def render(chrome, order):
-    with cdp.Browser.launch(chrome, SIZE) as b:
+    with cdp.Browser.launch(chrome, SIZE, extra_args=EXTRA) as b:
         p, info = open_page(b)
         out: dict[int, list[str]] = {}
         for n in order:
@@ -79,7 +82,13 @@ def main() -> int:
     ap.add_argument("--chrome")
     ap.add_argument("--ffmpeg")
     ap.add_argument("--trials", type=int, default=20)
+    ap.add_argument("--flags", default="", help="extra browser flags, space separated")
+    ap.add_argument("--raf", action="store_true", help="wait one native rAF after each seek")
     a = ap.parse_args()
+    global RAF
+    EXTRA[:] = a.flags.split()
+    RAF = a.raf
+    res["variant"] = {"flags": EXTRA, "raf": RAF}
     if Image is None:
         print("Pillow is required", file=sys.stderr)
         return 2
@@ -108,7 +117,7 @@ def main() -> int:
     for k in ("backward_mismatch", "random_mismatch", "repeat_internal_mismatch", "worker2_mismatch", "fresh_mismatch"):
         check(not res[k], f"seek history independence: {k} = {res[k]}")
 
-    with cdp.Browser.launch(chrome, SIZE) as b:
+    with cdp.Browser.launch(chrome, SIZE, extra_args=EXTRA) as b:
         p, _ = open_page(b)
         px = pix(shot(p, 15))[1].getpixel((100, 100))
         res["box_px_f15"] = px
@@ -129,7 +138,7 @@ def main() -> int:
         hang = Path(tmp) / "hang.html"
         hang.write_text((HERE / "fixture.html").read_text(encoding="utf-8").replace(
             "<script>", "<script>__hf.waitFor(new Promise(()=>{}), 'lottie: logo.json');", 1), encoding="utf-8")
-        with cdp.Browser.launch(chrome, SIZE) as b:
+        with cdp.Browser.launch(chrome, SIZE, extra_args=EXTRA) as b:
             p = b.new_page(SIZE)
             p.add_init_script(RUNTIME)
             p.navigate(hang.as_uri())
@@ -141,7 +150,7 @@ def main() -> int:
         check("lottie: logo.json" in res["ready_timeout"], "readiness timeout names what is pending")
 
     def bench(fmt, n=60):
-        with cdp.Browser.launch(chrome, SIZE) as b:
+        with cdp.Browser.launch(chrome, SIZE, extra_args=EXTRA) as b:
             p, _ = open_page(b)
             shot(p, 0, fmt)
             t0 = time.monotonic()
@@ -165,7 +174,7 @@ def main() -> int:
             argv = [ff, "-hide_banner", "-loglevel", "error", "-y", "-f", "image2pipe", "-vcodec", "mjpeg",
                     "-framerate", "30", "-i", "-", *enc] + (["-movflags", "+faststart"] if faststart else []) + [str(dest)]
             proc = subprocess.Popen(argv, stdin=subprocess.PIPE)
-            with cdp.Browser.launch(chrome, SIZE) as b:
+            with cdp.Browser.launch(chrome, SIZE, extra_args=EXTRA) as b:
                 p, _ = open_page(b)
                 for n in rng_:
                     proc.stdin.write(shot(p, n, "jpeg"))
@@ -205,7 +214,7 @@ def main() -> int:
     if os.environ.get("GITHUB_ACTIONS"):  # annotations are readable without a login; job logs aren't
         for f in failures:
             print(f"::error title=video M0 ({sys.platform})::{f}")
-        keys = ("chrome", "forward_s", "fresh_trials", "box_px_f15", "ms_per_frame_png", "ms_per_frame_jpeg92",
+        keys = ("variant", "backward_mismatch", "random_mismatch", "fresh_mismatch", "chrome", "forward_s", "fresh_trials", "box_px_f15", "ms_per_frame_png", "ms_per_frame_jpeg92",
                 "ready_timeout", "encode", "ffmpeg")
         print(f"::notice title=video M0 ({sys.platform})::" + json.dumps({k: res.get(k) for k in keys}, default=str))
     return 1 if failures else 0
