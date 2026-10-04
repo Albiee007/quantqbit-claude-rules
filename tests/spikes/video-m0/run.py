@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import random
 import shutil
 import subprocess
@@ -201,8 +202,20 @@ def main() -> int:
 
     res["failures"] = failures
     print(json.dumps(res, indent=1, default=str))
+    if os.environ.get("GITHUB_ACTIONS"):  # annotations are readable without a login; job logs aren't
+        for f in failures:
+            print(f"::error title=video M0 ({sys.platform})::{f}")
+        keys = ("chrome", "forward_s", "fresh_trials", "box_px_f15", "ms_per_frame_png", "ms_per_frame_jpeg92",
+                "ready_timeout", "encode", "ffmpeg")
+        print(f"::notice title=video M0 ({sys.platform})::" + json.dumps({k: res.get(k) for k in keys}, default=str))
     return 1 if failures else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as e:  # noqa: BLE001
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(f"::error title=video M0 ({sys.platform}) crashed::{type(e).__name__}: {e}"[:900].replace("
+", " "))
+        raise
