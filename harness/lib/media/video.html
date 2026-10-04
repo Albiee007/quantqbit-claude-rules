@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Video composition</title>
+<!-- Video composition, built by render_video.py into brand/video/<id>/.build/ for one piece and
+     format. The look and motion come from the video concept (direction.generated.js,
+     fonts.generated.css); the scenes and their frame plan from video.generated.js. The root
+     element carries the HyperFrames composition attributes. Nothing here reads a clock: every
+     animation is a paused Web Animation that timeline.js (window.__hf.seek) positions. -->
+<link rel="stylesheet" href="fonts.generated.css">
+<style>
+  html, body { margin: 0; overflow: hidden; background: #000; }
+  #root { position: relative; overflow: hidden; }
+  .cap h1 em, .cap p em { font-style: inherit; }
+</style>
+<script src="timeline.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script src="direction.generated.js"></script>
+<script src="video.generated.js"></script>
+<script src="artdir.js"></script>
+<script src="motion.js"></script>
+</body>
+</html>

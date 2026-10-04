@@ -6,18 +6,25 @@ Files (project-owned, committed):
   brand/approvals.json        owner approvals (schemas/approvals.schema.json), written only by
                               `direction.py approve` after the owner decides
   brand/runs/<family>/<run>.json  production run manifests
-Hashes:
-  direction content = the direction minus families.*.selected (choosing a concept is not a
-                      change of direction); direction inputs = every resolved role and font value,
-                      font file hashes and the motif asset hash.
-  concept content   = the concept file; concept inputs = the direction hashes plus every value the
-                      concept resolves.
+Hashes (version 2, written since 1.8):
+  direction content = the direction minus `families` (requesting or briefing a family, and choosing
+                      a concept, are not changes of direction); direction inputs = every resolved
+                      role and font value, font file hashes and the motif asset hash.
+  concept content   = the concept file; concept inputs = the direction content, the concept's own
+                      family entry (requested, brief) and everything the concept resolves to for a
+                      renderer (colours, type, font file hashes, motion values, the motif's hash).
+  So a change reaches only what depends on it: briefing the video family leaves store approvals
+  current, and a role colour invalidates the concepts that use it.
+Version 1 (1.7) records carry no hashVersion. They are checked with the 1.7 algorithm on a copy of
+the direction without the families 1.7 did not know (video), which reproduces what was approved;
+their coarser coupling (any family's brief invalidates every concept) stays until re-approved.
 A record approves (content, inputs). Change either and the gate reports the record as stale.
 """
 
 from __future__ import annotations
 
 import copy
+import hashlib
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,11 +40,13 @@ DIRECTION = "brand/direction.json"
 APPROVALS = "brand/approvals.json"
 CONCEPTS = "brand/concepts"
 RUNS = "brand/runs"
-FAMILIES = ("store", "marketing", "icon", "illustration")
+FAMILIES = ("store", "marketing", "icon", "illustration", "video")
+V1_FAMILIES = ("store", "marketing", "icon", "illustration")  # the families 1.7 hashed
+HASH_VERSION = 2
 GENERIC_FONTS = {"serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif",
                  "ui-sans-serif", "ui-monospace", "ui-rounded", "math", "emoji"}
-DEFAULT_DISPLAY_WIDTH = {"store": 320, "marketing": 500}
-DEFAULT_HEAD_SCALE = {"store": 0.072, "marketing": 0.06}
+DEFAULT_DISPLAY_WIDTH = {"store": 320, "marketing": 500, "video": 360}
+DEFAULT_HEAD_SCALE = {"store": 0.072, "marketing": 0.06, "video": 0.075}
 DEFAULT_SUB_RATIO = 0.45
 
 
@@ -183,14 +192,28 @@ def face_for(font: dict, weight: float, italic: bool) -> dict | None:
 
 # ------------------------------------------------------------------ hashes
 
-def direction_core(direction: dict) -> dict:
+def direction_core(direction: dict, version: int = HASH_VERSION) -> dict:
     core = copy.deepcopy(direction)
-    for fam in core.get("families", {}).values():
+    if version >= 2:
+        core.pop("families", None)
+        return core
+    fams = core.get("families", {})
+    for name in [n for n in fams if n not in V1_FAMILIES]:
+        del fams[name]  # 1.7 could not have hashed a family it did not know
+    for fam in fams.values():
         fam.pop("selected", None)
     return core
 
 
-def direction_inputs(p: Project) -> dict:
+def asset_sha(path: Path, version: int = HASH_VERSION) -> str:
+    """The hash of a brand asset. From version 2, an SVG (text) is hashed with LF line endings, so a
+    checkout with core.autocrlf (CRLF on Windows) hashes the same as everywhere else."""
+    if version >= 2 and Path(path).suffix.lower() == ".svg":
+        return hashlib.sha256(Path(path).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    return sha256_file(path)
+
+
+def direction_inputs(p: Project, version: int = HASH_VERSION) -> dict:
     d = p.direction
     roles = {}
     for k, v in sorted(d["tokens"]["roles"].items()):
@@ -204,12 +227,17 @@ def direction_inputs(p: Project) -> dict:
     motif = None
     if d.get("motif", {}).get("asset"):
         mp = resolve_inside(p.root, d["motif"]["asset"], "motif.asset", must_exist=True)
-        motif = sha256_file(mp)
+        motif = asset_sha(mp, version)
     return {"roles": roles, "fonts": fonts, "motif": motif}
 
 
-def direction_hashes(p: Project) -> tuple[str, str]:
-    return sha256_text(canonical(direction_core(p.direction))), sha256_text(canonical(direction_inputs(p)))
+def direction_hashes(p: Project, version: int = HASH_VERSION) -> tuple[str, str]:
+    return (sha256_text(canonical(direction_core(p.direction, version))),
+            sha256_text(canonical(direction_inputs(p, version))))
+
+
+def record_version(rec: dict) -> int:
+    return rec.get("hashVersion", 1)
 
 
 def _refs(obj: Any) -> list[str]:
@@ -261,7 +289,7 @@ def spec_problems(p: Project, family: str, spec: dict) -> list[str]:
             resolve_ref(p, ref)
         except (InputError, TokenError) as e:
             errs.append(str(e))
-    if family in ("store", "marketing"):
+    if family in ("store", "marketing", "video"):
         bgs = spec["backgrounds"]
         if not bgs:
             errs.append("backgrounds: define at least one")
@@ -284,6 +312,8 @@ def spec_problems(p: Project, family: str, spec: dict) -> list[str]:
                 errs.append(f"caption.{part}.font {ts['font']!r} is not a direction font role ({', '.join(sorted(fonts))})")
         if spec.get("motif", {}).get("use") and not p.direction.get("motif", {}).get("asset"):
             errs.append("motif.use is true but the direction has no motif.asset")
+    if family == "video":
+        errs += _video_spec_problems(p, spec)
     if family == "icon":
         b = spec["background"]
         if b["recipe"] == "solid" and "color" not in b:
@@ -293,17 +323,63 @@ def spec_problems(p: Project, family: str, spec: dict) -> list[str]:
     return errs
 
 
-def concept_hashes(p: Project, rel: str, concept: dict) -> tuple[str, str]:
-    d_content, d_inputs = direction_hashes(p)
+def _video_spec_problems(p: Project, spec: dict) -> list[str]:
+    errs: list[str] = []
+    m = spec["motion"]
+    for group, want in (("durations", "duration"), ("easing", "cubicBezier")):
+        for name, ref in m[group].items():
+            try:
+                resolve_ref(p, ref, want)
+            except (InputError, TokenError) as e:
+                errs.append(f"motion.{group}.{name}: {e}")
+    if m["defaultTransition"] not in m["transitions"]:
+        errs.append(f"motion.defaultTransition {m['defaultTransition']!r} is not one of motion.transitions")
+    end = spec.get("endCard")
+    if end and end.get("background", spec["defaultBackground"]) not in spec["backgrounds"]:
+        errs.append(f"endCard.background {end['background']!r} is not one of the backgrounds")
+    sub = spec.get("subtitles")
+    fonts = p.direction["tokens"]["fonts"]
+    if sub and sub["font"] not in fonts:
+        errs.append(f"subtitles.font {sub['font']!r} is not a direction font role ({', '.join(sorted(fonts))})")
+    if spec.get("logo"):
+        try:
+            resolve_inside(p.root, spec["logo"], "logo", must_exist=True)
+        except InputError as e:
+            errs.append(str(e))
+    return errs
+
+
+def concept_hashes(p: Project, rel: str, concept: dict, version: int = HASH_VERSION) -> tuple[str, str]:
+    content = sha256_text(canonical({"path": rel, "concept": concept}))
+    if version >= 2:
+        fam = dict(p.direction["families"].get(concept["family"]) or {})
+        fam.pop("selected", None)
+        resolved_family = _portable(resolve_family(p, concept["family"], concept))
+        files = {}
+        for key, rel_ in (("motif", (resolved_family.get("motif") or {}).get("asset")), ("logo", resolved_family.get("logo"))):
+            if rel_:
+                files[key] = asset_sha(resolve_inside(p.root, rel_, key, must_exist=True))
+        inputs = sha256_text(canonical({"direction": sha256_text(canonical(direction_core(p.direction, 2))),
+                                        "family": fam, "resolved": resolved_family, "files": files}))
+        return content, inputs
+    d_content, d_inputs = direction_hashes(p, 1)
     resolved = {r: _jsonable(resolve_ref(p, r)) for r in sorted(set(_refs(concept["spec"])))}
     fonts = {}
     for ts in (concept["spec"].get("caption") or {}).values():
         if isinstance(ts, dict) and "font" in ts:
             f = font_role(p, ts["font"])
             fonts[ts["font"]] = sorted((x["path"], x["sha256"]) for x in f["files"])
-    content = sha256_text(canonical({"path": rel, "concept": concept}))
     inputs = sha256_text(canonical({"direction": [d_content, d_inputs], "resolved": resolved, "fonts": fonts}))
     return content, inputs
+
+
+def _portable(obj: Any) -> Any:
+    """A resolved family without machine-specific absolute paths (hashes must match on every OS)."""
+    if isinstance(obj, dict):
+        return {k: _portable(v) for k, v in obj.items() if k != "abs"}
+    if isinstance(obj, list):
+        return [_portable(v) for v in obj]
+    return obj
 
 
 def _jsonable(v: Any) -> Any:
@@ -331,22 +407,32 @@ class Gate:
     direction: tuple[str, str] | None = None
     concept: tuple[str, str] | None = None
     concept_rel: str | None = None
+    legacy: list[str] = field(default_factory=list)  # current records still on 1.7 (version 1) hashing
+
+
+def _stale_what(rec: dict, now: tuple[str, str], content: str, inputs: str) -> str:
+    return content if rec["hash"] != now[0] else inputs
 
 
 def gate(p: Project, family: str | None) -> Gate:
     """Is the direction approved as it stands, and (for a family) the selected concept too?"""
     problems: list[str] = []
     records: list[str] = []
+    legacy: list[str] = []
     dh = direction_hashes(p)
     rec = _latest(p.approvals, gate="direction", subject=DIRECTION)
     if rec is None:
         problems.append("the direction has no owner approval (Gate 1)")
-    elif (rec["hash"], rec["inputs"]) != dh:
-        what = "its content" if rec["hash"] != dh[0] else "a token, font or motif it resolves"
-        problems.append(f"the direction approval {rec['id']} is stale: {what} changed since {rec['at']}")
     else:
-        records.append(rec["id"])
-    g = Gate(not problems, problems, records, dh)
+        now = direction_hashes(p, record_version(rec))
+        if (rec["hash"], rec["inputs"]) != now:
+            what = _stale_what(rec, now, "its content", "a token, font or motif it resolves")
+            problems.append(f"the direction approval {rec['id']} is stale: {what} changed since {rec['at']}")
+        else:
+            records.append(rec["id"])
+            if record_version(rec) < HASH_VERSION:
+                legacy.append(rec["id"])
+    g = Gate(not problems, problems, records, dh, legacy=legacy)
     if family is None:
         return g
     fam = p.direction["families"].get(family)
@@ -360,16 +446,24 @@ def gate(p: Project, family: str | None) -> Gate:
         concept = load_concept(p, rel)
         if concept["family"] != family:
             g.problems.append(f"{rel} is a {concept['family']} concept, not {family}")
-        ch = concept_hashes(p, rel, concept)
-        g.concept = ch
         crec = _latest(p.approvals, gate="concept", family=family, subject=rel)
+        try:
+            g.concept = concept_hashes(p, rel, concept)
+        except InputError:
+            if crec is None or record_version(crec) >= 2:
+                raise
+            g.concept = None  # a 1.7 record is judged by the 1.7 hashing alone
         if crec is None:
             g.problems.append(f"the {family} concept {rel} has no owner approval (Gate 2)")
-        elif (crec["hash"], crec["inputs"]) != ch:
-            what = "the concept file" if crec["hash"] != ch[0] else "the direction or a value it resolves"
-            g.problems.append(f"the {family} concept approval {crec['id']} is stale: {what} changed since {crec['at']}")
         else:
-            g.records.append(crec["id"])
+            now = concept_hashes(p, rel, concept, record_version(crec))
+            if (crec["hash"], crec["inputs"]) != now:
+                what = _stale_what(crec, now, "the concept file", "the direction or a value it resolves")
+                g.problems.append(f"the {family} concept approval {crec['id']} is stale: {what} changed since {crec['at']}")
+            else:
+                g.records.append(crec["id"])
+                if record_version(crec) < HASH_VERSION:
+                    g.legacy.append(crec["id"])
     g.ok = not g.problems
     return g
 
@@ -406,13 +500,26 @@ def approve(p: Project, gate_name: str, by: str, evidence: str, recorded_by: str
         h = (sha256_text(scope), sha256_text(canonical(direction_hashes(p))))
         subject = DIRECTION
     else:
-        raise InputError(f"unknown gate {gate_name!r}")
+        raise InputError(f"unknown gate {gate_name!r} (storyboard, mix and review approvals are recorded "
+                         "through harnesslib.video)")
+    return record_approval(p, gate_name, subject, h, by, evidence, recorded_by,
+                           family=family if gate_name != "direction" else None, scope=scope)
+
+
+def record_approval(p: Project, gate_name: str, subject: str, h: tuple[str, str], by: str, evidence: str,
+                    recorded_by: str, family: str | None = None, scope: str | None = None,
+                    extra: dict | None = None) -> dict:
+    """Append one owner decision to brand/approvals.json (hash version 2)."""
+    by, evidence = (by or "").strip(), (evidence or "").strip()
+    if not by or len(evidence) < 3:
+        raise InputError("an approval needs --by (the owner) and --evidence (where and how they decided)")
     rec = {"id": run_id(), "gate": gate_name, "subject": subject, "hash": h[0], "inputs": h[1],
-           "by": by, "evidence": evidence, "at": now_utc(), "recordedBy": recorded_by}
-    if family and gate_name != "direction":
+           "by": by, "evidence": evidence, "at": now_utc(), "recordedBy": recorded_by, "hashVersion": HASH_VERSION}
+    if family:
         rec["family"] = family
     if scope:
         rec["scope"] = scope
+    rec.update(extra or {})
     p.approvals.append(rec)
     doc = {"schemaVersion": 1, "records": p.approvals}
     schema.check(doc, "approvals", APPROVALS)
@@ -421,9 +528,11 @@ def approve(p: Project, gate_name: str, by: str, evidence: str, recorded_by: str
 
 
 def exception_approved(p: Project, scope: str) -> str | None:
-    want = (sha256_text(scope), sha256_text(canonical(direction_hashes(p))))
     rec = _latest(p.approvals, gate="exception", scope=scope)
-    return rec["id"] if rec and (rec["hash"], rec["inputs"]) == want else None
+    if not rec:
+        return None
+    want = (sha256_text(scope), sha256_text(canonical(direction_hashes(p, record_version(rec)))))
+    return rec["id"] if (rec["hash"], rec["inputs"]) == want else None
 
 
 # ------------------------------------------------------------------ resolution for renderers
@@ -497,12 +606,49 @@ def resolve_family(p: Project, family: str, concept: dict) -> dict:
                          "bezel": color_css(p, dv["bezel"]) if "bezel" in dv else roles["ink"]}
         out["featureGraphic"] = spec.get("featureGraphic") or {"layout": "split-device-right",
                                                               "background": spec["defaultBackground"]}
-    if family == "marketing" and spec.get("logo"):
+    if family in ("marketing", "video") and spec.get("logo"):
         out["logo"] = spec["logo"]
+    if family == "video":
+        out.update(_resolve_video(p, spec, roles))
     m = spec.get("motif")
     if m and m.get("use"):
         out["motif"] = {"asset": p.direction["motif"]["asset"], "opacity": m.get("opacity", 0.12),
                         "placement": m.get("placement", "corner"), "scale": m.get("scale", 0.6)}
+    return out
+
+
+VIDEO_TEMPLATES = ("title", "feature", "stat", "end-card")
+
+
+def _ms(p: Project, ref: str) -> int:
+    d = resolve_ref(p, ref, "duration")
+    return round(d["value"] * (1000 if d["unit"] == "s" else 1))
+
+
+def _resolve_video(p: Project, spec: dict, roles: dict) -> dict:
+    """The motion, pace, subtitle and end-card values of a video concept, ready for the page."""
+    m = spec["motion"]
+    motion = {"durations": {k: _ms(p, v) for k, v in m["durations"].items()},
+              "easing": {k: "cubic-bezier({})".format(", ".join(f"{x:g}" for x in resolve_ref(p, v, "cubicBezier")))
+                         for k, v in m["easing"].items()},
+              "stagger": {"perItemMs": m.get("stagger", {}).get("perItemMs", 40),
+                          "maxItems": m.get("stagger", {}).get("maxItems", 5)},
+              "transitions": m["transitions"], "defaultTransition": m["defaultTransition"],
+              "textIn": m["textIn"], "textOut": m.get("textOut", "none"), "motifMotion": m.get("motifMotion", "none")}
+    motion["easing"].setdefault("emphasis", motion["easing"]["standard"])
+    pace = {"readingWpm": spec["pace"]["readingWpm"], "minHold": spec["pace"]["minHold"],
+            "voWpm": spec["pace"].get("voWpm", 150)}
+    out: dict = {"motion": motion, "pace": pace, "sceneTemplates": spec.get("sceneTemplates", list(VIDEO_TEMPLATES)),
+                 "endCard": {"background": (spec.get("endCard") or {}).get("background", spec["defaultBackground"]),
+                             "logo": (spec.get("endCard") or {}).get("logo", True)},
+                 "music": spec.get("music"), "voice": spec.get("voice"), "safeAreas": spec.get("safeAreas", "standard")}
+    sub = spec.get("subtitles")
+    if sub:
+        f = font_role(p, sub["font"])
+        out["subtitles"] = {"style": sub["style"], "position": sub["position"], "family": f["family"], "stack": f["stack"],
+                            "weight": sub["weight"], "ink": color_css(p, sub["ink"]),
+                            "plate": color_css(p, sub["plate"]) if "plate" in sub else roles["canvas"],
+                            "maxCharsPerLine": sub.get("maxCharsPerLine", 32), "maxLines": sub.get("maxLines", 2)}
     return out
 
 

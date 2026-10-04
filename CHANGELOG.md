@@ -8,6 +8,73 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.8.0] - 2026-10-05
+
+Branded video, made the same way as the stills: from the project's approved direction, through a concept round and owner approvals. This release is the first slice: vertical social videos (9:16), rendered silent, with a voice-over script, a voice prompt and planned captions, so the voice can be recorded or generated in any tool. Approvals also become scoped, so requesting a new family no longer invalidates the others.
+
+### Added
+- **Agent `video-creative` and skill `brand-video`** (web and mobile profiles):
+  - Video concepts (`brand/concepts/video/`) use the still families' look and add motion:
+    - duration and easing tokens;
+    - transitions (`cut`, `fade`, `dip`, `slide`, `push`, `scale`, `wipe`) and text entrances;
+    - pace (reading speed, minimum hold, voice-over pace);
+    - subtitles, end card, music and voice direction, safe areas.
+  - Pieces are `brand/video/<id>/video.json`: scenes from the templates `title`, `feature`, `stat` and `end-card`, with timing, on-screen copy and a voice-over line.
+  - `render_video.py`:
+    - `init`, `motion-tokens [--write]`, `lint`, `voice`;
+    - `preview` (a sheet of each scene's still frame, a half-size draft video and the voice files, no approval needed);
+    - `render` (production) and `check`;
+    - `status` (approvals, what was published, open review items).
+  - Production needs Gate 1 (direction), Gate 2 (video concept) and **Gate 3, the storyboard**: `direction.py approve --gate storyboard --piece <id>`. It binds to the piece's visual, timing and script hashes and says which of them changed.
+  - Rendering:
+    - Every frame is the composition seeked to an exact time in one persistent headless browser, encoded with ffmpeg as H.264 High, yuv420p, with an explicit BT.709 matrix and tags and fast start.
+    - Checks: technical profile (codec, pixel format, colour tags, exact size, fps and frame count), contrast at each scene's still frame, glyph coverage and clipping, platform safe areas, a WCAG 2.3.1 flashing heuristic, and determinism (`--determinism K`, re-rendered in a fresh browser).
+  - **Run integrity:** the piece's lock is taken before any input is read; fonts, logo and motif are copied and verified against the gate hashes; the run manifest is written before the outputs move into `out/`; `status` detects an interrupted or edited publish.
+  - **Review items:** REVIEW REQUIRED results (sampled contrast, safe area, flashing, reading time, voice-over fit) are listed in the run manifest.
+    - An output with open items is published but not cleared for use until the owner looks: `direction.py approve --gate review --run <run> --items <ids|all>`.
+    - The acknowledgement binds to the run's output hashes, so a byte-identical re-render keeps it.
+  - References: the composition contract, motion vocabulary, formats and output profiles, audio and voice, checks and reviews.
+- **Library** (`.claude/harness/lib/`):
+  - `harnesslib.cdp`: a persistent headless browser over the DevTools protocol, with a standard-library WebSocket client.
+  - `harnesslib.video`: the frame plan in whole frames, storyboard and review approvals, voice files, the composition build.
+  - `harnesslib.ffmpeg`: lookup with per-OS install advice, output profiles, encoder, probe and profile checks.
+  - `harnesslib.framecheck`.
+  - `media/timeline.js`: the seek runtime, using the HyperFrames `window.__hf.seek` protocol.
+  - `media/motion.js` and `media/video.html`.
+  - New schemas: `video.schema.json`, plus the video parts of the concept, approvals and run-manifest schemas.
+  - DTCG `cubicBezier` tokens.
+- **Seek contract:** frames are identical however they are reached (forward, backward, repeated, a fresh browser). Animation is declarative only (paused Web Animations and CSS keyframes with absolute times), and clock reads are frozen as a safety net.
+  - Found in the M0 spike on Windows, macOS and Linux runners: browsers run with `--disable-threaded-animation`, and each seek waits for one native frame.
+- **Tests:** `tests/video.test.sh` covers:
+  - the WebSocket client and frame arithmetic;
+  - planned captions and the flashing heuristic;
+  - the seek contract in a real browser;
+  - drafts, gates, a full render, manifests, review acknowledgements, stale storyboards, locks and interrupted publishes.
+
+  `creative-direction.test.sh` adds the approval dependency cases, including a project approved by the 1.7 harness. Hooks, validator and sync tests cover the new routing, gates and names. CI installs ffmpeg on all three OSes.
+
+### Changed
+- **Scoped approval hashes (version 2).**
+  - The direction's hash leaves out `families`: requesting a family, briefing it or choosing a concept is not a change of direction.
+  - A concept's inputs are the direction content, its own family entry and everything it resolves to (colours, type, font files, motion values, motif and logo hashes).
+  - So briefing the video family leaves store approvals current, and a role colour invalidates only the concepts that use it.
+  - New records carry `hashVersion: 2`. Records without it were written by 1.7 and are checked the 1.7 way on a copy of the direction without the video family, so they stay current. Their coarser coupling (any family's brief makes them stale) remains until they are re-approved; `direction.py status` notes them.
+- `direction.py approve` gains `--gate storyboard --piece <id>` and `--gate review --run <run> --items <ids|all>`; `status` shows Gate 3 per piece. `concept new --family video` writes a skeleton that refers to `motion.*` tokens.
+- The prompt router sends video, promo clip, app preview, explainer, reel, short, motion graphics, voice-over and storyboard requests to the media checklist. Video players, calls and `<video>` elements stay UI work. `brand/video/*/video.json` is under the first-write media gate.
+- The validator refuses video and audio files in `harness/`, as it does images and fonts.
+- `ArtDir.probe` skips text that isn't drawn: a no-op for stills, needed for video frames.
+
+### Upgrade notes
+- Install ffmpeg to render videos (Windows: the gyan.dev build or `choco install ffmpeg`; macOS: `brew install ffmpeg`; Linux: your package manager). Nothing else needs it.
+- Existing approvals stay valid. To get scoped behaviour for a family, re-approve its direction and concepts the next time they change.
+- Not in this release, planned next:
+  - more formats (1:1, 4:5, 16:9) and parallel render workers;
+  - animated loops (GIF, WebP);
+  - app previews and the Play promo;
+  - explainers with mixed voice-over and music;
+  - TTS and AI b-roll through opt-in providers;
+  - rendering through HyperFrames (`--engine hyperframes`).
+
 ## [1.7.0] - 2026-10-02
 
 Every media asset now takes its look from the project, chosen by its owner. Up to 1.6, the store frames, panorama, feature graphic, Open Graph image and banners all came from one locked recipe (an indigo/mint gradient, Inter 800 captions, a centred phone, fixed watermark glyphs); icons were always a glyph at 0.6 on a flat colour; the logo template started from a circle with a check; and story art leaned on one "soft clay, dark indigo" example. Projects that didn't change those defaults looked alike. 1.7 replaces the defaults with a creative direction built from each project's own evidence, a concept round, and owner approvals that production commands enforce. Existing identity wins over novelty: a project that keeps Inter or indigo on purpose keeps them.

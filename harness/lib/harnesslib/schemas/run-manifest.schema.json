@@ -8,7 +8,7 @@
   "properties": {
     "schemaVersion": { "const": 1 },
     "runId": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$" },
-    "family": { "enum": ["store", "marketing", "icon", "illustration"] },
+    "family": { "enum": ["store", "marketing", "icon", "illustration", "video"] },
     "mode": { "enum": ["production", "legacy"] },
     "tool": { "type": "string", "maxLength": 80 },
     "startedAt": { "type": "string" },
@@ -20,7 +20,11 @@
       "properties": {
         "api": { "type": "integer" },
         "harness": { "type": "string", "maxLength": 20 },
-        "browser": { "type": "string", "maxLength": 200 }
+        "browser": { "type": "string", "maxLength": 200 },
+        "renderer": { "enum": ["ours", "hyperframes"] },
+        "capture": { "enum": ["screenshot", "beginframe"] },
+        "ffmpeg": { "type": "string", "maxLength": 200 },
+        "hyperframes": { "type": "string", "maxLength": 40 }
       }
     },
     "inputs": {
@@ -62,7 +66,7 @@
         }
       }
     },
-    "seed": { "type": "null" },
+    "seed": { "type": ["null", "integer"] },
     "outputs": {
       "type": "array",
       "items": {
@@ -73,7 +77,14 @@
           "path": { "type": "string" },
           "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "bytes": { "type": "integer", "minimum": 0 },
-          "size": { "type": "array", "items": { "type": "integer" } }
+          "size": { "type": "array", "items": { "type": "integer" } },
+          "profile": { "type": "string", "maxLength": 40 },
+          "durationS": { "type": "number", "minimum": 0 },
+          "fps": { "type": "number", "minimum": 0 },
+          "frames": { "type": "integer", "minimum": 0 },
+          "codec": { "type": "string", "maxLength": 40 },
+          "pixFmt": { "type": "string", "maxLength": 40 },
+          "audio": { "type": "boolean" }
         }
       }
     },
@@ -89,6 +100,36 @@
         }
       }
     },
-    "status": { "enum": ["complete", "review-required", "failed"] }
+    "status": { "enum": ["complete", "review-required", "failed"] },
+    "piece": {
+      "type": "object",
+      "required": ["path", "hash", "inputs"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "inputs": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "formats": { "type": "array", "items": { "type": "string" } },
+        "frames": { "type": "integer", "minimum": 0 },
+        "fps": { "type": "number" },
+        "captions": { "enum": ["planned", "segment-aligned", "word-aligned"] }
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "x-uniqueKey": "id",
+      "items": {
+        "type": "object",
+        "required": ["id", "check", "kind", "note"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9:._-]{0,119}$" },
+          "check": { "type": "string", "maxLength": 60 },
+          "kind": { "enum": ["technical", "suitability", "content"] },
+          "note": { "type": "string", "maxLength": 600 },
+          "evidence": { "type": "string", "maxLength": 300 }
+        }
+      }
+    }
   }
 }

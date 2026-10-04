@@ -44,11 +44,14 @@ if [[ "$prompt" =~ $B(illustrations?|artwork|story[[:space:]]art|scene[[:space:]
 fi
 # Any media asset: the creative-direction checklist (web and mobile; a no-op elsewhere).
 # UI banners, icon buttons and icon fonts are UI work, not media.
-media_text="$prompt"
-for neg in "cookie banner" "consent banner" "error banner" "alert banner" "banner component" "icon button" "icon font"; do
+media_text="${prompt//-/ }"
+# A video player, call or <video> element is UI work too; a promo video, reel or explainer is media.
+for neg in "cookie banner" "consent banner" "error banner" "alert banner" "banner component" "icon button" "icon font" \
+           "video player" "video call" "video chat" "video conferenc" "video element" "video component" "video tag" \
+           "<video" "video upload" "video stream" "video playback" "video autoplay" "video thumbnail"; do
   media_text="${media_text//$neg/ }"
 done
-if [[ "$media_text" =~ $B(banners?|panoram(a|as|ic)|og[[:space:]-]?images?|open[[:space:]]graph[[:space:]]images?|social[[:space:]](images?|cards?|previews?|posts?)|share[[:space:]]images?|feature[[:space:]]graphics?|store[[:space:]](screenshots?|visuals?|assets?)|app[[:space:]]screenshots?|mockups?|app[[:space:]]icons?|launcher[[:space:]]icons?|logos?|illustrations?|story[[:space:]]art|hero[[:space:]](image|art|illustration)s?|creative[[:space:]]direction|art[[:space:]]direction|mood[[:space:]]?boards?|visual[[:space:]]identity|brand[[:space:]](assets?|identity|kit|look)|promo[[:space:]](images?|graphics?)|posters?|email[[:space:]]headers?|marketing[[:space:]](images?|visuals?|assets?))$E ]]; then
+if [[ "$media_text" =~ $B(banners?|panoram(a|as|ic)|og[[:space:]-]?images?|open[[:space:]]graph[[:space:]]images?|social[[:space:]](images?|cards?|previews?|posts?)|share[[:space:]]images?|feature[[:space:]]graphics?|store[[:space:]](screenshots?|visuals?|assets?)|app[[:space:]]screenshots?|mockups?|app[[:space:]]icons?|launcher[[:space:]]icons?|logos?|illustrations?|story[[:space:]]art|hero[[:space:]](image|art|illustration)s?|creative[[:space:]]direction|art[[:space:]]direction|mood[[:space:]]?boards?|visual[[:space:]]identity|brand[[:space:]](assets?|identity|kit|look)|promo[[:space:]](images?|graphics?)|posters?|email[[:space:]]headers?|marketing[[:space:]](images?|visuals?|assets?)|videos?|promo[[:space:]]clips?|app[[:space:]]previews?|explainers?|animated[[:space:]](og|gifs?|banners?|logos?|loops?)|reels?|shorts|tiktoks?|motion[[:space:]]graphics?|voice[[:space:]]?over[[:space:]](scripts?|lines?|artists?|recordings?|takes?)|voice[[:space:]]prompts?|video[[:space:]]storyboards?)$E ]]; then
   hh_add_snippet media
 fi
 if [[ "$prompt" =~ $B(docker|compose|dockerfile|ansible|playbook|terraform|deploy(ment)?|ci/cd|ci[[:space:]](pipeline|workflow|job)|pipeline|github[[:space:]]actions|bash|shell[[:space:]]script|powershell|ps1|nginx|traefik|kubernetes|k8s|helm|infra(structure)?)$E ]]; then

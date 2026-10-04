@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": { "const": 1 },
-    "family": { "enum": ["store", "marketing", "icon", "illustration"] },
+    "family": { "enum": ["store", "marketing", "icon", "illustration", "video"] },
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
     "run": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$" },
     "author": { "type": "string", "maxLength": 80 },
@@ -182,6 +182,120 @@
           "additionalProperties": false,
           "properties": { "markContrast": { "type": "number", "minimum": 1, "maximum": 21 } }
         }
+      }
+    },
+    "videoLayout": { "enum": ["type-start", "type-center", "type-lower"] },
+    "transition": { "enum": ["cut", "fade", "dip", "slide", "push", "scale", "wipe"] },
+    "textMotion": { "enum": ["fade-up", "mask-up", "word-stagger", "scale-in", "fade", "none"] },
+    "videoSpec": {
+      "type": "object",
+      "description": "The look and motion of a project's videos. The look reuses the still families' building blocks; motion values are token references ($type duration and cubicBezier) kept in the token file with everything else.",
+      "required": ["backgrounds", "caption", "layouts", "defaultLayout", "defaultBackground", "motion", "pace"],
+      "additionalProperties": false,
+      "properties": {
+        "backgrounds": { "$ref": "#/$defs/backgrounds" },
+        "caption": { "$ref": "#/$defs/caption" },
+        "layouts": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/videoLayout" } },
+        "defaultLayout": { "$ref": "#/$defs/videoLayout" },
+        "defaultBackground": { "$ref": "#/$defs/name" },
+        "logo": { "type": "string", "format": "relpath", "pattern": "\\.(svg|png)$" },
+        "motif": { "$ref": "#/$defs/motifUse" },
+        "displayWidth": { "type": "number", "minimum": 120, "maximum": 2000 },
+        "motion": {
+          "type": "object",
+          "required": ["durations", "easing", "transitions", "defaultTransition", "textIn"],
+          "additionalProperties": false,
+          "properties": {
+            "durations": {
+              "type": "object",
+              "required": ["fast", "base", "slow"],
+              "additionalProperties": false,
+              "properties": {
+                "fast": { "$ref": "#/$defs/colorRef" },
+                "base": { "$ref": "#/$defs/colorRef" },
+                "slow": { "$ref": "#/$defs/colorRef" }
+              }
+            },
+            "easing": {
+              "type": "object",
+              "required": ["standard", "enter", "exit"],
+              "additionalProperties": false,
+              "properties": {
+                "standard": { "$ref": "#/$defs/colorRef" },
+                "enter": { "$ref": "#/$defs/colorRef" },
+                "exit": { "$ref": "#/$defs/colorRef" },
+                "emphasis": { "$ref": "#/$defs/colorRef" }
+              }
+            },
+            "stagger": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "perItemMs": { "type": "number", "minimum": 0, "maximum": 150 },
+                "maxItems": { "type": "integer", "minimum": 1, "maximum": 8 }
+              }
+            },
+            "transitions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/transition" } },
+            "defaultTransition": { "$ref": "#/$defs/transition" },
+            "textIn": { "$ref": "#/$defs/textMotion" },
+            "textOut": { "$ref": "#/$defs/textMotion" },
+            "motifMotion": { "enum": ["none", "drift", "pulse"] }
+          }
+        },
+        "pace": {
+          "type": "object",
+          "required": ["readingWpm", "minHold"],
+          "additionalProperties": false,
+          "properties": {
+            "readingWpm": { "type": "number", "minimum": 120, "maximum": 320 },
+            "minHold": { "type": "number", "minimum": 0.5, "maximum": 5 },
+            "voWpm": { "type": "number", "minimum": 100, "maximum": 200 }
+          }
+        },
+        "subtitles": {
+          "type": "object",
+          "required": ["style", "position", "font", "weight", "ink"],
+          "additionalProperties": false,
+          "properties": {
+            "style": { "enum": ["plate", "outline", "bare"] },
+            "position": { "enum": ["lower", "center", "upper"] },
+            "font": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,31}$" },
+            "weight": { "type": "number", "minimum": 100, "maximum": 1000 },
+            "ink": { "$ref": "#/$defs/colorRef" },
+            "plate": { "$ref": "#/$defs/colorRef" },
+            "maxCharsPerLine": { "type": "integer", "minimum": 16, "maximum": 42 },
+            "maxLines": { "type": "integer", "minimum": 1, "maximum": 2 }
+          }
+        },
+        "sceneTemplates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["title", "feature", "stat", "end-card"] } },
+        "endCard": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "background": { "$ref": "#/$defs/name" },
+            "logo": { "type": "boolean" }
+          }
+        },
+        "music": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mood": { "type": "string", "minLength": 3, "maxLength": 160 },
+            "bpm": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 40, "maximum": 220 } },
+            "energy": { "enum": ["flat", "build", "arc"] }
+          }
+        },
+        "voice": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "casting": { "type": "string", "minLength": 3, "maxLength": 200 },
+            "register": { "type": "string", "maxLength": 120 },
+            "pace": { "enum": ["slow", "measured", "brisk"] },
+            "accent": { "type": "string", "maxLength": 80 }
+          }
+        },
+        "safeAreas": { "enum": ["standard", "strict"] }
       }
     },
     "illustrationSpec": {

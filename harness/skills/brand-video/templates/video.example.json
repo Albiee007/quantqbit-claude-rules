@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "launch-teaser",
+  "kind": "social",
+  "title": "Launch teaser",
+  "formats": ["social-9x16"],
+  "fps": 30,
+  "scenes": [
+    {
+      "id": "hook",
+      "template": "title",
+      "duration": 4,
+      "copy": { "kicker": "New", "head": "Notes that <em>grow</em> with your garden", "sub": "Every bed, every season, one journal" },
+      "vo": "Your garden changes every week. Now your notes can keep up."
+    },
+    {
+      "id": "how",
+      "template": "feature",
+      "duration": 5,
+      "transitionIn": { "type": "fade" },
+      "copy": { "head": "Built for the <em>week</em>", "points": ["Plan a bed in a minute", "See what changed since Sunday"] },
+      "vo": "Plan a bed in a minute, and see what changed since Sunday."
+    },
+    {
+      "id": "proof",
+      "template": "stat",
+      "duration": 3.5,
+      "copy": { "value": "12", "label": "seasons of notes in one place" },
+      "vo": "Twelve seasons of notes, in one place."
+    },
+    {
+      "id": "end",
+      "template": "end-card",
+      "duration": 3,
+      "layout": "type-center",
+      "copy": { "head": "Start your journal", "url": "example.com" },
+      "vo": "Start your journal today."
+    }
+  ],
+  "voice": {
+    "language": "en",
+    "delivery": "Unhurried and warm; smile on the last line.",
+    "pronunciations": [{ "text": "Fernway", "say": "FERN-way" }]
+  },
+  "captions": { "sidecar": ["srt", "vtt"] }
+}

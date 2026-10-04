@@ -72,6 +72,16 @@ jobs:
           name: variety-sheet-${{ matrix.os }}
           path: ${{ runner.temp }}/variety-sheet-${{ matrix.os }}.png
           if-no-files-found: ignore
+      - name: Install ffmpeg (video renders)
+        run: |
+          case "$RUNNER_OS" in
+            Linux)   sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg ;;
+            macOS)   brew install ffmpeg ;;
+            Windows) choco install ffmpeg -y --no-progress ;;
+          esac
+          ffmpeg -hide_banner -version | head -1
+      - name: Video tests (seek contract, gates, render, encode, reviews)
+        run: bash tests/video.test.sh
       - name: Sync scenario tests
         run: bash tests/sync.test.sh
       - name: macOS stock bash 3.2 compatibility (hooks + sync + scaffold)

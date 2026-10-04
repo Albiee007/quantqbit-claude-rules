@@ -27,6 +27,11 @@
   // Declarative, paused WAAPI with absolute delays (composition clock).
   const lin = { duration: 1000, delay: 0, fill: "both", easing: "linear" };
   document.getElementById("box").animate([{ background: "rgb(0,0,0)" }, { background: "rgb(255,255,255)" }], lin).pause();
+  // fill 'none': it leaves document.getAnimations() once finished, yet backward seeks must reach it
+  const blip = document.createElement("div");
+  blip.style.cssText = "position:absolute;left:300px;top:0;width:120px;height:120px;background:#e0a458;opacity:0";
+  document.getElementById("a").appendChild(blip);
+  blip.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 200, easing: "linear" }).pause();
   document.querySelectorAll("#a .w").forEach((w, i) => {
     w.style.display = "inline-block";
     w.animate([{ transform: "translateY(60px)", opacity: 0 }, { transform: "none", opacity: 1 }],

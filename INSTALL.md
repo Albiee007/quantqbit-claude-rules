@@ -65,8 +65,8 @@ On first install, sync:
 | Profile | Adds |
 |---|---|
 | (always) | core, coding/tests/security rules, coding-standards, design-patterns, harness skills, all agents and hooks, bash/powershell rules |
-| `web` | ui-ux, typography, color-science and seo skills, ui-ux and seo rules, creative-direction, brand-assets and story-art skills, creative-director, brand-asset-creator and illustrator agents, the media library |
-| `mobile` | ui-ux, typography and color-science skills, the ui-ux rule, creative-direction and the creative-director, the seven store, brand and story-art agents and their skills, the media library |
+| `web` | ui-ux, typography, color-science and seo skills, ui-ux and seo rules, creative-direction, brand-assets, story-art and brand-video skills, creative-director, brand-asset-creator, illustrator and video-creative agents, the media library |
+| `mobile` | ui-ux, typography and color-science skills, the ui-ux rule, creative-direction and the creative-director, the eight store, brand, story-art and video agents and their skills, the media library |
 | `backend` | compose/Dockerfile rule |
 | `infra` | ansible, terraform, compose rules |
 
@@ -104,7 +104,7 @@ A source older than the installed harness is refused (exit 1). Pass `--allow-dow
 Resolving conflicts:
 - **`--keep`** (CONFLICT-MODIFIED only): keep your local version. It is marked `kept-local` in the lock, and the doctor keeps reporting it.
 - **`--theirs`:** take the harness version. Your previous copy is saved under `.claude/harness/.backup/<time>/` (gitignored).
-- **CONFLICT-UNMANAGED:** one of your files uses a reserved harness name. The agents are `explorer`, `implementor`, `infra-implementor`, `verifier` and `reviewer`, plus `screen-capturer`, `store-creative`, `listing-copywriter`, `store-precheck-auditor`, `icon-creator`, `brand-asset-creator`, `illustrator` and `creative-director`. The skills are `coding-standards`, `design-patterns`, `ui-ux`, `typography`, `color-science`, `seo` and `harness`, plus `mobile-screen-capture`, `store-mockups`, `store-listing`, `store-submission-precheck`, `app-icons`, `brand-assets`, `story-art` and `creative-direction`. The other reserved paths are `.claude/.gitattributes` and `.claude/skills/.gitignore`. Rename yours, or use `--theirs`; `--keep` does not apply.
+- **CONFLICT-UNMANAGED:** one of your files uses a reserved harness name. The agents are `explorer`, `implementor`, `infra-implementor`, `verifier` and `reviewer`, plus `screen-capturer`, `store-creative`, `listing-copywriter`, `store-precheck-auditor`, `icon-creator`, `brand-asset-creator`, `illustrator`, `creative-director` and `video-creative`. The skills are `coding-standards`, `design-patterns`, `ui-ux`, `typography`, `color-science`, `seo` and `harness`, plus `mobile-screen-capture`, `store-mockups`, `store-listing`, `store-submission-precheck`, `app-icons`, `brand-assets`, `story-art`, `creative-direction` and `brand-video`. The other reserved paths are `.claude/.gitattributes` and `.claude/skills/.gitignore`. Rename yours, or use `--theirs`; `--keep` does not apply.
 - **Recommended:** move the intent of your edit into `.claude/rules/project/`, then use `--theirs`.
 - **Git merge conflict inside `.claude/harness/lock` or `.claude/settings.json`:** take either side of those files, `git add` them and finish the merge commit, then run `harness-sync.sh --commit`.
 

@@ -3,7 +3,7 @@
 The harness gives every project the same Claude Code setup:
 - **Core rules**, always loaded.
 - **Mandatory skills:** coding standards, design patterns, UI/UX (with typography and color science) and SEO.
-- **Five core Opus agents**, plus eight media agents in mobile projects (creative director, screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets, illustrations); web projects get the creative director, brand assets and illustrations.
+- **Five core Opus agents**, plus nine media agents in mobile projects (creative director, screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets, illustrations, video); web projects get the creative director, brand assets, illustrations and video.
 - **Project-specific media:** the creative director writes a direction from your project's own evidence, the creators propose concepts, and you approve the direction and pick a concept per asset family before anything is produced.
 - **Safety hooks** that block `.env` access and non-Opus agents.
 
@@ -114,7 +114,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\.local\share\quantqbi
 ```
 
 **What happens on first install:**
-- **Profiles are detected** from your files: `web` (React/Vue/Svelte/…), `mobile`, `backend`, `infra`. They are saved in `.claude/harness.config`. Web projects get the UI/UX, typography, color-science and SEO skills; mobile projects get UI/UX, typography and color science plus the creative-direction, store and brand agents; web projects also get the creative-direction, brand and story-art agents; backend-only projects get neither.
+- **Profiles are detected** from your files: `web` (React/Vue/Svelte/…), `mobile`, `backend`, `infra`. They are saved in `.claude/harness.config`. Web projects get the UI/UX, typography, color-science and SEO skills; mobile projects get UI/UX, typography and color science plus the creative-direction, store and brand agents; web projects also get the creative-direction, brand, story-art and video agents; backend-only projects get neither.
 - **Your files are kept.**
   - `CLAUDE.md`, `AGENTS.md` and `AI_RULES.md` are never touched.
   - A `CLAUDE.md` stub is created only if you have neither `CLAUDE.md` nor `AGENTS.md`. A new `CLAUDE.md` would stop Claude Code reading `AGENTS.md`.

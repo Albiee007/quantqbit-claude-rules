@@ -293,12 +293,22 @@
     return [...miss].join('');
   }
 
+  /* Is el drawn at all? (A video frame keeps hidden scenes in the page.) */
+  function shown(el) {
+    if (getComputedStyle(el).visibility === 'hidden') return false;
+    for (let e = el; e && e !== document.body; e = e.parentElement) {
+      if (Number(getComputedStyle(e).opacity) === 0) return false;
+    }
+    return true;
+  }
+
   /* Caption runs for the contrast and font checks: colour, size, weight, boxes, own backdrop,
-     overlap with drawn objects, and missing glyphs. */
-  function probe(W, H) {
+     overlap with drawn objects, and missing glyphs. Text that is not drawn is skipped. */
+  function probeData(W, H) {
     const runs = [];
-    const blockers = [...document.querySelectorAll('.device, .obj, .motif, .art, .logo')].map((e) => e.getBoundingClientRect());
+    const blockers = [...document.querySelectorAll('.device, .obj, .motif, .art, .logo')].filter(shown).map((e) => e.getBoundingClientRect());
     document.querySelectorAll('.cap').forEach((cap) => {
+      if (!shown(cap)) return;
       const walker = document.createTreeWalker(cap, NodeFilter.SHOW_TEXT);
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         const text = n.textContent.trim();
@@ -328,13 +338,17 @@
           family, missing: missingGlyphs(text, family, weight, italic), rects });
       }
     });
+    return { W, H, runs };
+  }
+
+  function probe(W, H) {
     const pre = document.createElement('pre');
     pre.id = 'probe';
     pre.style.display = 'none';
-    pre.textContent = JSON.stringify({ W, H, runs });
+    pre.textContent = JSON.stringify(probeData(W, H));
     document.body.appendChild(pre);
   }
 
-  window.ArtDir = { esc, copy, bg, background, textCSS, caption, device, motif, loadFaces, probe,
+  window.ArtDir = { esc, copy, bg, background, textCSS, caption, device, motif, loadFaces, probe, probeData,
     layouts: { store, feature, canvas: canvasLayouts } };
 })();

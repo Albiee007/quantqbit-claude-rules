@@ -112,11 +112,23 @@ out="$(run prompt-router.sh '{"session_id":"m6","prompt":"swap the icon font in 
 grep -q 'Media checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] an icon font routed to media"; } || { pass=$((pass+1)); echo "  [OK] an icon font is not media"; }
 out="$(run prompt-router.sh '{"session_id":"m7","prompt":"design a new logo and an og image"}')"
 [[ "$(grep -o 'Media checklist' <<<"$out" | wc -l | tr -d ' ')" -eq 1 ]] && { pass=$((pass+1)); echo "  [OK] the media checklist is injected once"; } || { fail=$((fail+1)); echo "  [FAIL] media checklist repeated"; }
+expect "promo video prompt → media checklist" prompt-router.sh '{"session_id":"m8","prompt":"make a 15 second promo video for instagram reels"}' 'brand-video'
+expect "voice-over prompt → media checklist" prompt-router.sh '{"session_id":"m9","prompt":"write the voice-over script for the launch teaser"}' 'Media checklist'
+out="$(run prompt-router.sh '{"session_id":"m10","prompt":"the video player controls overlap on mobile"}')"
+grep -q 'Media checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] a video player routed to media"; } || { pass=$((pass+1)); echo "  [OK] a video player is UI, not media"; }
+out="$(run prompt-router.sh '{"session_id":"m11","prompt":"add a video call button to the chat screen"}')"
+grep -q 'Media checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] a video call routed to media"; } || { pass=$((pass+1)); echo "  [OK] a video call is not media"; }
+for p in "fix the VoiceOver label on the save button" "split Main.storyboard into two scenes" "the <video> element autoplays on iOS" "add a video-player skin"; do
+  out="$(run prompt-router.sh "{\"session_id\":\"m12-${#p}\",\"prompt\":\"$p\"}")"
+  grep -q 'Media checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] UI prompt routed to media: $p"; } || { pass=$((pass+1)); echo "  [OK] UI prompt is not media: $p"; }
+done
 expect "plain prompt → nothing"        prompt-router.sh '{"session_id":"a6","prompt":"what does this function return?"}' ''
 expect "valid JSON escaping"           prompt-router.sh '{"session_id":"a7","prompt":"fix \"auth\" token\nflow"}' '"additionalContext":"Harness'
 
 expect "a sub-agent cannot record an approval" guard.sh '{"session_id":"g1","agent_id":"a-9","agent_type":"store-creative","tool_name":"Bash","tool_input":{"command":"python .claude/skills/creative-direction/scripts/direction.py approve --gate concept --family store --concept x --by me --evidence y"}}' 'only the main session records owner approvals'
 expect "the main session can record one" guard.sh '{"session_id":"g1","tool_name":"Bash","tool_input":{"command":"python .claude/skills/creative-direction/scripts/direction.py approve --gate direction --by Owner --evidence chat"}}' ''
+expect "a sub-agent cannot approve a storyboard" guard.sh '{"session_id":"g1","agent_id":"a-9","agent_type":"video-creative","tool_name":"Bash","tool_input":{"command":"python .claude/skills/creative-direction/scripts/direction.py approve --gate storyboard --piece launch --by me --evidence y"}}' 'only the main session records owner approvals'
+expect "a sub-agent cannot acknowledge review items" guard.sh '{"session_id":"g1","agent_id":"a-9","agent_type":"video-creative","tool_name":"Bash","tool_input":{"command":"python3 .claude/skills/creative-direction/scripts/direction.py --project . approve --gate review --run 20261002-120000-0a0b0c --items all --by me --evidence y"}}' 'only the main session records owner approvals'
 expect "a sub-agent may check status" guard.sh '{"session_id":"g1","agent_id":"a-9","tool_name":"Bash","tool_input":{"command":"python .claude/skills/creative-direction/scripts/direction.py status"}}' ''
 
 echo "file-context"
@@ -159,6 +171,8 @@ if grep -q '"permissionDecision":"deny"' <<<"$out" && grep -q 'creative-directio
 else fail=$((fail+1)); echo "  [FAIL] media gate — got: ${out:0:200}"; fi
 expect "retry of the direction write allowed (drafting needs no approval)" file-context.sh '{"session_id":"d1","tool_name":"Write","tool_input":{"file_path":"/p/brand/direction.json"}}' ''
 expect "a kit frames.json falls under the media gate" file-context.sh '{"session_id":"d2","tool_name":"Edit","tool_input":{"file_path":"C:\\p\\store-assets\\mockup-kit\\frames.json"}}' 'creative-direction'
+expect "a video piece falls under the media gate" file-context.sh '{"session_id":"d6","tool_name":"Write","tool_input":{"file_path":"/p/brand/video/launch/video.json"}}' 'creative-direction'
+expect "run manifests are never hand-edited" file-context.sh '{"session_id":"d7","tool_name":"Edit","tool_input":{"file_path":"/p/brand/runs/video/20261002-120000-0a0b0c.json"}}' 'immutable run manifests'
 expect "approvals are never hand-edited" file-context.sh '{"session_id":"d3","tool_name":"Edit","tool_input":{"file_path":"/p/brand/approvals.json"}}' 'written only by direction.py approve'
 expect "approvals stay denied on retry" file-context.sh '{"session_id":"d3","tool_name":"Edit","tool_input":{"file_path":"/p/brand/approvals.json"}}' '"permissionDecision":"deny"'
 out="$(run file-context.sh '{"session_id":"d4","tool_name":"Write","tool_input":{"file_path":"/p/mobile/store-assets/LISTING.md"}}')"
@@ -192,7 +206,7 @@ expect "store roster starts with the creative-director" session-start.sh '{"sess
 out="$(run session-start.sh '{"session_id":"c7"}')"
 [[ "$(grep -o 'illustrator' <<<"$out" | wc -l | tr -d ' ')" -eq 1 ]] && { pass=$((pass+1)); echo "  [OK] mobile: one roster line, not two"; } || { fail=$((fail+1)); echo "  [FAIL] mobile roster repeats the illustrator"; }
 rm -f "$P/.claude/agents/store-creative.md"
-expect "web roster when only the art agents are installed" session-start.sh '{"session_id":"c8"}' 'Brand and art agents: creative-director (direction, concept critique) → brand-asset-creator / illustrator'
+expect "web roster when only the art agents are installed" session-start.sh '{"session_id":"c8"}' 'Brand, art and video agents: creative-director (direction, concept critique) → brand-asset-creator / illustrator / video-creative'
 rm -f "$P/.claude/agents/illustrator.md"
 
 echo "post-edit-lint"

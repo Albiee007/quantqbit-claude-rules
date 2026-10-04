@@ -44,9 +44,22 @@ class WebSocketClosed(OperationalError):
     pass
 
 
+def _io(fn):
+    """Socket failures become WebSocketClosed (an operational error, exit 2); timeouts pass through."""
+    def wrapped(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except socket.timeout:
+            raise
+        except OSError as e:
+            raise WebSocketClosed(f"the DevTools connection failed: {e}") from None
+    return wrapped
+
+
 class WebSocket:
     """Minimal RFC 6455 client: text frames, masking, fragmentation, ping/pong, close."""
 
+    @_io
     def __init__(self, host: str, port: int, path: str, timeout: float = CALL_TIMEOUT_S) -> None:
         self.sock = socket.create_connection((host, port), timeout=timeout)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -71,6 +84,7 @@ class WebSocket:
             raise OperationalError("DevTools sent a bad Sec-WebSocket-Accept")
         self._buf += rest
 
+    @_io
     def _exact(self, n: int) -> bytes:
         while len(self._buf) < n:
             chunk = self.sock.recv(max(65536, n - len(self._buf)))
@@ -81,6 +95,7 @@ class WebSocket:
         del self._buf[:n]
         return out
 
+    @_io
     def _send_frame(self, opcode: int, payload: bytes) -> None:
         n = len(payload)
         head = bytes([0x80 | opcode])
@@ -268,10 +283,14 @@ class Page:
             raise OperationalError(f"page script failed: {text.splitlines()[0][:300]}")
         return res.get("result", {}).get("value")
 
-    def screenshot(self, fmt: str = "png", quality: int | None = None) -> bytes:
+    def screenshot(self, fmt: str = "png", quality: int | None = None, size: tuple[int, int] | None = None,
+                   scale: float = 1.0) -> bytes:
+        """The viewport as PNG or JPEG; with size and scale < 1, a smaller image of the same frame."""
         params: dict[str, Any] = {"format": fmt, "fromSurface": True}
         if fmt == "jpeg" and quality is not None:
             params["quality"] = quality
+        if size and scale != 1.0:
+            params["clip"] = {"x": 0, "y": 0, "width": size[0], "height": size[1], "scale": scale}
         return base64.b64decode(self.send("Page.captureScreenshot", params)["data"])
 
 

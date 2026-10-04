@@ -12,6 +12,7 @@
 | **Agents** (all Opus) | `explorer` → `implementor` / `infra-implementor` → `verifier` → `reviewer` (lenses: code, patterns, ux, seo, security) |
 | **Creative direction** (web and mobile) | Agent `creative-director` and skill **creative-direction**: a project-specific direction (`brand/direction.json`) built from the project's own evidence with ui-ux, typography and color-science; a concept round where the creators propose genuinely different options; owner approvals bound to the exact inputs they approved; production renders that follow the approved concept, with run manifests. Shared colour, token and type tools (`palette.py`, `type_scale.py`) and a media library ship in `.claude/harness/lib/` |
 | **Mobile store, brand & story art** (mobile profile; brand and story art also web) | Agents `screen-capturer` → `store-creative` / `listing-copywriter` / `icon-creator` / `brand-asset-creator` / `illustrator` → `store-precheck-auditor`, each with its own skill: **mobile-screen-capture** (read-only ADB/iOS device tours) · **store-mockups** (store concepts and drafts, storyboard, demo-data ledger, HTML screen rebuilds in one reusable kit; `render --all` makes every Play/App Store size + feature graphic in the approved concept, with contact sheet, contrast and font checks; 1.6 kits render unchanged) · **store-listing** (claims truth table, ASO, limit + guardrail checker) · **store-submission-precheck** (release gate, store specs, consistency checks) · **app-icons** (iOS/adaptive/monochrome/notification/web sets + audit) · **brand-assets** (logo system, tokens, a lean export plan for splash images and social/OG/email/banner canvases in the approved marketing concept; also web) · **story-art** (illustration concepts from a broad style vocabulary, context pack, one scene per feature pillar, style bible from the approved concept, generation via the session's provider (Canva MCP documented), owner-approved contact sheet, budgeted AVIF/WebP export with provenance; also web) |
+| **Brand video** (web and mobile) | Agent `video-creative` and skill **brand-video**: video concepts (motion, pace, transitions) in the project's own look, a storyboard per piece (`brand/video/<id>/video.json`) the owner approves, deterministic HTML scenes rendered frame by frame through a persistent headless browser and encoded with ffmpeg (H.264, BT.709). The default output is a silent video plus a voice-over script, a voice prompt and planned captions; REVIEW REQUIRED items wait for the owner's acknowledgement. Compositions use HyperFrames-compatible markup |
 | **Hooks** (pure bash) | `guard` (enforces Opus, blocks real `.env` files), `prompt-router` and `file-context` (inject mandatory checklists), `session-start`, `post-edit-lint` |
 | **Settings** | Generated from the harness base plus the project's own `settings.project.json` |
 
@@ -59,14 +60,14 @@ harness/                 SOURCE OF TRUTH (vendored into projects)
                            color-science, seo, harness,
                            mobile-screen-capture, store-mockups, store-listing,
                            store-submission-precheck, app-icons, brand-assets, story-art,
-                           creative-direction
+                           creative-direction, brand-video
   agents/                  explorer, implementor, infra-implementor, verifier, reviewer,
                            screen-capturer, store-creative, listing-copywriter,
                            store-precheck-auditor, icon-creator, brand-asset-creator,
-                           illustrator, creative-director
+                           illustrator, creative-director, video-creative
   hooks/ snippets/ bin/    enforcement hooks, injected checklists, doctor + sync bootstrap
   lib/                     media library (web, mobile): colour, tokens, type, schemas,
-                           approvals, art-direction runtime and canvas page
+                           approvals, art-direction runtime, canvas page, video runtime
   settings.base.json       base settings (Opus force, deny rules, hooks)
   profiles.tsv             which files ship to which profile (web, mobile, backend, infra)
   manifest.tsv             generated: per-file dest, version, hash, profiles
@@ -92,6 +93,7 @@ bash tests/story-art.test.sh             # needs Pillow (AVIF checks need Pillow
 bash tests/color-tools.test.sh           # colour, token and type tools (stdlib only)
 bash tests/creative-direction.test.sh    # direction, concepts, approvals, gates (Pillow for the render cases)
 bash tests/media-variety.test.sh         # two fictional projects, same screens, different looks (Chrome)
+bash tests/video.test.sh                 # video: seek contract, frame plan, gates, render, encode (Chrome, ffmpeg)
 # After a renderer refactor: prove generated output is unchanged versus a ref.
 SCAFFOLD_EQUIV_BASE=main bash tests/scaffold-equiv.test.sh
 # Also install, type-check, test and build the generated JavaScript starters:

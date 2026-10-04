@@ -45,10 +45,10 @@ Project overrides: .claude/rules/project/ and CLAUDE.md. Do not edit harness:man
 # projects; web projects get the brand and art agents alone.
 if [[ -f "$HH_ROOT/.claude/agents/store-creative.md" ]]; then
   msg+="
-Store agents: creative-director (direction, concept critique) → screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator / illustrator → store-precheck-auditor (skills: creative-direction, mobile-screen-capture, store-mockups, store-listing, app-icons, brand-assets, story-art, store-submission-precheck)."
+Store agents: creative-director (direction, concept critique) → screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator / illustrator / video-creative → store-precheck-auditor (skills: creative-direction, mobile-screen-capture, store-mockups, store-listing, app-icons, brand-assets, story-art, brand-video, store-submission-precheck)."
 elif [[ -f "$HH_ROOT/.claude/agents/illustrator.md" ]]; then
   msg+="
-Brand and art agents: creative-director (direction, concept critique) → brand-asset-creator / illustrator (skills: creative-direction, brand-assets, story-art)."
+Brand, art and video agents: creative-director (direction, concept critique) → brand-asset-creator / illustrator / video-creative (skills: creative-direction, brand-assets, story-art, brand-video)."
 fi
 [[ -f "$lock" ]] || msg+="
 WARNING: .claude/harness/lock is missing, so harness files are untracked. Run harness sync."

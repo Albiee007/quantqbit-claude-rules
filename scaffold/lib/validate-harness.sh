@@ -95,11 +95,11 @@ while IFS= read -r hit; do e "absolute user path: $hit"; done \
         | grep -vE '/home/user/|/Users/you/|/home/<' || true)
 while IFS= read -r f; do e "junk in harness: ${f#"$ROOT"/}"; done \
   < <(find "$H" \( -name .venv -o -name __pycache__ -o -name node_modules -o -name '*.pyc' \) 2>/dev/null)
-# Sync copies every file as text (CRs stripped), which corrupts binaries. Fonts and images
-# are copied from the target project at run time instead (see skills/store-mockups).
+# Sync copies every file as text (CRs stripped), which corrupts binaries. Fonts, images, video
+# and audio are copied from the target project at run time instead (see skills/store-mockups).
 while IFS= read -r f; do e "binary file in harness (sync would corrupt it): ${f#"$ROOT"/}"; done \
   < <(find "$H" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.webp' \
-        -o -iname '*.ico' -o -iname '*.ttf' -o -iname '*.otf' -o -iname '*.woff' -o -iname '*.woff2' -o -iname '*.zip' -o -iname '*.pdf' \) 2>/dev/null)
+        -o -iname '*.ico' -o -iname '*.ttf' -o -iname '*.otf' -o -iname '*.woff' -o -iname '*.woff2' -o -iname '*.zip' -o -iname '*.pdf'         -o -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.avi'         -o -iname '*.mp3' -o -iname '*.wav' -o -iname '*.m4a' -o -iname '*.aac' -o -iname '*.ogg' -o -iname '*.oga' -o -iname '*.flac' \) 2>/dev/null)
 while IFS= read -r f; do e "source file must not carry a harness:managed marker (sync injects it): ${f#"$ROOT"/}"; done \
   < <(grep -rl 'harness:managed v[0-9]' "$H" --include='*.md' --include='*.sh' --include='*.ps1' 2>/dev/null \
         | grep -v '/bin/harness-lib.sh$' || true)

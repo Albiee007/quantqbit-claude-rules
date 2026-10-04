@@ -44,9 +44,10 @@ Load the skill **before** starting the matching work. This is required, not opti
 | Public web pages, routes, metadata/head, sitemap, robots, structured data, content | `seo` |
 | Introducing a pattern, abstraction, new layer, interface, or refactoring architecture | `design-patterns` (run the decision gate first) |
 | Writing or reviewing any code | `coding-standards` (always in effect) |
-| Any media asset (store visuals, social/OG/email/banner images, logos, app icons, story art) | `creative-direction` + `typography` + `color-science` + `ui-ux`, plus the family skill below |
+| Any media asset (store visuals, social/OG/email/banner images, logos, app icons, story art, videos) | `creative-direction` + `typography` + `color-science` + `ui-ux`, plus the family skill below |
 | Store screenshots, listing copy, app icons, logos, or a store submission (mobile projects) | `store-mockups`, `store-listing`, `app-icons`, `brand-assets`; `store-submission-precheck` before submitting |
 | Illustrations, hero or feature-row artwork, story or scene art (web and mobile projects) | `story-art` |
+| Videos: social promos, reels, app previews, explainers, voice-over scripts (web and mobile projects) | `brand-video` |
 
 Hooks inject a short checklist when a prompt or file matches one of these. That checklist does not replace the skill.
 The first UI or SEO file write in each agent context is denied once: read every named `.claude/skills/<skill>/SKILL.md` (UI names `ui-ux`, `typography`, `color-science` in one deny), apply them, then retry the same write.
