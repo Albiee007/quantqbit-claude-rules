@@ -15,7 +15,12 @@ pass=0; fail=0
 ok()   { pass=$((pass + 1)); printf '  [OK] %s\n' "$*"; }
 # A failure also shows the tail of the last command's output (sync or doctor).
 bad()  { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$*"
-         [[ -s "$WORK/out.log" ]] && tail -15 "$WORK/out.log" | sed 's/^/        | /'; return 0; }
+         [[ -s "$WORK/out.log" ]] && tail -15 "$WORK/out.log" | sed 's/^/        | /'; annotate "$*"; return 0; }
+annotate() { # on GitHub Actions, a failure also becomes an annotation (readable without the log)
+  [[ "${GITHUB_ACTIONS:-}" == "true" ]] || return 0
+  local body; body="$(tail -n 8 "$WORK/out.log" 2>/dev/null | cut -c1-300 | sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }')"
+  printf '::error title=sync: %s::%s\n' "${1//::/ }" "$body"
+}
 check() { local d="$1"; shift; if "$@"; then ok "$d"; else bad "$d"; return 1; fi; }
 
 new_repo() { # name [extra setup cmd]
