@@ -33,7 +33,7 @@ The parent gives you a mode:
 
 ## Storyboard mode
 - Start from `render_video.py init <id>`, or edit the existing piece. Choose scene templates and copy from the brief. Every claim and number must be true, from the code or the listing's claims table.
-- List every format the brief needs (`social-9x16`, `social-4x5`, `social-1x1`, `wide-16x9`, `og-card`). Where one format needs another layout or shorter copy, add the scene's `byFormat` entry; never change timing per format. A piece up to 15 s that should also ship as a GIF or WebP gets `loop`; `kind: "loop"` when it is made to repeat. Add a `poster` scene when a player shows a still first.
+- List every format the brief needs (`social-9x16`, `social-4x5`, `social-1x1`, `wide-16x9`, `og-card`). A size none of them has goes in the piece's `customFormats` (`{"size": "1200x628", "like": "og-card"}`, see `formats-and-profiles.md`). Never write a resize script. Where one format needs another layout or shorter copy, add the scene's `byFormat` entry; never change timing per format. A piece up to 15 s that should also ship as a GIF or WebP gets `loop`; `kind: "loop"` when it is made to repeat. Add a `poster` scene when a player shows a still first.
 - A `still` scene shows a picture already in the project (story-art stills, canvas exports, screenshots), only when the concept lists `still`. A picture not made for the project needs `media.license` with where it comes from; never use one whose licence you can't state.
 - Write a `vo` line per scene in a speaking voice, and the `voice` section (language, delivery, pronunciations).
 - Run `render_video.py lint <id>` until it reports no problems, then `render_video.py preview <id>`.

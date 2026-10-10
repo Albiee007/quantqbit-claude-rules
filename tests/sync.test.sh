@@ -248,7 +248,7 @@ check "lock source is canonical https" grep -q $'^source\thttps://github.com/' "
 
 echo "21. Windows clone keeps scripts LF (shipped .claude/.gitattributes)"
 R15="$(new_repo eol)"; run "$R15" --profiles all --commit
-{ git -c core.autocrlf=true clone "$R15" "$WORK/eolclone" 2>&1; echo "clone rc=$?"
+{ git -c core.autocrlf=true clone --no-hardlinks "$R15" "$WORK/eolclone" 2>&1; echo "clone rc=$?"
   git -C "$R15" branch -a 2>&1; git -C "$R15" log --oneline -3 2>&1; git -C "$R15" status --porcelain 2>&1 | head -5
   git -C "$WORK/eolclone" ls-files 2>&1 | grep -c '^\.claude/'; } > "$WORK/out.log"
 check "the autocrlf clone has the harness files" test -f "$WORK/eolclone/.claude/harness/hooks/guard.sh"
@@ -296,7 +296,7 @@ run "$R16"; check "real run refuses dirty tree (exit 1)" test $? -eq 1
 git -C "$R16" checkout -q -- .claude/harness/README.md
 
 echo "27. doctor's CRLF recovery command works"
-git -c core.autocrlf=false clone -q "$R15" "$WORK/crlffix"
+git -c core.autocrlf=false clone -q --no-hardlinks "$R15" "$WORK/crlffix"
 g="$WORK/crlffix/.claude/harness/hooks/guard.sh"; awk '{ printf "%s\r\n", $0 }' "$g" > "$g.t" && mv "$g.t" "$g"
 (cd "$WORK/crlffix" && git rm -r --cached -q .claude && git checkout HEAD -- .claude); check "command exits 0" test $? -eq 0
 check "guard.sh back to LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$g")"

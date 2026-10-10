@@ -355,10 +355,69 @@ def ffmpeg_lookup() -> None:
     check("not found" in msgs[1] and "--ffmpeg" in msgs[1], f"a missing ffmpeg is an operational error with install advice ({msgs[1][:70]})")
 
 
+def custom_format_checks() -> None:
+    from harnesslib.fsutil import InputError, canonical, sha256_text
+
+    def rejects(custom: dict, fmt: str = "li") -> bool:
+        try:
+            vd.check_formats(dict(piece([]), formats=[fmt], customFormats=custom), "t")
+        except InputError:
+            return True
+        return False
+
+    li = {"li": {"size": "1200x628", "like": "og-card"}}
+    spec = vd.format_spec(dict(piece([]), customFormats=li), "li")
+    og = vd.FORMATS["og-card"]
+    check(spec["size"] == (1200, 628) and spec["profile"] == og["profile"] and spec["typeScale"] == og["typeScale"]
+          and (spec["min"], spec["max"]) == (og["min"], og["max"]), "a custom format inherits what it leaves out from its like")
+    tall = vd.format_spec(dict(piece([]), customFormats={"t2": {"size": "2160x3840", "like": "social-9x16"}}), "t2")
+    base = vd.FORMATS["social-9x16"]["safe"]["standard"]
+    check(tall["safe"]["standard"] == {k: v * 2 for k, v in base.items()}, "safe insets scale with the size")
+    wide = vd.format_spec(dict(piece([]), customFormats={"w": {"size": "2160x1080", "like": "social-1x1"}}), "w")
+    sq = vd.FORMATS["social-1x1"]["safe"]["standard"]
+    check(wide["safe"]["standard"]["left"] == sq["left"] * 2 and wide["safe"]["standard"]["top"] == sq["top"],
+          "left and right scale by width, top and bottom by height")
+    own = vd.format_spec(dict(piece([]), customFormats={"li": {"size": "1200x628", "like": "og-card",
+                                                                "safe": {"strict": {"top": 100}}}}), "li")
+    check(own["safe"]["strict"]["top"] == 100 and own["safe"]["strict"]["left"] == og["safe"]["strict"]["left"],
+          "explicit insets are merged over the scaled ones")
+    over = vd.format_spec(dict(piece([]), customFormats={"og-card": {"size": "800x420", "like": "og-card"}}), "og-card")
+    check(over["size"] == (800, 420) and vd.FORMATS["og-card"]["size"] == (1200, 630),
+          "a custom format may reuse a built-in id without changing the built-in")
+    check(rejects({"li": {"size": "1201x628", "like": "og-card"}}), "an odd side is rejected")
+    check(rejects({"li": {"size": "100x628", "like": "og-card"}}), "a side under 128 px is rejected")
+    check(rejects({"li": {"size": "1200x628", "like": "li"}}), "like must name a built-in format")
+    check(rejects({"li": {"size": "1200x628", "like": "og-card", "min": 20, "max": 10}}), "min must be under max")
+    check(rejects({"li": {"size": "1200x628", "like": "og-card", "safe": {"standard": {"left": 700, "right": 600}}}}),
+          "insets that leave no room are rejected")
+    check(rejects({}, "nope"), "a format that is neither built in nor declared is rejected")
+    sc = [{"id": "a", "template": "title", "duration": 3, "copy": {"head": "Hi"}, "byFormat": {"li": {"layout": "type-lower"}}}]
+    p_ = dict(piece(sc), formats=["social-9x16", "li"], customFormats=li)
+    vd.check_formats(p_, "t")
+    pl = vd.plan(None, "t", p_, AD, "li", False)
+    check(pl.scenes[0].layout == "type-lower" and vd.plan(None, "t", p_, AD, "social-9x16", False).scenes[0].layout == "type-start",
+          "byFormat works for a custom format")
+    stray = dict(piece([dict(sc[0], byFormat={"zz": {"layout": "type-lower"}})]))
+    try:
+        vd.check_formats(stray, "t")
+        check(False, "a byFormat key that names no format is rejected")
+    except InputError:
+        check(True, "a byFormat key that names no format is rejected")
+    plain = piece([{"id": "a", "template": "title", "duration": 3, "copy": {"head": "Hi"}}])
+    visual_190 = {"kind": plain["kind"], "formats": plain["formats"],
+                  "scenes": [{k: s.get(k) for k in ("id", "template", "layout", "background", "copy")} for s in plain["scenes"]]}
+    check(vd._parts(plain)["visual"] == sha256_text(canonical(visual_190)),
+          "a piece without customFormats hashes exactly as in 1.9.0 (existing approvals stay valid)")
+    a = vd._parts(dict(plain, customFormats=li))["visual"]
+    b = vd._parts(dict(plain, customFormats={"li": {"size": "1200x630", "like": "og-card"}}))["visual"]
+    check(a != b and a != vd._parts(plain)["visual"], "changing a custom format changes the storyboard's visual hash")
+
+
 def main() -> int:
     websocket_checks()
     plan_checks()
     format_checks()
+    custom_format_checks()
     loop_checks()
     caption_checks()
     signal_checks()
