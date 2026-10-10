@@ -18,6 +18,25 @@
 - **Type size** follows the format's short side, so the same piece reads alike in every format. `og-card` sets its type 1.3 times larger, because a link card is seen small.
 - Fps: 24, 25, 30 or 60, per piece. 30 suits social.
 
+## A format of the piece's own
+
+When a platform wants a size the table lacks, declare it in the piece. Never edit the harness, and never resize an exported file by hand.
+
+```json
+"formats": ["social-9x16", "li-card"],
+"customFormats": {
+  "li-card": {"size": "1200x628", "like": "og-card", "label": "LinkedIn link card"}
+}
+```
+- **`size`:** `WxH`, both sides even (H.264 4:2:0) and 128–3840 px.
+- **`like`:** names the built-in format it inherits from: length range, encoding profile, type scale and safe insets.
+  - The insets are scaled to the new size: left and right by width, top and bottom by height.
+  - `min`, `max`, `typeScale`, `label` and `safe` (`{"standard": {"bottom": 300}}`, in pixels at the new size, merged over the scaled insets) override what was inherited.
+  - A custom id may reuse a built-in id (`og-card` at 800 × 420); `like` still reads the built-in.
+- **`byFormat`:** a scene may use the custom id like any other format.
+- **Approval:** a format that is neither built in nor declared is refused when the piece loads. `customFormats` is part of the storyboard's on-screen content, so changing a size or an inset needs a new storyboard approval.
+- **Layouts:** they scale to any aspect, but a shape far from its `like` can crowd. Preview it and look at the sheet.
+
 ## Loops and posters
 
 - `loop: { "outputs": ["gif", "webp"], "width": 600, "fps": 15, "maxBytes": 5000000 }` adds animated images per format, made from the format's master video. Every value is optional.

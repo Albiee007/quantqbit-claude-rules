@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "checked": "2026-10-10",
+  "note": "Built-in screenshot slots: the harness defaults behind store-specs.md. Projects add slots or change need, count and sizes in store-assets.json \"slots\"; never edit this file. Landscape sizes are accepted automatically. \"render\" maps store-mockups size keys to the size they render.",
+  "slots": {
+    "play-phone": {"store": "play", "folder": "play/phone", "rule": {"maxSide": 3840}, "count": [2, 8], "need": "always",
+                   "render": {"play-phone": "1080x1920"}},
+    "play-tablet7": {"store": "play", "folder": "play/tablet7", "rule": {"maxSide": 7680}, "count": [1, 8], "need": "declared",
+                     "render": {"play-tab7": "1200x1920"}},
+    "play-tablet10": {"store": "play", "folder": "play/tablet10", "rule": {"maxSide": 7680}, "count": [1, 8], "need": "declared",
+                      "render": {"play-tab10": "1620x2880"}},
+    "ios-6.9": {"store": "ios", "folder": "ios/6.9", "sizes": ["1290x2796", "1320x2868", "1260x2736"], "count": [1, 10],
+                "need": "optional", "render": {"ios-69": "1290x2796", "ios-69-1320": "1320x2868"}},
+    "ios-6.5": {"store": "ios", "folder": "ios/6.5", "sizes": ["1242x2688", "1284x2778"], "count": [1, 10], "need": "optional",
+                "render": {"ios-65": "1242x2688"}},
+    "ios-6.3": {"store": "ios", "folder": "ios/6.3", "sizes": ["1206x2622", "1179x2556"], "count": [1, 10], "need": "always",
+                "render": {"ios-63": "1206x2622"}},
+    "ios-ipad13": {"store": "ios", "folder": "ios/ipad13", "sizes": ["2064x2752", "2048x2732"], "count": [1, 10], "need": "tablet",
+                   "render": {"ios-ipad13": "2064x2752"}}
+  },
+  "featureGraphic": {"size": "1024x500", "file": "play/feature_graphic_1024x500.png", "match": "play/feature_graphic*"}
+}

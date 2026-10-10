@@ -200,6 +200,7 @@ class Job:
                 if only not in self.formats:
                     raise UsageError(f"--format {only}: the piece's formats are {', '.join(self.formats)}")
                 self.formats = [only]
+            self.specs = {f: vd.format_spec(self.piece, f) for f in self.formats}  # resolved once per job
             self.media, self.media_errors = vd.media_files(self.root, self.piece)
             mode = production if strict is None else strict
             self.plans = {f: vd.plan(self.p, a.id, self.piece, self.ad, f, mode) for f in self.formats}
@@ -306,7 +307,7 @@ class Probe:
         self.job = job
         self.fmt = fmt
         self.plan = job.plans[fmt]
-        self.size = vd.FORMATS[fmt]["size"]
+        self.size = job.specs[fmt]["size"]
         self.findings: list[con.Finding] = []
         self.text: list[str] = []
         self.reviews: list[dict] = []
@@ -342,7 +343,7 @@ class Probe:
             if x.result == con.REVIEW:
                 self.reviews.append({"id": f"contrast:{tag}:{i + 1}", "check": "contrast", "kind": "technical",
                                      "note": x.line().strip()[:600], "evidence": f"sheet: scene {sc.id} ({fmt})"})
-        safe = vd.FORMATS[fmt]["safe"][job.ad.get("safeAreas", "standard")]
+        safe = job.specs[fmt]["safe"][job.ad.get("safeAreas", "standard")]
         outside = [r["text"] for r in pr["runs"] if any(
             rect[0] < safe["left"] - 0.5 or rect[1] < safe["top"] - 0.5 or rect[2] > w - safe["right"] + 0.5
             or rect[3] > h - safe["bottom"] + 0.5 for rect in r["rects"])]
@@ -408,7 +409,7 @@ def render_frames(job: Job, fmt: str, chrome: str, build: vd.Build, dest: Path |
     each renders a contiguous run in its own browser; the encoder gets the same frames in the same
     order, so the file does not depend on the number of workers."""
     pl = job.plans[fmt]
-    size = vd.FORMATS[fmt]["size"]
+    size = job.specs[fmt]["size"]
     probe = Probe(job, fmt)
     det: dict = {}
     wk: dict = {"workers": 1}
@@ -515,8 +516,8 @@ def flash_reviews(frames: list[bytes], fps: int, tag: str = "") -> tuple[dict, l
               "note": f"more than three flashes within one second from {t:.1f} s (heuristic; WCAG 2.3.1)"} for t in hits])
 
 
-def loop_size(fmt: str, width: int) -> tuple[int, int]:
-    w, h = vd.FORMATS[fmt]["size"]
+def loop_size(size: tuple[int, int], width: int) -> tuple[int, int]:
+    w, h = size
     lw = min(width, w)
     return lw, max(2, round(h * lw / w))
 
@@ -547,7 +548,7 @@ def lint(a: argparse.Namespace) -> int:
         chrome = browser.find_chrome(a.chrome)
         _, framecheck = need_pillow()
         for fmt in job.formats:
-            pl, size = job.plans[fmt], vd.FORMATS[fmt]["size"]
+            pl, size = job.plans[fmt], job.specs[fmt]["size"]
             with tempfile.TemporaryDirectory() as tmp:
                 build = vd.compose(job.p, job.pid, job.piece, pl, job.ad, fmt, Path(tmp) / "build", draft=True, media=job.media)
                 with cdp.Browser.launch(chrome, size) as b:
@@ -646,8 +647,8 @@ def _render_format(a: argparse.Namespace, job: Job, fmt: str, build: vd.Build, p
                    fp: str, workers: int, spool: Path, checks: dict, reviews: list, meta: dict) -> None:
     """One format: frames -> master video, then loops and poster, each checked."""
     pl, pid = job.plans[fmt], job.pid
-    size = vd.FORMATS[fmt]["size"]
-    profile = vd.FORMATS[fmt]["profile"]
+    size = job.specs[fmt]["size"]
+    profile = job.specs[fmt]["profile"]
     sfx = f":{fmt}"
     tag = sfx if len(job.formats) > 1 else ""
     mp4_rel = f"{fmt}/{pid}.mp4"
@@ -711,7 +712,7 @@ def _render_format(a: argparse.Namespace, job: Job, fmt: str, build: vd.Build, p
             checks["loop-seam" + sfx] = {"result": "PASS", "detail": f"last frame to first {seam:.1f} (limit {limit:.1f})"}
     if lp and lp["outputs"]:
         step = pl.fps // lp["fps"]
-        lsize = loop_size(fmt, lp["width"])
+        lsize = loop_size(size, lp["width"])
         n = -(-pl.frames // step)
         for kind in lp["outputs"]:
             prof = "gif" if kind == "gif" else "webp-anim"
@@ -840,8 +841,8 @@ def check(a: argparse.Namespace) -> int:
         if f.suffix.lower() != ".mp4":
             raise UsageError(f"{f}: check takes an .mp4 of your own (published GIF, WebP and poster files are "
                              "checked against their run with no file argument)")
-        size = vd.FORMATS[job.fmt]["size"]
-        todo = [{"file": f, "label": f.name, "profile": vd.FORMATS[job.fmt]["profile"], "frames": job.plan.frames, "size": size,
+        size = job.specs[job.fmt]["size"]
+        todo = [{"file": f, "label": f.name, "profile": job.specs[job.fmt]["profile"], "frames": job.plan.frames, "size": size,
                  "fps": job.plan.fps}]
     else:  # the published files: judged against the run that made them
         runs = vd.piece_runs(root, a.id)
