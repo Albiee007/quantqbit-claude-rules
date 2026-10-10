@@ -15,7 +15,7 @@ A format-2 kit carries the app's screens and the words; the look comes from the 
     { "family": "Roboto", "source": "local", "platform": "android",
       "files": [{ "path": "node_modules/@expo-google-fonts/roboto/Roboto_400Regular.ttf", "weight": 400 }] }
   ],
-  "sizes": ["play-phone", "ios-63", "ios-69"],  // size keys, or a size of the project's own (below)
+  "sizes": ["play-phone", "ios-69"],
   "frames": [
     { "id": "01-home", "screen": "home", "kicker": "New", "head": "Your week, <em>planned</em>", "sub": "Lists, reminders and notes together",
       "layout": "split-left", "background": "dawn" },          // both optional: default from the concept
@@ -26,12 +26,6 @@ A format-2 kit carries the app's screens and the words; the look comes from the 
   "objects": []                               // continuous only
 }
 ```
-- **Sizes.** The built-in keys are `play-phone`, `play-tab7`, `play-tab10`, `ios-63`, `ios-69`, `ios-69-1320`, `ios-65` and `ios-ipad13` (from `store-submission-precheck/references/store-slots.json`).
-  - A size the catalog lacks goes in as an object: `{"key": "ios-61", "size": "1179x2556", "platform": "ios", "folder": "ios/6.1"}`. `platform` is `ios`, `play` or `android`. `folder` is optional (default `<play|ios>/<WxH>`) and must stay inside that store's folder. Each side is 320–7680 px.
-  - Two sizes may not write the same folder at different dimensions (`ios-69` and `ios-69-1320` both use `ios/6.9/`: pick one).
-  - The release gate only checks folders it knows. Declare the same folder as a slot in `store-assets.json` (`"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1179x2556"]}}`), or `render --all` fails it as `unknown-folder` when the project has a `store-assets.json`.
-  - For a one-off look, `--sizes ios:1179x2556:ios/6.1` renders a size without touching frames.json. It renders only; it declares no checker slot.
-  - Never write a wrapper script around `render_frames.py` for a missing size.
 - Copy is data: it is escaped, and only `<em>…</em>` survives, drawn in the concept's accent style.
 - Placeholder copy (`REPLACE`) is a warning in previews and an error in production.
 - Paths are relative to `--project` (the app folder) and may not leave it.
@@ -51,10 +45,10 @@ A frame may use any layout and background the concept lists. Anything else is re
 All from the concept: `solid` or `linear` (interpolated in OKLab by default) backgrounds, each with its own caption colours; caption fonts (local files from the token file's font records, or stated system fonts), weights, tracking, case and accent style (`color`, `underline`, `highlight`, `none`); device `frame` or `frameless` with a radius and shadow; an optional motif from the direction. Mesh, grain and multi-device layouts are not offered yet.
 
 ## Checks in `render --all`
-- **verify:** exact size, RGB, < 8 MB; the feature graphic present at its size, RGB, < 8 MB.
+- **verify:** exact size, RGB, < 8 MB, the feature graphic present.
 - **contrast:** each caption run at the concept's `displayWidth` (default 320 CSS px). Known solid backgrounds and highlights: computed PASS/FAIL. Gradients: computed against every sample of the gradient; if that bound fails, or something is drawn behind the text, the rendered backdrop is sampled (low: FAIL; otherwise REVIEW REQUIRED).
 - **text:** every caption character must be drawn by the requested family, weight and style (from the font file itself for local fonts, and by comparing browser fallbacks for system fonts), and no caption may run off the canvas or across a seam; either fails. Right-to-left copy and long translations are not checked automatically: preview them and look.
-- **store:** `check_store_assets.py` on the staged set. With a `store-assets.json` (looked up in the kit, then its parent, then the project) it is the `--release` gate, so required slots, project slots and `unknown-folder` all block publishing. Without one it runs in inspect mode, and the console and run manifest say "inspect only".
+- **store:** `check_store_assets.py` in inspect mode.
 A FAIL publishes nothing. REVIEW REQUIRED publishes, and the run manifest says `review-required`.
 
 ## Modes

@@ -38,11 +38,11 @@ Not from this skill. The project's creative direction (`brand/direction.json`, s
    - Open the real screen component and copy its labels word for word, in its section order.
    - Read sizes off the captures. The kit's logical width of 900 px equals a 1080 px capture scaled to 83%.
    - Use the app's icon family through `I('ion-name|material_name', size, color)`. `"icons": "ionicons"` uses the project's Ionicons from `node_modules`; `"material"` needs the `material-symbols` package or `"iconsFont"`.
-6. **Configure** `frames.json` (format 2, [art-direction](references/art-direction.md)): `sizes` (built-in keys such as `ios-63`, or a size object for any size the stores ask for), `frames` (id, screen, kicker, head, sub, optional `platforms`, `layout`, `background`, `caption.pos`, `device`) and `featureGraphic`. Continuous also sets `objects` (coloured by role names). Check it with `render_frames.py render <kit> --check-only`, which also reports the gates.
+6. **Configure** `frames.json` (format 2, [art-direction](references/art-direction.md)): `sizes`, `frames` (id, screen, kicker, head, sub, optional `platforms`, `layout`, `background`, `caption.pos`, `device`) and `featureGraphic`. Continuous also sets `objects` (coloured by role names). Check it with `render_frames.py render <kit> --check-only`, which also reports the gates.
 7. **Iterate** with drafts: `render_frames.py preview <kit> --frames 01-x --sizes play-phone --project <app dir>`.
 8. **Render the release set:** `render_frames.py render <kit> --all --project <app dir>`. It needs the approved direction and store concept, renders every size and the feature graphic into a staging folder, writes the contact sheet (and strips with a seam report for continuous sets), re-checks every file (exact size, RGB, < 8 MB), checks caption contrast and font coverage, runs `check_store_assets.py`, and only then publishes into `<kit>/out/` and writes `brand/runs/store/<run>.json`. A failing check publishes nothing and leaves the previous renders in place.
    - Contrast is judged at the concept's `displayWidth` (default 320 CSS px wide). Captions on a known solid or gradient background get a computed PASS/FAIL; captions over photos, objects or a gradient that fails somewhere are sampled: a low sample fails, a passing one is REVIEW REQUIRED.
-   - The sizes follow [store-specs](../store-submission-precheck/references/store-specs.md). With a `store-assets.json` in the kit, its parent or the project, the store check is the `--release` gate; without one it only inspects.
+   - The sizes follow [store-specs](../store-submission-precheck/references/store-specs.md).
 9. **Visual QA.** Open **every** rendered frame: no clipped headline or figure; FABs, badges and toasts don't cover the numbers the frame is about; the ledger holds across frames; currency and dates are right; iOS frames have no Android-only UI; captions read at thumbnail size; every REVIEW REQUIRED caption looked at. Fix, re-render, look again.
 10. **Sign-off.** Send the owner `<out>/contact-sheet.png` (and the strips for continuous sets).
 
@@ -52,13 +52,12 @@ Not from this skill. The project's creative direction (`brand/direction.json`, s
 - **One render per kit at a time.** A second render on the same kit is refused (`.build/render.lock`). Never start a parallel agent or workflow on the same screenshots.
 - **Rendered PNGs stay out of git** (the kit's `.gitignore` covers `out/`); the run manifests in `brand/runs/` are committed. If the owner wants PNGs versioned, suggest Git LFS.
 - **Change the kit's copy, never the harness templates.**
-- **A size the harness doesn't list is still yours to make.** Declare it in frames.json `sizes` (`{"key", "size", "platform", "folder"}`) to render it, and as a slot in `store-assets.json` `slots` so the release gate checks it. A `--sizes platform:WxH[:folder]` one-off renders only. Never write a wrapper script or edit the harness size list.
 - **Hand captions to the listing.** Keep them identical to the LISTING.md caption table (`listing-copywriter`).
 - **Before any upload,** run `store-precheck-auditor` (`check_store_assets.py --release`) on the output folder.
 - **Only real app screens,** even when the owner asks for marketing-only features. A concept frame of an unreleased feature is labelled as a concept and kept out of the store folders.
 
 ## Output
-- `<out>/<folder>/NN-name.png` for each size: `play/{phone,tablet7,tablet10}`, `ios/{6.3,6.9,6.5,ipad13}`, or the folder a project size names; `<out>/play/feature_graphic_1024x500.png`, `contact-sheet.png`, and for continuous sets `strip-android.png` and `strip-ios.png`; `brand/runs/store/<run>.json`.
+- `<out>/play/{phone,tablet7,tablet10}/NN-name.png`, `<out>/ios/{6.9,6.5}/NN-name.png`, `<out>/play/feature_graphic_1024x500.png`, `contact-sheet.png`, and for continuous sets `strip-android.png` and `strip-ios.png`; `brand/runs/store/<run>.json`.
 - A report: the concept used, the storyboard table (with layout and background per frame), the ledger, each QA fix, the sizes rendered, the check results (PASS / FAIL / REVIEW REQUIRED), and any frames left out on a platform, and why.
 
 ## References

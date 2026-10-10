@@ -5,7 +5,7 @@
   "out": "out",
   "icons": "material",
   "gutter": 0,
-  "sizes": ["play-phone", "ios-63", "ios-69"],
+  "sizes": ["play-phone", "ios-69"],
   "frames": [
     { "id": "01-home", "screen": "home", "head": "REPLACE: the promise, <em>in six words</em>", "sub": "REPLACE: one line that backs it up" },
     { "id": "02-activity", "screen": "activity", "head": "REPLACE: the differentiator", "sub": "REPLACE: what it gives the user" },

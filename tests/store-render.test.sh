@@ -106,33 +106,6 @@ check "a render is refused while another holds the kit lock (exit 2)" rc 2
 check "the lock refusal says how to recover" has "render.lock"
 rm -rf "$W/proj/legacy/.build"
 
-echo "== sizes: any size, declared in frames.json or on the command line (no Chrome needed)"
-run "$RENDER" render legacy --check-only --sizes ios-63
-check "the built-in 6.3 inch key is accepted" rc 0
-run "$RENDER" render legacy --check-only --sizes ios:1206x2622:ios/6.3,play:1920x1080
-check "platform:WxH[:folder] one-offs are accepted" rc 0
-for bad in nope fg ios:100x2622 ios:1206x9000 ios:1206x2622:ios/../x ios:1206x2622:/tmp/x ios:1206x2622:play/x \
-    play:1080x1920:ios/x mac:1206x2622 ios-69,ios-69-1320; do
-  run "$RENDER" render legacy --check-only --sizes "$bad"
-  check "--sizes $bad is refused (exit 2)" rc 2
-done
-check "a folder collision names both sizes" has "'ios-69' (1290x2796) and 'ios-69-1320' (1320x2868) both write to ios/6.9/"
-for obj in '{"key": "fg", "size": "1024x500", "platform": "play"}' \
-    '{"key": "ios-63", "size": "1206x2622", "platform": "ios"}' \
-    '{"key": "x", "size": "1206x2622", "platform": "ios", "folder": "ios/../../etc"}' \
-    '{"key": "x", "size": "1206x2622", "platform": "ios", "colour": 1}' \
-    '{"key": "x", "size": "12x26", "platform": "ios"}'; do
-  edit "$W/proj/legacy/frames.json" "cfg['sizes'] = [json.loads(sys.argv[3])]" "$obj"
-  run "$RENDER" render legacy --check-only
-  check "frames.json size $obj is refused (exit 2)" rc 2
-done
-edit "$W/proj/legacy/frames.json" 'cfg["sizes"] = ["play-phone", {"key": "ios-61", "size": "1179x2556", "platform": "ios", "folder": "ios/6.1"}]'
-run "$RENDER" render legacy --check-only
-check "a frames.json size object is accepted" rc 0
-run "$RENDER" render legacy --check-only --sizes ios-61
-check "and can be picked with --sizes" rc 0
-cp "$W/frames.json.bak" "$W/proj/legacy/frames.json"
-
 echo "== make_icon_set.py"
 # Paths go in as arguments, never inside the code string: Git Bash converts only arguments.
 glyph "$W/proj/glyph.png"
@@ -318,48 +291,6 @@ sys.exit(0 if m['status'] == 'complete' and len(m['outputs']) >= 5 and len(m['ap
   check "the failed run kept the previous renders" cmp -s "$W/fern-before.png" "$K/out/play/phone/01-home.png"
   check "the failed run wrote no manifest" test "$(ls "$F"/brand/runs/store/*.json | wc -l)" -eq 1
   edit "$K/frames.json" 'cfg["frames"][0]["sub"] = "Every bed, every season, one journal"'
-
-  echo "== any size: one-offs, frames.json sizes and the store gate"
-  dims() { hc_py -c "import sys; from PIL import Image; im = Image.open(sys.argv[1]); print(f'{im.size[0]}x{im.size[1]} {im.mode}')" "$1"; }
-  run "$RENDER" render legacy --frames 01-home --sizes ios:1206x2622:ios/6.3,ios-63 --out x63
-  check "a one-off size renders" rc 0
-  check "into its folder at its size, RGB" test "$(dims "$W/proj/x63/ios/6.3/01-home.png")" == "1206x2622 RGB"
-  check "the same size named twice renders once" test "$(grep -c 'ok  01-home.png  1206x2622' "$W/out")" -eq 1
-  run "$RENDER" render legacy --frames 01-home --sizes android:1500x2000 --out xdefault
-  check "a one-off without a folder goes to <store>/<WxH>" test "$(dims "$W/proj/xdefault/play/1500x2000/01-home.png")" == "1500x2000 RGB"
-  edit "$W/proj/legacy/frames.json" 'cfg["sizes"] = [{"key": "play-chromebook", "size": "1920x1080", "platform": "play", "folder": "play/chromebook"}]'
-  run "$RENDER" render legacy --frames 01-home --out xcb
-  check "a frames.json size object renders (play means android)" test "$(dims "$W/proj/xcb/play/chromebook/01-home.png")" == "1920x1080 RGB"
-  cp "$W/frames.json.bak" "$W/proj/legacy/frames.json"
-
-  cp -R "$K/out" "$W/fern-out-before"
-  hc_py -c "import sys; from PIL import Image; Image.new('RGBA', (512, 512), (40, 90, 60, 255)).save(sys.argv[1])" "$F/play-icon.png"
-  printf '{"stores": ["play", "ios"], "ios": {"supports_tablet": false}, "play": {"icon": "../play-icon.png"}}\n' > "$F/store-assets/store-assets.json"
-  runin "$F" "$RENDER" render store-assets/mockup-kit --all --no-contrast
-  check "with a store-assets.json, render --all runs the release gate" has "store check: check_store_assets.py --release with .*store-assets.json"
-  check "a set without the required 6.3 inch slot is not published" bash -c "[[ \$(cat '$W/rc') == 1 ]] && grep -q 'NOT published' '$W/out' && grep -q 'missing-slot.*ios/6.3' '$W/out'"
-  check "the previous renders are untouched" diff -r -q "$W/fern-out-before" "$K/out"
-  printf '{"stores": ["play", "ios"], "ios": {"supports_tablet": false}, "play": {"icon": "../../play-icon.png"},
- "slots": {"ios-6.3": {"need": "optional"}}}\n' > "$K/store-assets.json"
-  runin "$F" "$RENDER" render store-assets/mockup-kit --all --no-contrast
-  check "the kit's own store-assets.json comes first, and a need override applies" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'release with .*mockup-kit.store-assets.json' '$W/out'"
-  rm "$K/store-assets.json"
-  edit "$K/frames.json" 'cfg["sizes"] = ["play-phone", "ios-63", {"key": "ios-61", "size": "1179x2556", "platform": "ios", "folder": "ios/6.1"}]'
-  runin "$F" "$RENDER" render store-assets/mockup-kit --all --no-contrast
-  check "an undeclared project size fails the release gate" bash -c "[[ \$(cat '$W/rc') == 1 ]] && grep -q 'unknown-folder.*ios/6.1' '$W/out'"
-  printf '{"stores": ["play", "ios"], "ios": {"supports_tablet": false}, "play": {"icon": "../play-icon.png"},
- "slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1179x2556"]}}}\n' > "$F/store-assets/store-assets.json"
-  runin "$F" "$RENDER" render store-assets/mockup-kit --all --no-contrast
-  check "declared in store-assets.json, the same set passes and is published" rc 0
-  check "the 6.3 inch set is 1206x2622 RGB" test "$(dims "$K/out/ios/6.3/01-home.png")" == "1206x2622 RGB"
-  check "the project size is 1179x2556 RGB" test "$(dims "$K/out/ios/6.1/01-home.png")" == "1179x2556 RGB"
-  hc_py "$SK/store-submission-precheck/scripts/check_store_assets.py" "$K/out" --release --config "$F/store-assets/store-assets.json" > "$W/out" 2>&1
-  check "the standalone release check agrees" test $? -eq 0
-  rm -rf "$W/gate-copy"; cp -R "$K/out" "$W/gate-copy"; rm -rf "$W/gate-copy/ios/6.3"
-  hc_py "$SK/store-submission-precheck/scripts/check_store_assets.py" "$W/gate-copy" --release --config "$F/store-assets/store-assets.json" --json > "$W/out" 2>&1
-  check "without its 6.3 inch folder, ios-6.3 is a missing slot" grep -q '"slot": "ios-6.3"' "$W/out"
-  rm "$F/store-assets/store-assets.json"
-  edit "$K/frames.json" 'cfg["sizes"] = ["play-phone", "ios-69"]'
 
   echo "== format 2: drafts"
   G="$W/kes"; hc_py "$MAKE" "$G" kestrel > "$W/out" 2>&1

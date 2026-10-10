@@ -6,37 +6,26 @@ Two modes:
   --release          a submission gate: every slot the declared stores require
                      must hold valid images. Stores come from --stores or the config.
 
-Slots (a folder, its accepted sizes or size rule, a count and when it is required)
-come from references/store-slots.json, the harness defaults:
+Layout (the store-mockups output):
   <root>/play/phone/  play/tablet7/  play/tablet10/  play/feature_graphic*.png|jpg
-  <root>/ios/6.3/     ios/6.9/       ios/6.5/        ios/ipad13/
-An image folder under play/ or ios/ that no slot reads is a warning (an error
-with --release): declare it as a slot rather than leave it unchecked.
+  <root>/ios/6.9/     ios/6.5/       ios/ipad13/
 Optional config, <root>/store-assets.json (or --config); paths are relative to it:
   {"version": 1, "stores": ["play", "ios"],
    "ios":  {"supports_tablet": true, "icon": "../assets/icon.png", "app_json": "../app.json"},
    "play": {"icon": "../assets/play-icon-512.png", "tablet_slots": ["tablet7", "tablet10"]},
-   "min_counts": {"play-phone": 4},
-   "slots": {"ios-6.9": {"need": "always"},
-             "ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1179x2556"], "need": "optional"}}}
-"slots" adds a slot (store, folder, and sizes or {"rule": {"maxSide": N}}; optional
-count [min, max] and need always|tablet|declared|optional) or changes a built-in
-slot's need, count or sizes.
+   "min_counts": {"play-phone": 4}}
 Needs Pillow (pip install pillow).
 
 Usage:
   python check_store_assets.py <root> [--release] [--config FILE] [--stores play,ios]
       [--supports-tablet | --no-supports-tablet] [--ios-icon P] [--play-icon P] [--json]
-      [--catalog FILE]
 Exit: 0 no errors, 1 errors found, 2 bad arguments or config.
 """
 
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import json
-import re
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -49,18 +38,11 @@ except ImportError:  # pragma: no cover
 
 MB = 1024 * 1024
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg")
+IOS_69 = {(1290, 2796), (1320, 2868), (1260, 2736)}
+IOS_65 = {(1242, 2688), (1284, 2778)}
+IPAD_13 = {(2064, 2752), (2048, 2732)}
+FEATURE_GRAPHIC = (1024, 500)
 ICON = {"ios": (1024, 1024), "play": (512, 512)}
-CATALOG = Path(__file__).resolve().parent.parent / "references" / "store-slots.json"
-STORES = ("play", "ios")
-NEEDS = ("always", "tablet", "declared", "optional")
-STORE_COUNTS = {"play": (1, 8), "ios": (1, 10)}  # default count for a project-added slot
-SIDE = (320, 7680)  # smallest and largest side any slot or rule may name
-SIZE_RE = re.compile(r"^([1-9][0-9]{1,4})x([1-9][0-9]{1,4})$")
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{0,39}$")
-RENDER_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
-FOLDER_RE = re.compile(r"^(play|ios)(/[A-Za-z0-9][A-Za-z0-9._-]*)+$")
-SLOT_KEYS = {"store", "folder", "sizes", "rule", "count", "need"}
-OVERRIDE_KEYS = {"sizes", "count", "need"}
 
 
 def both(sizes: set) -> frozenset:
@@ -72,186 +54,30 @@ class Slot:
     name: str
     folder: str
     store: str
-    sizes: frozenset | None  # exact sizes (both orientations), or None for the size rule
-    max_side: int  # size rule: longest side allowed (Play phone 3840, large screens 7680); 0 with exact sizes
+    sizes: frozenset | None  # exact sizes, or None for Play's rule
+    max_side: int  # Play rule: longest side allowed (phone 3840, large screens 7680)
     lo: int
     hi: int
-    need: str  # always | tablet (iOS app supports iPad) | declared (play.tablet_slots) | optional
+    need: str  # always | tablet (iOS app supports iPad) | declared (Play tablet_slots) | optional
 
 
-@dataclass(frozen=True)
-class Catalog:
-    slots: dict  # name -> Slot, in check order
-    render: dict  # store-mockups size key -> (width, height, store, folder)
-    feature_graphic: tuple
-    fg_file: str  # where store-mockups writes it, relative to the assets root
-    fg_match: str  # glob the checker reads, relative to the assets root
-
-
-CONFIG_KEYS = {"version", "stores", "ios", "play", "min_counts", "slots"}
+# Single table of screenshot slots. Numbers mirror references/store-specs.md;
+# tests/store-assets.test.sh fails if a size here is missing from that file.
+SPEC = (
+    Slot("play-phone", "play/phone", "play", None, 3840, 2, 8, "always"),
+    Slot("play-tablet7", "play/tablet7", "play", None, 7680, 1, 8, "declared"),
+    Slot("play-tablet10", "play/tablet10", "play", None, 7680, 1, 8, "declared"),
+    Slot("ios-6.9", "ios/6.9", "ios", both(IOS_69), 0, 1, 10, "always"),
+    Slot("ios-6.5", "ios/6.5", "ios", both(IOS_65), 0, 1, 10, "optional"),
+    Slot("ios-ipad13", "ios/ipad13", "ios", both(IPAD_13), 0, 1, 10, "tablet"),
+)
+CONFIG_KEYS = {"version", "stores", "ios", "play", "min_counts"}
 IOS_KEYS = {"supports_tablet", "icon", "app_json"}
 PLAY_KEYS = {"icon", "tablet_slots"}
 
 
 class ConfigError(Exception):
     pass
-
-
-# ------------------------------------------------------------------ slots
-
-def is_int(v) -> bool:
-    return isinstance(v, int) and not isinstance(v, bool)
-
-
-def parse_size(value, where: str) -> tuple[int, int]:
-    m = SIZE_RE.match(value) if isinstance(value, str) else None
-    if not m:
-        raise ConfigError(f"{where}: {value!r} is not a size like \"1206x2622\"")
-    w, h = int(m[1]), int(m[2])
-    if not (SIDE[0] <= w <= SIDE[1] and SIDE[0] <= h <= SIDE[1]):
-        raise ConfigError(f"{where}: {value}: each side must be {SIDE[0]}-{SIDE[1]} px")
-    return w, h
-
-
-def parse_sizes(value, where: str) -> frozenset:
-    if not isinstance(value, list) or not value:
-        raise ConfigError(f"{where}: must be a non-empty list of sizes like [\"1206x2622\"]")
-    return both({parse_size(v, where) for v in value})
-
-
-def parse_count(value, where: str) -> tuple[int, int]:
-    if not (isinstance(value, list) and len(value) == 2 and all(is_int(v) for v in value)
-            and 0 <= value[0] <= value[1] and value[1] >= 1):
-        raise ConfigError(f"{where}: must be [min, max], whole numbers with 0 <= min <= max and max >= 1")
-    return value[0], value[1]
-
-
-def parse_rule(value, where: str) -> int:
-    if not isinstance(value, dict) or set(value) != {"maxSide"}:
-        raise ConfigError(f"{where}: must be {{\"maxSide\": N}}")
-    n = value["maxSide"]
-    if not is_int(n) or not SIDE[0] <= n <= SIDE[1]:
-        raise ConfigError(f"{where}.maxSide: must be a whole number from {SIDE[0]} to {SIDE[1]}")
-    return n
-
-
-def parse_need(value, where: str) -> str:
-    if value not in NEEDS:
-        raise ConfigError(f"{where}: must be one of {', '.join(NEEDS)}")
-    return value
-
-
-def check_folder(folder, store: str, where: str) -> str:
-    """A slot folder is relative, inside the store's own tree, and has no '..'."""
-    if not isinstance(folder, str) or not FOLDER_RE.match(folder) or ".." in folder.split("/"):
-        raise ConfigError(f"{where}: {folder!r} must be a relative folder such as \"{store}/name\" "
-                          "(letters, digits, '.', '_', '-'; no '..')")
-    if folder.split("/", 1)[0] != store:
-        raise ConfigError(f"{where}: a {store} slot's folder must start with \"{store}/\" (got {folder!r})")
-    return folder
-
-
-def new_slot(name: str, d, where: str, allowed: set, defaults: bool) -> Slot:
-    if not NAME_RE.match(name):
-        raise ConfigError(f"{where}: slot names are lowercase letters, digits, '.' and '-' (got {name!r})")
-    if not isinstance(d, dict):
-        raise ConfigError(f"{where}: must be an object")
-    unknown = sorted(set(d) - allowed)
-    if unknown:
-        raise ConfigError(f"{where}: unknown key(s): {', '.join(unknown)}")
-    store = d.get("store")
-    if store not in STORES:
-        raise ConfigError(f"{where}.store: must be \"play\" or \"ios\"")
-    folder = check_folder(d.get("folder"), store, f"{where}.folder")
-    if ("sizes" in d) == ("rule" in d):
-        raise ConfigError(f"{where}: give exactly one of \"sizes\" (exact sizes) or \"rule\" ({{\"maxSide\": N}})")
-    sizes = parse_sizes(d["sizes"], f"{where}.sizes") if "sizes" in d else None
-    max_side = parse_rule(d["rule"], f"{where}.rule") if "rule" in d else 0
-    if not defaults and not ("count" in d and "need" in d):
-        raise ConfigError(f"{where}: catalog slots set both count and need")
-    lo, hi = parse_count(d["count"], f"{where}.count") if "count" in d else STORE_COUNTS[store]
-    need = parse_need(d.get("need", "optional"), f"{where}.need")
-    return Slot(name, folder, store, sizes, max_side, lo, hi, need)
-
-
-def no_shared_folders(slots: dict, where: str) -> None:
-    seen: dict[str, str] = {}
-    for s in slots.values():
-        if s.folder in seen:
-            raise ConfigError(f"{where}: slots {seen[s.folder]!r} and {s.name!r} both use folder {s.folder!r}")
-        seen[s.folder] = s.name
-
-
-def fits(slot: Slot, w: int, h: int) -> bool:
-    return (w, h) in slot.sizes if slot.sizes is not None else play_rule(w, h, slot.max_side) is None
-
-
-def load_catalog(path: Path = CATALOG) -> Catalog:
-    """The harness defaults (references/store-slots.json), fully validated."""
-    where = path.name
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise ConfigError(f"{path}: {exc} (re-run harness sync if the file is missing)") from exc
-    if not isinstance(data, dict) or data.get("version") != 1:
-        raise ConfigError(f"{where}: must be an object with \"version\": 1")
-    unknown = sorted(set(data) - {"version", "checked", "note", "slots", "featureGraphic"})
-    if unknown:
-        raise ConfigError(f"{where}: unknown key(s): {', '.join(unknown)}")
-    if not isinstance(data.get("slots"), dict) or not data["slots"]:
-        raise ConfigError(f"{where}: \"slots\" must be a non-empty object")
-    slots: dict[str, Slot] = {}
-    render: dict[str, tuple] = {}
-    for name, d in data["slots"].items():
-        sw = f"{where}: slots.{name}"
-        slots[name] = slot = new_slot(name, d, sw, SLOT_KEYS | {"render"}, defaults=False)
-        aliases = d.get("render", {})
-        if not isinstance(aliases, dict):
-            raise ConfigError(f"{sw}.render: must be an object of size key -> \"WxH\"")
-        for key, size in aliases.items():
-            if not RENDER_KEY_RE.match(key) or key == "fg" or key in render:
-                raise ConfigError(f"{sw}.render: {key!r} is not a free size key (lowercase, digits, '-'; not 'fg')")
-            w, h = parse_size(size, f"{sw}.render.{key}")
-            if not fits(slot, w, h):
-                raise ConfigError(f"{sw}.render.{key}: {size} is not accepted by the slot itself")
-            render[key] = (w, h, slot.store, slot.folder)
-    no_shared_folders(slots, where)
-    fg = data.get("featureGraphic")
-    if not isinstance(fg, dict) or set(fg) != {"size", "file", "match"}:
-        raise ConfigError(f"{where}: featureGraphic must have size, file and match")
-    fg_size = parse_size(fg["size"], f"{where}: featureGraphic.size")
-    for k in ("file", "match"):
-        if not isinstance(fg[k], str) or not fg[k].startswith("play/") or ".." in fg[k].split("/"):
-            raise ConfigError(f"{where}: featureGraphic.{k} must be a path under play/")
-    return Catalog(slots, render, fg_size, fg["file"], fg["match"])
-
-
-def merge_slots(base: dict, decl, where: str) -> dict:
-    """The catalog's slots with a project's "slots" applied: new slots added, built-in ones adjusted."""
-    if not isinstance(decl, dict):
-        raise ConfigError(f"{where}: slots must be an object of slot name -> slot")
-    slots = dict(base)
-    for name, d in decl.items():
-        sw = f"{where}: slots.{name}"
-        if name not in base:
-            slots[name] = new_slot(name, d, sw, SLOT_KEYS, defaults=True)
-            continue
-        if not isinstance(d, dict):
-            raise ConfigError(f"{sw}: must be an object")
-        extra = sorted(set(d) - OVERRIDE_KEYS)
-        if extra:
-            raise ConfigError(f"{sw}: a built-in slot takes only need, count and sizes (not {', '.join(extra)}); "
-                              "add a new slot for a different folder or store")
-        changes: dict = {}
-        if "sizes" in d:  # exact sizes replace whatever constraint the slot had, a size rule included
-            changes.update(sizes=parse_sizes(d["sizes"], f"{sw}.sizes"), max_side=0)
-        if "count" in d:
-            changes["lo"], changes["hi"] = parse_count(d["count"], f"{sw}.count")
-        if "need" in d:
-            changes["need"] = parse_need(d["need"], f"{sw}.need")
-        slots[name] = dataclasses.replace(base[name], **changes)
-    no_shared_folders(slots, where)
-    return slots
 
 
 @dataclass
@@ -370,13 +196,8 @@ def slot_required(slot: Slot, stores: list, supports_tablet: bool | None, tablet
     if slot.need == "tablet":
         return bool(supports_tablet)
     if slot.need == "declared":
-        return slot.name in tablet_slots
+        return slot.name.split("-", 1)[1] in tablet_slots
     return False
-
-
-def accepted(slot: Slot) -> str:
-    portrait = sorted({(min(s), max(s)) for s in slot.sizes or ()})
-    return ", ".join(f"{a}x{b}" for a, b in portrait) + " (or landscape)"
 
 
 def check_slot(report: Report, root: Path, slot: Slot, required: bool, min_count: int) -> None:
@@ -398,18 +219,17 @@ def check_slot(report: Report, root: Path, slot: Slot, required: bool, min_count
         if im is None:
             continue
         w, h = im.size
-        problem = None
-        if slot.sizes is not None:  # exact sizes; never the size rule as well
-            if (w, h) not in slot.sizes:
-                problem = f"{w}x{h} is not an accepted {slot.name} size: {accepted(slot)}"
-        else:
+        if slot.sizes is not None and (w, h) not in slot.sizes:
+            accepted = ", ".join(f"{a}x{b}" for a, b in sorted(slot.sizes)[:3])
+            report.add("ERROR", "bad-size", slot.name, rel, f"{w}x{h} is not an accepted {slot.name} size ({accepted} ...)")
+        if slot.store == "play":
             problem = play_rule(w, h, slot.max_side)
-        if problem:
-            report.add("ERROR", "bad-size", slot.name, rel, problem)
-        elif slot.store == "play" and slot.name == "play-phone":
-            big += min(w, h) >= 1080 and max(w, h) * 9 == min(w, h) * 16
-        elif slot.store == "play" and min(w, h) < 1080:
-            report.add("WARN", "large-screen", slot.name, rel, f"{w}x{h}: short side under 1080 px; not eligible for large-screen recommendations")
+            if problem:
+                report.add("ERROR", "bad-size", slot.name, rel, problem)
+            elif slot.name == "play-phone" and min(w, h) >= 1080 and max(w, h) * 9 == min(w, h) * 16:
+                big += 1
+            elif slot.name != "play-phone" and min(w, h) < 1080:
+                report.add("WARN", "large-screen", slot.name, rel, f"{w}x{h}: short side under 1080 px; not eligible for large-screen recommendations")
         check_pixels(report, im, slot.name, rel, f)
         if f.stat().st_size > 8 * MB:
             report.add("ERROR", "size-mb", slot.name, rel, f"{f.stat().st_size / MB:.1f} MB (max 8 MB)")
@@ -419,14 +239,10 @@ def check_slot(report: Report, root: Path, slot: Slot, required: bool, min_count
                    f"only {big} screenshot(s) at 9:16 with a short side of 1080+ px; 4 are needed for recommendation eligibility")
 
 
-def feature_graphic_files(root: Path, catalog: Catalog) -> list:
-    return sorted(p for p in root.glob(catalog.fg_match) if p.is_file())
-
-
-def check_feature_graphic(report: Report, root: Path, catalog: Catalog, required: bool) -> None:
+def check_feature_graphic(report: Report, root: Path, required: bool) -> None:
+    folder = root / "play"
     hits = []
-    want = catalog.feature_graphic
-    for p in feature_graphic_files(root, catalog):
+    for p in sorted(folder.glob("feature_graphic*.*")) if folder.is_dir() else []:
         if ".raw." in p.name or p.suffix.lower() not in IMAGE_SUFFIXES:
             report.add("WARN", "leftover", "play-feature-graphic", p.relative_to(root).as_posix(), "ignored (not a .png/.jpg feature graphic)")
         else:
@@ -434,7 +250,7 @@ def check_feature_graphic(report: Report, root: Path, catalog: Catalog, required
     report.counts["play-feature-graphic"] = len(hits)
     if not hits:
         level, code = ("ERROR", "missing-slot") if required else ("INFO", "empty-slot")
-        report.add(level, code, "play-feature-graphic", "play/", f"no {catalog.fg_match}.png|jpg (required for Play)")
+        report.add(level, code, "play-feature-graphic", "play/", "no play/feature_graphic*.png|jpg (required for Play)")
         return
     if len(hits) > 1:
         report.add("ERROR", "duplicate-feature-graphic", "play-feature-graphic", "play/",
@@ -444,31 +260,10 @@ def check_feature_graphic(report: Report, root: Path, catalog: Catalog, required
         im = open_image(report, f, "play-feature-graphic", rel)
         if im is None:
             continue
-        if im.size != want:
-            report.add("ERROR", "bad-size", "play-feature-graphic", rel, f"{im.size[0]}x{im.size[1]}; must be {want[0]}x{want[1]}")
+        if im.size != FEATURE_GRAPHIC:
+            report.add("ERROR", "bad-size", "play-feature-graphic", rel, f"{im.size[0]}x{im.size[1]}; must be 1024x500")
         check_pixels(report, im, "play-feature-graphic", rel, f)
         im.close()
-
-
-def check_unknown_folders(report: Report, root: Path, slots: dict, catalog: Catalog, stores: list) -> None:
-    """Images no store check would see: a folder under play/ or ios/ that no slot reads."""
-    folders = {s.folder for s in slots.values()}
-    fg = set(feature_graphic_files(root, catalog))
-    level = "ERROR" if report.mode == "release" else "WARN"
-    for store in stores:
-        top = root / store
-        if not top.is_dir():
-            continue
-        for d in [top, *sorted(p for p in top.rglob("*") if p.is_dir())]:
-            rel = d.relative_to(root).as_posix()
-            if rel in folders:
-                continue
-            images = [p for p in d.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
-                      and not p.name.startswith(".") and ".raw." not in p.name and p not in fg]
-            if images:
-                report.add(level, "unknown-folder", "", rel + "/",
-                           f"{len(images)} image(s) not checked: no slot reads this folder. Declare it in "
-                           "store-assets.json \"slots\" (store, folder, sizes) or move the files")
 
 
 def check_icon(report: Report, path: Path | None, store: str, required: bool) -> None:
@@ -495,17 +290,13 @@ def check_icon(report: Report, path: Path | None, store: str, required: bool) ->
     im.close()
 
 
-def load_config(path: Path, catalog: Catalog) -> tuple[dict, dict]:
-    """(config, resolved slots) from a project's store-assets.json."""
+def load_config(path: Path) -> dict:
     try:
         cfg = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise ConfigError(f"{path}: {exc}") from exc
     if not isinstance(cfg, dict):
         raise ConfigError(f"{path}: must be a JSON object")
-    for section in ("ios", "play"):
-        if not isinstance(cfg.get(section, {}), dict):
-            raise ConfigError(f"{path}: {section} must be an object")
     unknown = set(cfg) - CONFIG_KEYS
     unknown |= {f"ios.{k}" for k in set(cfg.get("ios") or {}) - IOS_KEYS}
     unknown |= {f"play.{k}" for k in set(cfg.get("play") or {}) - PLAY_KEYS}
@@ -514,32 +305,27 @@ def load_config(path: Path, catalog: Catalog) -> tuple[dict, dict]:
     if cfg.get("version", 1) != 1:
         raise ConfigError(f"{path}: unsupported version {cfg.get('version')!r}")
     stores = cfg.get("stores", [])
-    if not isinstance(stores, list) or not set(stores) <= set(STORES):
+    if not isinstance(stores, list) or not set(stores) <= {"play", "ios"}:
         raise ConfigError(f"{path}: stores must be a list of \"play\" and/or \"ios\"")
-    slots = merge_slots(catalog.slots, cfg.get("slots", {}), str(path))
-    play_slots = [n for n, s in slots.items() if s.store == "play"]
+    for section in ("ios", "play"):
+        if not isinstance(cfg.get(section, {}), dict):
+            raise ConfigError(f"{path}: {section} must be an object")
     tablet_slots = (cfg.get("play") or {}).get("tablet_slots", [])
-    if not isinstance(tablet_slots, list):
-        raise ConfigError(f"{path}: play.tablet_slots must be a list of Play slot names")
-    resolved = []
-    for t in tablet_slots:  # "tablet7" stays a short name for "play-tablet7"
-        name = t if t in play_slots else f"play-{t}" if isinstance(t, str) and f"play-{t}" in play_slots else None
-        if name is None:
-            raise ConfigError(f"{path}: play.tablet_slots: unknown Play slot {t!r} (one of {', '.join(play_slots)})")
-        resolved.append(name)
-    cfg.setdefault("play", {})["tablet_slots"] = resolved
+    if not isinstance(tablet_slots, list) or not set(tablet_slots) <= {"tablet7", "tablet10"}:
+        raise ConfigError(f"{path}: play.tablet_slots must list \"tablet7\" and/or \"tablet10\"")
     st = (cfg.get("ios") or {}).get("supports_tablet")
     if st is not None and not isinstance(st, bool):
         raise ConfigError(f"{path}: ios.supports_tablet must be true or false")
     mins = cfg.get("min_counts", {})
     if not isinstance(mins, dict):
         raise ConfigError(f"{path}: min_counts must be an object")
+    names = {s.name: s for s in SPEC}
     for name, n in mins.items():
-        if name not in slots:
-            raise ConfigError(f"{path}: min_counts: unknown slot {name!r} (one of {', '.join(slots)})")
-        if not is_int(n) or not slots[name].lo <= n <= slots[name].hi:
-            raise ConfigError(f"{path}: min_counts.{name} must be a whole number from {slots[name].lo} to {slots[name].hi}")
-    return cfg, slots
+        if name not in names:
+            raise ConfigError(f"{path}: min_counts: unknown slot {name!r} (one of {', '.join(names)})")
+        if not isinstance(n, int) or isinstance(n, bool) or not names[name].lo <= n <= names[name].hi:
+            raise ConfigError(f"{path}: min_counts.{name} must be a whole number from {names[name].lo} to {names[name].hi}")
+    return cfg
 
 
 def app_json_supports_tablet(path: Path) -> bool:
@@ -562,18 +348,16 @@ def main() -> int:
     parser.add_argument("--ios-icon", type=Path, help="1024x1024 App Store icon to check")
     parser.add_argument("--play-icon", type=Path, help="512x512 Play icon to check")
     parser.add_argument("--json", action="store_true", help="print a JSON report")
-    parser.add_argument("--catalog", type=Path, default=CATALOG, help=argparse.SUPPRESS)  # fixtures only
     args = parser.parse_args()
     if not args.root.is_dir():
         print(f"not a folder: {args.root}", file=sys.stderr)
         return 2
 
     try:
-        catalog = load_catalog(args.catalog)
-        cfg, base, slots = {}, args.root, catalog.slots
+        cfg, base = {}, args.root
         config = args.config or (args.root / "store-assets.json")
         if args.config or config.is_file():
-            (cfg, slots), base = load_config(config, catalog), config.resolve().parent
+            cfg, base = load_config(config), config.resolve().parent
         ios_cfg, play_cfg = cfg.get("ios") or {}, cfg.get("play") or {}
 
         if args.stores is not None:
@@ -610,7 +394,7 @@ def main() -> int:
     checked = stores or ["play", "ios"]
     tablet_slots = play_cfg.get("tablet_slots", [])
     mins = cfg.get("min_counts", {})
-    for slot in slots.values():
+    for slot in SPEC:
         if slot.store not in checked:
             if any((args.root / slot.folder).glob("*")):
                 report.add("INFO", "undeclared-store", slot.name, slot.folder, f"not checked: {slot.store} is not a declared store")
@@ -618,8 +402,7 @@ def main() -> int:
         required = args.release and slot_required(slot, stores, supports_tablet, tablet_slots)
         check_slot(report, args.root, slot, required, mins.get(slot.name, 0))
     if "play" in checked:
-        check_feature_graphic(report, args.root, catalog, args.release and "play" in stores)
-    check_unknown_folders(report, args.root, slots, catalog, checked)
+        check_feature_graphic(report, args.root, args.release and "play" in stores)
 
     icons = {"ios": args.ios_icon or (base / ios_cfg["icon"] if ios_cfg.get("icon") else None),
              "play": args.play_icon or (base / play_cfg["icon"] if play_cfg.get("icon") else None)}

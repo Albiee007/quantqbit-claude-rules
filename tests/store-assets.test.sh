@@ -61,8 +61,7 @@ code() { hc_py -c 'import json,sys; d=json.load(open(sys.argv[1])); print(" ".jo
 valid_set() {
   mk "$1" play/phone/1.png:1080x1920 play/phone/2.png:1080x1920 play/phone/3.png:1080x1920 \
     play/phone/4.png:1080x1920 play/feature_graphic_1024x500.png:1024x500 play/tablet10/1.png:1620x2880 \
-    ios/6.3/1.png:1206x2622 ios/6.3/2.png:1179x2556 ios/6.9/1.png:1290x2796 ios/6.9/2.png:1320x2868 \
-    ios/ipad13/1.png:2064x2752 \
+    ios/6.9/1.png:1290x2796 ios/6.9/2.png:1320x2868 ios/ipad13/1.png:2064x2752 \
     icons/ios-1024.png:1024x1024 icons/play-512.png:512x512:RGBA
   printf '{"version": 1, "stores": ["play", "ios"],
   "ios": {"supports_tablet": true, "icon": "icons/ios-1024.png"},
@@ -78,9 +77,9 @@ run "$W/empty" --release; check "--release without stores: exit 2" test $? -eq 2
 check "names the missing setting" grep -q -- '--stores' "$W/err"
 run "$W/empty" --release --stores play,ios --no-supports-tablet --json; check "--release: exit 1" test $? -eq 1
 check "--release: required slots missing" test "$(code ERROR)" = "missing-slot"
-check "--release: phone, feature graphic, play icon, 6.3 reported" \
+check "--release: phone, feature graphic, play icon, 6.9 reported" \
   test "$(hc_py -c 'import json,sys; print(sorted(f["slot"] for f in json.load(open(sys.argv[1]))["findings"] if f["code"]=="missing-slot"))' "$W/out")" \
-  = "['ios-6.3', 'play-feature-graphic', 'play-icon', 'play-phone']"
+  = "['ios-6.9', 'play-feature-graphic', 'play-icon', 'play-phone']"
 run "$W/empty" --release --stores ios; check "--release ios without iPad answer: exit 2" test $? -eq 2
 
 echo "2. a complete submission passes the release gate"
@@ -91,9 +90,9 @@ check "JSON reports 0 errors" test "$(hc_py -c 'import json,sys; d=json.load(ope
 run "$W/valid" --release; check "text report ends with the totals" grep -q '^0 error(s)' "$W/out"
 
 echo "3. release gaps"
-valid_set "$W/gaps"; rm -f "$W/gaps"/ios/6.3/*.png "$W/gaps"/ios/ipad13/*.png
+valid_set "$W/gaps"; rm -f "$W/gaps"/ios/6.9/*.png "$W/gaps"/ios/ipad13/*.png
 run "$W/gaps" --release --json; check "exit 1" test $? -eq 1
-check "empty 6.3 folder is missing-slot" grep -q '"slot": "ios-6.3"' "$W/out"
+check "empty 6.9 folder is missing-slot" grep -q '"slot": "ios-6.9"' "$W/out"
 check "iPad required when supports_tablet" grep -q '"slot": "ios-ipad13"' "$W/out"
 run "$W/gaps" --json; check "same tree in inspect mode: exit 0" test $? -eq 0
 valid_set "$W/min"; rm -f "$W/min/play/phone/4.png"
@@ -146,121 +145,22 @@ run "$W/cfg" --release --json; check "iPad requirement read from app.json" test 
 check "undeclared store's folders are INFO" grep -q '"code": "undeclared-store"' "$W/out"
 run "$W/cfg" --stores play --json; check "--stores overrides the config" grep -q '"play-phone": 4' "$W/out"
 
-echo "8. the slot catalog matches references/store-specs.md"
-hc_py - "$SKILL/references/store-slots.json" "$SKILL/references/store-specs.md" > "$W/spec.txt" <<'PY'
-import json, sys
-cat = json.load(open(sys.argv[1], encoding="utf-8"))
+echo "8. the SPEC table matches references/store-specs.md"
+hc_py - "$CHECK" "$SKILL/references/store-specs.md" > "$W/spec.txt" <<'PY'
+import importlib.util, re, sys
+sys.dont_write_bytecode = True  # never leave __pycache__ inside harness/
+spec = importlib.util.spec_from_file_location("check", sys.argv[1]); mod = importlib.util.module_from_spec(spec)
+sys.modules["check"] = mod; spec.loader.exec_module(mod)
 doc = open(sys.argv[2], encoding="utf-8").read()
-sizes = {tuple(map(int, v.split("x"))) for s in cat["slots"].values() for v in s.get("sizes", [])}
-sizes |= {tuple(map(int, cat["featureGraphic"]["size"].split("x"))), (512, 512), (1024, 1024)}
-missing = [f"{a} × {b}" for a, b in sorted(sizes) if f"{a} × {b}" not in doc and f"{b} × {a}" not in doc]
-limits = [str(s["rule"]["maxSide"]) for s in cat["slots"].values() if "rule" in s and str(s["rule"]["maxSide"]) not in doc]
-slots = [n for n, s in cat["slots"].items() if s["store"] == "ios" and f"`{n}`" not in doc]
-print(" ".join(missing + limits + slots), end="")
+sizes = {tuple(sorted(s, reverse=False)) for slot in mod.SPEC if slot.sizes for s in slot.sizes}
+sizes |= {tuple(sorted(mod.FEATURE_GRAPHIC)), (512, 512), (1024, 1024)}
+missing = [f"{a} × {b}" for a, b in sorted(sizes)
+           if f"{a} × {b}" not in doc and f"{b} × {a}" not in doc]
+limits = [str(s.max_side) for s in mod.SPEC if s.max_side and str(s.max_side) not in doc]
+print(" ".join(missing + limits), end="")
 PY
-check "every size, side limit and iOS slot appears in store-specs.md" test ! -s "$W/spec.txt"
+check "every size and side limit appears in store-specs.md" test ! -s "$W/spec.txt"
 [[ -s "$W/spec.txt" ]] && echo "    missing: $(cat "$W/spec.txt")"
-
-echo "9. iPhone defaults: 6.3 required, 6.9 and 6.5 optional"
-mk "$W/ios63" ios/6.3/1.png:1206x2622 ios/6.3/2.png:2556x1179
-run "$W/ios63" --release --stores ios --no-supports-tablet --json; rc=$?
-check "a 6.3 set alone (one landscape) passes release" test $rc -eq 0 || cat "$W/out"
-mk "$W/ios69" ios/6.9/1.png:1290x2796
-run "$W/ios69" --release --stores ios --no-supports-tablet --json
-check "a 6.9 set alone is missing a required slot" test "$(code ERROR)" = "missing-slot"
-check "the missing slot is ios-6.3" grep -q '"slot": "ios-6.3"' "$W/out"
-mk "$W/ios63bad" ios/6.3/1.png:1290x2796
-run "$W/ios63bad" --stores ios --json; check "a 6.9 size in the 6.3 folder is bad-size" test "$(code ERROR)" = "bad-size"
-check "bad-size names the accepted sizes" grep -q '1179x2556, 1206x2622 (or landscape)' "$W/out"
-
-echo "10. project slots in store-assets.json"
-mk "$W/proj" ios/6.3/1.png:1206x2622 ios/6.1/1.png:1170x2532 play/phone/1.png:1080x1920 play/phone/2.png:1080x1920 \
-  play/chromebook/1.png:1920x1080 play/feature_graphic.png:1024x500 icons/play-512.png:512x512:RGBA
-cfg() { printf '%s\n' "$1" > "$W/proj/store-assets.json"; }
-cfg '{"stores": ["ios"], "ios": {"supports_tablet": false},
- "slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1170x2532"], "need": "always"}}}'
-run "$W/proj" --release --json; rc=$?
-check "a project slot is checked and passes" test $rc -eq 0 || cat "$W/out"
-check "its count is reported" grep -q '"ios-6.1": 1' "$W/out"
-rm "$W/proj/ios/6.1/1.png"
-run "$W/proj" --release --json; check "a required project slot gates release" grep -q '"slot": "ios-6.1"' "$W/out"
-mk "$W/proj" ios/6.1/1.png:1170x2532
-cfg '{"stores": ["ios"], "ios": {"supports_tablet": false}, "slots": {"ios-6.9": {"need": "always"}}}'
-run "$W/proj" --release --json; check "a need override makes ios-6.9 required" grep -q '"slot": "ios-6.9"' "$W/out"
-check "an undeclared folder is an error in release" grep -q '"code": "unknown-folder"' "$W/out"
-cfg '{"stores": ["ios"], "ios": {"supports_tablet": false}, "slots": {"ios-6.3": {"count": [2, 10]}}}'
-run "$W/proj" --json
-check "a count override keeps the slot's sizes" test "$(code ERROR)" = "count"
-cfg '{"stores": ["ios"], "ios": {"supports_tablet": false}, "slots": {"ios-6.3": {"sizes": ["1206x2622"]}},
- "min_counts": {"ios-6.3": 1}}'
-mk "$W/proj" ios/6.3/2.png:1179x2556
-run "$W/proj" --json; check "a sizes override replaces the accepted sizes" grep -q '1179x2556 is not an accepted ios-6.3 size' "$W/out"
-rm "$W/proj/ios/6.3/2.png"
-mk "$W/rule" play/phone/1.png:1080x1920 play/phone/2.png:1440x2560
-printf '{"slots": {"play-phone": {"sizes": ["1080x1920"]}}}\n' > "$W/rule/store-assets.json"
-run "$W/rule" --stores play --json
-check "a sizes override replaces a slot's size rule" grep -q '1440x2560 is not an accepted play-phone size' "$W/out"
-cfg '{"stores": ["play"], "play": {"icon": "icons/play-512.png", "tablet_slots": ["play-chromebook"]},
- "slots": {"play-chromebook": {"store": "play", "folder": "play/chromebook", "sizes": ["1080x1920"], "need": "declared"}},
- "min_counts": {"play-chromebook": 1}}'
-run "$W/proj" --release --json; rc=$?
-check "an exact-size Play slot takes exactly those sizes (landscape too)" test $rc -eq 0 || cat "$W/out"
-check "an exact-size Play slot gets no size-rule or large-screen findings" test "$(grep -c '"slot": "play-chromebook"' "$W/out")" -eq 0
-rm "$W/proj/play/chromebook/1.png"
-run "$W/proj" --release --json; check "a declared project tablet slot is required" grep -q '"slot": "play-chromebook"' "$W/out"
-cfg '{"stores": ["play"], "play": {"icon": "icons/play-512.png", "tablet_slots": ["tablet7"]}}'
-run "$W/proj" --release --json; check "tablet7 still names play-tablet7" grep -q '"slot": "play-tablet7"' "$W/out"
-for bad in \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1"}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1170x2532"], "rule": {"maxSide": 3000}}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "../ios/6.1", "sizes": ["1170x2532"]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/../x", "sizes": ["1170x2532"]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "/tmp/x", "sizes": ["1170x2532"]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "play/x", "sizes": ["1170x2532"]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.3", "sizes": ["1170x2532"]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1170 x 2532"]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["100x2532"]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1170x2532"], "count": [true, 3]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1170x2532"], "count": [5, 2]}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1170x2532"], "need": "sometimes"}}}' \
-  '{"slots": {"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1170x2532"], "colour": 1}}}' \
-  '{"slots": {"ios-6.9": {"folder": "ios/big"}}}' \
-  '{"slots": {"Bad Name": {"store": "ios", "folder": "ios/6.1", "sizes": ["1170x2532"]}}}' \
-  '{"slots": ["ios-6.1"]}' \
-  '{"play": {"tablet_slots": ["tablet13"]}}' \
-  '{"min_counts": {"ios-6.1": 1}}'; do
-  cfg "$bad"; run "$W/proj"; rc=$?
-  check "rejected (exit 2, no traceback): $bad" test $rc -eq 2 -a "$(grep -c Traceback "$W/err")" -eq 0
-done
-
-echo "11. images in folders no slot reads"
-mk "$W/stray" ios/6.3/1.png:1206x2622 ios/6.3/old/1.png:1206x2622 ios/1.png:1206x2622 ios/foo/1.png:1206x2622 \
-  play/phone/1.png:1080x1920 play/phone/2.png:1080x1920 play/feature_graphic.png:1024x500 play/misc/1.png:1080x1920 \
-  play/tablet7/.hidden.png:1200x1920
-run "$W/stray" --json; check "inspect mode: warnings only" test $? -eq 0
-check "every stray folder is reported, nested ones included" test "$(hc_py -c 'import json,sys; print(sorted(f["path"] for f in json.load(open(sys.argv[1]))["findings"] if f["code"]=="unknown-folder"))' "$W/out")" \
-  = "['ios/', 'ios/6.3/old/', 'ios/foo/', 'play/misc/']"
-check "they are WARN in inspect mode" test "$(code WARN | tr ' ' '\n' | grep -c unknown-folder)" -eq 1
-run "$W/stray" --release --stores play,ios --no-supports-tablet --json
-check "they are ERROR in release" test "$(code ERROR | tr ' ' '\n' | grep -c unknown-folder)" -eq 1
-
-echo "12. the catalog is validated"
-cp "$SKILL/references/store-slots.json" "$W/cat.json"
-run "$W/empty" --catalog "$W/cat.json"; check "a copy of the catalog loads" test $? -eq 0
-hc_py - "$W/cat.json" <<'PY'
-import json, sys
-d = json.load(open(sys.argv[1])); d["slots"]["ios-6.5"]["folder"] = "ios/6.9"; json.dump(d, open(sys.argv[1], "w"))
-PY
-run "$W/empty" --catalog "$W/cat.json"; check "two catalog slots sharing a folder: exit 2" test $? -eq 2
-cp "$SKILL/references/store-slots.json" "$W/cat.json"
-hc_py - "$W/cat.json" <<'PY'
-import json, sys
-d = json.load(open(sys.argv[1])); d["slots"]["ios-6.3"]["render"]["ios-63"] = "1290x2796"; json.dump(d, open(sys.argv[1], "w"))
-PY
-run "$W/empty" --catalog "$W/cat.json"; check "a render size its own slot rejects: exit 2" test $? -eq 2
-printf '{"version": 2, "slots": {}}' > "$W/cat.json"
-run "$W/empty" --catalog "$W/cat.json"; check "a wrong catalog version: exit 2" test $? -eq 2
-run "$W/empty" --catalog "$W/nope.json"; check "a missing catalog: exit 2 with a hint" grep -q 'harness sync' "$W/err"
 
 printf '\nstore asset tests: %d passed, %d failed\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]

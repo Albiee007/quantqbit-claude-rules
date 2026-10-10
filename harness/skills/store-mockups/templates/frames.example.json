@@ -4,7 +4,7 @@
   "style": "classic",
   "out": "out",
   "icons": "material",
-  "sizes": ["play-phone", "play-tab7", "play-tab10", "ios-63", "ios-69"],
+  "sizes": ["play-phone", "play-tab7", "play-tab10", "ios-69", "ios-65"],
   "frames": [
     { "id": "01-home", "screen": "home", "head": "REPLACE: the promise, <em>in six words</em>", "sub": "REPLACE: one line that backs it up" },
     { "id": "02-activity", "screen": "activity", "head": "REPLACE: the differentiator", "sub": "REPLACE: what it gives the user" }

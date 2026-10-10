@@ -14,15 +14,10 @@ Frame arithmetic (references/composition-contract.md): seconds become whole fram
 floor(s * fps + 0.5); a scene's duration includes its still "hold"; an incoming transition overlaps
 the previous scene's tail; a clip shows frames [start, start + frames). Every format of a piece
 shares one timeline.
-
-Formats: the built-in FORMATS, or a piece's own "customFormats" ({"<id>": {"size": "1200x628",
-"like": "og-card"}}): any even size, everything it leaves out taken from the built-in it is like,
-safe insets scaled to its size (format_spec).
 """
 
 from __future__ import annotations
 
-import copy
 import math
 import re
 import shutil
@@ -63,9 +58,6 @@ FORMATS: dict[str, dict] = {
                 "safe": {"standard": {"top": 48, "right": 64, "bottom": 48, "left": 64},
                          "strict": {"top": 64, "right": 80, "bottom": 64, "left": 80}}},
 }
-CUSTOM_SIDE = (128, 3840)  # a custom format's sides: even, at most 4K's long side
-CUSTOM_SIZE = re.compile(r"^([1-9][0-9]{2,3})x([1-9][0-9]{2,3})$")
-INSETS = ("top", "right", "bottom", "left")
 LOOP_MAX_S = 15.0  # GIF and animated WebP outputs: short loops only
 LOOP_DEFAULT = {"outputs": ["gif"], "width": 600, "fps": 15, "maxBytes": 5_000_000}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".svg")
@@ -95,75 +87,7 @@ def load_piece(p: dl.Project, pid: str) -> tuple[str, dict]:
     schema.check(data, "video", rel)
     if data["id"] != pid:
         raise InputError(f"{rel}: id {data['id']!r} must match its folder {pid!r}")
-    check_formats(data, rel)
     return rel, data
-
-
-def known_formats(piece: dict) -> list[str]:
-    return list(dict.fromkeys([*FORMATS, *(piece.get("customFormats") or {})]))
-
-
-def format_spec(piece: dict, fmt: str) -> dict:
-    """One format as the piece renders it, as an independent dict: a built-in, or a customFormats
-    entry resolved against the built-in it is like (a custom id may reuse a built-in id; "like" still
-    reads the built-in). Safe insets scale with the size, left and right by width, top and bottom by
-    height; explicit insets are pixels at the custom size, merged over the scaled ones."""
-    custom = (piece.get("customFormats") or {}).get(fmt)
-    if custom is None:
-        if fmt not in FORMATS:
-            raise InputError(f"format {fmt!r} is neither built in ({', '.join(FORMATS)}) nor declared in customFormats")
-        return copy.deepcopy(FORMATS[fmt])
-    where = f"customFormats.{fmt}"
-    like = custom.get("like")
-    if like not in FORMATS:
-        raise InputError(f"{where}.like: {like!r} must name a built-in format ({', '.join(FORMATS)})")
-    base = FORMATS[like]
-    m = CUSTOM_SIZE.match(custom.get("size") or "")
-    w, h = (int(m[1]), int(m[2])) if m else (0, 0)
-    if not (m and CUSTOM_SIDE[0] <= w <= CUSTOM_SIDE[1] and CUSTOM_SIDE[0] <= h <= CUSTOM_SIDE[1]):
-        raise InputError(f"{where}.size: {custom.get('size')!r} must be WxH with each side {CUSTOM_SIDE[0]}-{CUSTOM_SIDE[1]} px")
-    if w % 2 or h % 2:
-        raise InputError(f"{where}.size: {w}x{h} has an odd side; H.264 (4:2:0) needs even sides")
-    bw, bh = base["size"]
-    safe = {}
-    for level, ins in base["safe"].items():
-        out = {k: round(ins[k] * (w / bw if k in ("left", "right") else h / bh)) for k in INSETS}
-        out.update((custom.get("safe") or {}).get(level) or {})
-        if any(not isinstance(out[k], int) or isinstance(out[k], bool) or out[k] < 0 for k in INSETS) \
-                or out["left"] + out["right"] >= w or out["top"] + out["bottom"] >= h:
-            raise InputError(f"{where}.safe.{level}: {out} leaves no room inside {w}x{h}")
-        safe[level] = out
-    spec = {"size": (w, h), "min": custom.get("min", base["min"]), "max": custom.get("max", base["max"]),
-            "profile": custom.get("profile", base["profile"]), "typeScale": custom.get("typeScale", base["typeScale"]),
-            "label": custom.get("label", f"{w}x{h}, like {like}"), "safe": safe, "like": like}
-    for k in ("min", "max", "typeScale"):
-        v = spec[k]
-        if not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) or v <= 0:
-            raise InputError(f"{where}.{k}: {v!r} must be a positive number")
-    if spec["min"] >= spec["max"]:
-        raise InputError(f"{where}: min {spec['min']:g} s must be shorter than max {spec['max']:g} s")
-    if spec["profile"] != base["profile"] and spec["profile"] not in ("h264-web",):
-        raise InputError(f"{where}.profile: {spec['profile']!r} is not a production encoding profile (h264-web)")
-    return spec
-
-
-def check_formats(piece: dict, where: str) -> None:
-    """Every format a piece lists or a scene's byFormat names is built in or declared, and every
-    declared format resolves."""
-    for fmt in piece.get("customFormats") or {}:
-        try:
-            format_spec(piece, fmt)
-        except InputError as e:
-            raise InputError(f"{where}: {e}") from None
-    known = known_formats(piece)
-    for fmt in piece["formats"]:
-        if fmt not in known:
-            raise InputError(f"{where}: format {fmt!r} is neither built in ({', '.join(FORMATS)}) nor declared in customFormats")
-    for sc in piece["scenes"]:
-        for fmt in sc.get("byFormat") or {}:
-            if fmt not in known:
-                raise InputError(f"{where}: scene {sc['id']}: byFormat.{fmt} is neither a built-in format nor declared "
-                                 "in customFormats")
 
 
 def list_pieces(root: Path) -> list[str]:
@@ -415,7 +339,7 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
         out.scenes.append(ScenePlan(sid, sc["template"], start, n, overlap, tr, enter, hold_start, hold_end,
                                     probe, layout, bgname, copy, sc.get("vo", ""), read, media))
     out.frames = (out.scenes[-1].start + out.scenes[-1].frames) if out.scenes else 0
-    f = format_spec(piece, fmt)
+    f = FORMATS[fmt]
     if not f["min"] <= out.seconds <= f["max"]:
         out.errors.append(f"{fmt}: the piece lasts {out.seconds:.2f} s; this format takes {f['min']:g}-{f['max']:g} s")
     lp = loop_spec(piece)
@@ -442,14 +366,14 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
 
 def _parts(piece: dict, media: dict[str, str] | None = None) -> dict:
     """Hashes of what the owner approves, in parts so a stale record can say what changed. Keys
-    added after 1.8 (byFormat, media, loop, poster, customFormats) enter only when a piece uses them,
-    so an approval of a piece without them stays valid."""
+    added after 1.8 (byFormat, media, loop, poster) enter only when a piece uses them, so a 1.8
+    approval of a piece without them stays valid."""
     def scene_visual(s: dict) -> dict:
         out = {k: s.get(k) for k in ("id", "template", "layout", "background", "copy")}
         out.update({k: s[k] for k in ("byFormat", "media") if k in s})
         return out
     visual = {"kind": piece["kind"], "formats": piece["formats"], "scenes": [scene_visual(s) for s in piece["scenes"]]}
-    visual.update({k: piece[k] for k in ("loop", "poster", "customFormats") if k in piece})
+    visual.update({k: piece[k] for k in ("loop", "poster") if k in piece})
     timing = {"fps": piece["fps"], "scenes": [{k: s.get(k) for k in ("id", "duration", "hold", "transitionIn")}
                                               for s in piece["scenes"]]}
     script = {"scenes": [{"id": s["id"], "vo": s.get("vo")} for s in piece["scenes"]], "voice": piece.get("voice")}
@@ -787,8 +711,7 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
     (dest / "assets").mkdir()
     for name in ("timeline.js", "motion.js", "artdir.js"):
         shutil.copyfile(MEDIA / name, dest / name)
-    spec = format_spec(piece, fmt)
-    w, h = spec["size"]
+    w, h = FORMATS[fmt]["size"]
     root = (f'<div id="root" data-composition-id="{pid}" data-width="{w}" data-height="{h}" '
             f'data-duration="{pl.frames / pl.fps:.6f}" data-fps="{pl.fps}" data-no-timeline></div>')
     html = (MEDIA / "video.html").read_text(encoding="utf-8").replace('<div id="root"></div>', root, 1)
@@ -836,9 +759,9 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
             assets.append({"path": rel, "sha256": sha, "role": "media"})
             copied[rel] = name
         sc["media"] = dict(sc["media"], src=copied[rel])
-    safe = spec["safe"][ad.get("safeAreas", "standard")]
+    safe = FORMATS[fmt]["safe"][ad.get("safeAreas", "standard")]
     data = {"id": pid, "width": w, "height": h, "fps": pl.fps, "frames": pl.frames, "safe": safe, "draft": draft,
-            "typeScale": spec["typeScale"], "assets": {k: v for k, v in files.items() if k == "logo"},
+            "typeScale": FORMATS[fmt]["typeScale"], "assets": {k: v for k, v in files.items() if k == "logo"},
             "scenes": scenes}
     (dest / "direction.generated.js").write_text("window.AD = " + script_json(page_ad) + ";\n", encoding="utf-8")
     (dest / "video.generated.js").write_text("window.VIDEO = " + script_json(data) + ";\n", encoding="utf-8")

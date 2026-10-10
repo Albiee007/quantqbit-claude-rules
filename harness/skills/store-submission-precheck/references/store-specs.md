@@ -1,8 +1,6 @@
 # Store specifications (single source of truth)
 
-The other store skills (`store-mockups`, `store-listing`, `app-icons`, `brand-assets`) link here instead of repeating these numbers. Check the official pages before a release: stores change these specs without notice. Last reviewed 2026-10-10.
-
-The screenshot slots below are also data: [store-slots.json](store-slots.json) holds each slot's folder, sizes, count and when it is required, and both `check_store_assets.py` and `store-mockups` read it. These are the **harness defaults**. When a store asks for something else, a project declares it in its own `store-assets.json` `slots` (a new slot, or a different `need`, `count` or `sizes` for a built-in one) and in `frames.json` `sizes` for rendering. It never edits the harness files. See the store-submission-precheck skill, **Release mode**.
+The other store skills (`store-mockups`, `store-listing`, `app-icons`, `brand-assets`) link here instead of repeating these numbers. Check the official pages before a release: stores change these specs without notice. Last reviewed 2026-09.
 
 ## Google Play
 
@@ -23,14 +21,11 @@ The screenshot slots below are also data: [store-slots.json](store-slots.json) h
 | Asset | Size / format | Count | Notes |
 |---|---|---|---|
 | App icon | 1024 × 1024 PNG, **no alpha**, no rounded corners | 1 | iOS applies the mask. iOS 18+ can also take dark and tinted variants in the asset catalog |
-| iPhone 6.3″ screenshots (App Store Connect: "iPhone with Dynamic Island, medium display"; also serves 6.1″) | 1206 × 2622 or 1179 × 2556 (portrait; landscape is the same numbers swapped) | 1–10 | **Required** for iPhone apps (slot `ios-6.3`, folder `ios/6.3`) |
-| iPhone 6.9″ screenshots ("large display") | 1290 × 2796, 1320 × 2868 or 1260 × 2736 | 1–10 | Optional (slot `ios-6.9`). Apple scales screenshots down to smaller displays, never up, so a 6.3″ set can't fill this slot |
-| iPhone 6.5″ screenshots | 1242 × 2688 or 1284 × 2778 | 1–10 | Optional fallback (slot `ios-6.5`). See the note below |
+| iPhone 6.9″ screenshots | 1290 × 2796, 1320 × 2868 or 1260 × 2736 (portrait; landscape is the same numbers swapped) | 1–10 | **Required** for iPhone apps; smaller devices scale down from these |
+| iPhone 6.5″ screenshots | 1242 × 2688 or 1284 × 2778 | 1–10 | Optional fallback |
 | iPad 13″ screenshots | 2064 × 2752 or 2048 × 2732 | 1–10 | Required **only** when the app supports iPad (`ios.supportsTablet: true` in Expo) |
 | App previews | 15–30 s video per size | 0–3 | Must show the app itself |
 | Screenshot format | JPEG or PNG, RGB, **no alpha channel** | | App Store Connect rejects images with alpha. Flatten them |
-
-**Which iPhone set is required (checked 2026-10-10).** Apple's "Required device sizes" list names the medium Dynamic Island iPhone (6.3″), plus iPad 13″ when the app runs on iPad. The 6.5″ row of the same page still says it is required when large Dynamic Island (6.9″) screenshots aren't provided, which contradicts that list. The harness defaults follow the required-device list: `ios-6.3` always, `ios-6.9` and `ios-6.5` optional, `ios-ipad13` when the app supports iPad. If App Store Connect asks for a different set, override `need` in the project's `store-assets.json` (e.g. `"slots": {"ios-6.5": {"need": "always"}}`) instead of waiting for a harness release.
 
 **iOS text limits:** app name 30 characters, subtitle 30, promotional text 170 (can change without a new version), keywords **100 bytes** (comma-separated, no spaces after commas, don't repeat words from the name or subtitle), description 4000, What's New 4000.
 
