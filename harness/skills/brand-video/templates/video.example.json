@@ -3,7 +3,7 @@
   "id": "launch-teaser",
   "kind": "social",
   "title": "Launch teaser",
-  "formats": ["social-9x16"],
+  "formats": ["social-9x16", "social-1x1"],
   "fps": 30,
   "scenes": [
     {
@@ -19,6 +19,7 @@
       "duration": 5,
       "transitionIn": { "type": "fade" },
       "copy": { "head": "Built for the <em>week</em>", "points": ["Plan a bed in a minute", "See what changed since Sunday"] },
+      "byFormat": { "social-1x1": { "layout": "type-lower", "hide": ["points"] } },
       "vo": "Plan a bed in a minute, and see what changed since Sunday."
     },
     {

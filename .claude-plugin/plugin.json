@@ -1,6 +1,6 @@
 {
   "name": "quantqbit-claude-rules",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "QuantQbit agent harness: vendors git-tracked, conflict-safe agent rules, mandatory skills (coding-standards, design-patterns, ui-ux, typography, color-science, seo), Opus-only agents (including a creative-director that gives every media asset a project-specific, owner-approved direction; mobile app-store agents: screen capture, store mockups, listing copy, submission pre-check, app icons, brand assets; an illustrator agent with the story-art skill for product story and scenario illustrations, and a video-creative agent with the brand-video skill for branded videos with voice-over scripts) and hooks into each project via a transactional sync with a versioned lock; plus lint tooling (/init-project-rules) and buildable per-platform starters (/init-project-scaffold).",
   "author": {
     "name": "QuantQbit"

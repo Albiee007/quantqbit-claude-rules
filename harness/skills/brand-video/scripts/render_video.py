@@ -1,31 +1,34 @@
 #!/usr/bin/env python3
 """Render branded videos from the project's creative direction (HTML scenes -> frames -> ffmpeg).
 
-A piece is brand/video/<id>/video.json: scenes (template, timing, on-screen copy, voice-over line).
-The look and motion come from the selected video concept, so every frame uses the project's own
-backgrounds, type, accents and motion tokens. The default output is a silent video plus a
-voice-over script, a voice prompt and planned captions, so the owner can record or generate the
-voice anywhere.
+A piece is brand/video/<id>/video.json: scenes (template, timing, on-screen copy, voice-over line)
+in one or more formats that share one timeline. The look and motion come from the selected video
+concept, so every frame uses the project's own backgrounds, type, accents and motion tokens. The
+default output is a silent video per format plus a voice-over script, a voice prompt and planned
+captions, so the owner can record or generate the voice anywhere. Short loops can also be written
+as GIF and animated WebP, and any piece can have a poster still per format.
 
   init      write a starter brand/video/<id>/video.json (never overwrites)
   motion-tokens  suggest motion tokens (durations, easing) from the direction's mood; --write adds
             them to the token file (non-destructive, keeps a .bak)
   lint      check a piece: timing in whole frames, vocabulary against the concept, placeholder copy,
-            reading time, voice-over fit, and the built page (animation length, no endless ones)
+            reading time, voice-over fit, and the built page of every format (animation length,
+            no endless ones, frames that don't depend on playback history)
   voice     write the voice-over script, voice prompt and planned captions (a draft folder)
-  preview   a draft: contact sheet of each scene's still frame, a half-size draft video (when
-            ffmpeg is present) and the voice files, under .preview/<run>/; no approval needed
+  preview   a draft per format: contact sheet of each scene's still frame, a half-size draft video
+            (when ffmpeg is present) and the voice files, under .preview/<run>/; no approval needed
   render    production: needs the direction, the video concept and the storyboard approved; renders
-            every frame, encodes, checks, writes the run manifest, then publishes to out/
-  check     the technical checks on an encoded file (default: the published one)
+            every frame of every format (in parallel browsers with --workers), encodes, makes the
+            loops and posters, checks, writes the run manifest, then publishes to out/
+  check     the technical checks on the published files (or on one file of your own)
   status    what is approved, what was published and which review items are still open
 
 Usage:
   python render_video.py init launch-teaser [--title "Launch teaser"] [--project .]
   python render_video.py motion-tokens [--write]
-  python render_video.py lint launch-teaser [--concept brand/concepts/video/<run>/a.json]
-  python render_video.py preview launch-teaser [--concept <file>] [--frames-only]
-  python render_video.py render launch-teaser [--check-only] [--determinism 6] [--no-contrast]
+  python render_video.py lint launch-teaser [--concept brand/concepts/video/<run>/a.json] [--format social-1x1]
+  python render_video.py preview launch-teaser [--concept <file>] [--format F] [--frames-only] [--workers N]
+  python render_video.py render launch-teaser [--check-only] [--workers N|auto] [--determinism 6] [--no-contrast]
   python render_video.py status [launch-teaser]
 Common: --project DIR, --chrome PATH, --ffmpeg PATH.
 Exit codes: 0 done (the report may still list REVIEW REQUIRED items), 1 a check or gate failed,
@@ -36,9 +39,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 # harness lib bootstrap (see .claude/harness/lib/README.md)
@@ -62,6 +67,7 @@ except ImportError:
     raise SystemExit(2)
 
 QUALITY = 92  # JPEG frames into the encoder (M0: indistinguishable from PNG after H.264, faster)
+MAX_WORKERS = 8
 
 
 def root_of(a: argparse.Namespace) -> Path:
@@ -149,7 +155,7 @@ def motion_tokens(a: argparse.Namespace) -> int:
 # ------------------------------------------------------------------ resolving a piece
 
 class Job:
-    """Everything one command needs about a piece: project, piece, concept look, plan."""
+    """Everything one command needs about a piece: project, piece, concept look, a plan per format."""
 
     def __init__(self, a: argparse.Namespace, production: bool, lock: bool = False, strict: bool | None = None) -> None:
         """strict: plan with production rules (vocabulary and placeholders are errors); default production."""
@@ -188,13 +194,36 @@ class Job:
             else:
                 rel = getattr(a, "concept", None) or self.piece.get("concept")
                 self.concept_rel, _, self.ad = dl.preview(self.p, "video", rel)
-            self.fmt = self.piece["formats"][0]
-            self.plan = vd.plan(self.p, a.id, self.piece, self.ad, self.fmt, production if strict is None else strict)
-            self.size = vd.FORMATS[self.fmt]["size"]
+            self.formats = list(self.piece["formats"])
+            only = getattr(a, "format", None)
+            if only:
+                if only not in self.formats:
+                    raise UsageError(f"--format {only}: the piece's formats are {', '.join(self.formats)}")
+                self.formats = [only]
+            self.media, self.media_errors = vd.media_files(self.root, self.piece)
+            mode = production if strict is None else strict
+            self.plans = {f: vd.plan(self.p, a.id, self.piece, self.ad, f, mode) for f in self.formats}
+            self.fmt = self.formats[0]
+            self.plan = self.plans[self.fmt]  # timing and the voice-over script are the same in every format
             self.dir = self.root / vd.PIECES / a.id
         except BaseException:
             self.close()
             raise
+
+    def merged(self, what: str) -> list:
+        """errors, warnings or reviews of every format, each once (reviews by id)."""
+        out: list = list(self.media_errors) if what == "errors" else []
+        seen: set = set(out)
+        for pl in self.plans.values():
+            for x in getattr(pl, what):
+                key = x["id"] if isinstance(x, dict) else x
+                if key not in seen:
+                    seen.add(key)
+                    out.append(x)
+        return out
+
+    def exceptions(self) -> list[str]:
+        return sorted({r for pl in self.plans.values() for r in pl.exceptions})
 
     def close(self) -> None:
         if self.lock is not None:
@@ -204,18 +233,22 @@ class Job:
 
 def report_plan(job: Job) -> int:
     pl = job.plan
-    print(f"{job.rel}: {len(pl.scenes)} scene(s), {pl.frames} frames = {pl.seconds:.2f} s at {pl.fps} fps, {job.fmt}; "
-          f"concept {job.concept_rel}")
+    print(f"{job.rel}: {len(pl.scenes)} scene(s), {pl.frames} frames = {pl.seconds:.2f} s at {pl.fps} fps; "
+          f"{', '.join(job.formats)}; concept {job.concept_rel}")
     for s in pl.scenes:
         print(f"  {s.id:<14} {s.template:<9} frames {s.start}-{s.start + s.frames - 1} ({s.frames / pl.fps:.2f} s), "
               f"in: {s.transition}{f' {s.overlap}f' if s.overlap else ''}, still {s.hold_start}-{s.hold_end - 1}")
-    for w in pl.warnings:
+    lp = vd.loop_spec(job.piece)
+    if lp and lp["outputs"]:
+        print(f"  loops: {', '.join(lp['outputs'])} at {lp['fps']} fps, up to {lp['width']} px wide")
+    for w in job.merged("warnings"):
         print(f"WARN  {w}")
-    for e in pl.errors:
+    errors = job.merged("errors")
+    for e in errors:
         print(f"FAIL  {e}")
-    for r in pl.reviews:
+    for r in job.merged("reviews"):
         print(f"REVIEW REQUIRED  {r['note']}")
-    return len(pl.errors)
+    return len(errors)
 
 
 # ------------------------------------------------------------------ rendering
@@ -253,20 +286,37 @@ def seek(page: cdp.Page, n: int, fps: int) -> None:
     page.evaluate(f"window.__hf.seek({n}/{fps})")
 
 
-class Probe:
-    """Contrast, glyph, clipping and safe-area findings for each scene's still frame."""
+def png_hash(page: cdp.Page) -> str:
+    from harnesslib import framecheck
+    return framecheck.pixel_hash(page.screenshot("png"))
 
-    def __init__(self, job: Job) -> None:
+
+def workers_for(a: argparse.Namespace, frames: int) -> int:
+    """--workers N, or auto: one browser per 90 frames, at most half the CPUs and 4."""
+    w = getattr(a, "workers", None) or "auto"
+    if w == "auto":
+        return max(1, min(4, (os.cpu_count() or 2) // 2, frames // 90))
+    return int(w)
+
+
+class Probe:
+    """Contrast, glyph, clipping and safe-area findings for each scene's still frame, in one format."""
+
+    def __init__(self, job: Job, fmt: str) -> None:
         self.job = job
+        self.fmt = fmt
+        self.plan = job.plans[fmt]
+        self.size = vd.FORMATS[fmt]["size"]
         self.findings: list[con.Finding] = []
         self.text: list[str] = []
         self.reviews: list[dict] = []
         self.stills: dict[str, bytes] = {}
 
     def scene(self, page: cdp.Page, sc: vd.ScenePlan, check: bool) -> None:
-        job = self.job
-        w, h = job.size
-        seek(page, sc.probe, job.plan.fps)
+        job, fmt = self.job, self.fmt
+        w, h = self.size
+        fps = self.plan.fps
+        seek(page, sc.probe, fps)
         self.stills[sc.id] = page.screenshot("png")
         if not check:
             return
@@ -277,100 +327,207 @@ class Probe:
             import io
             page.evaluate("(() => { const s = document.createElement('style'); s.id = '__nocap'; "
                           "s.textContent = '.cap { visibility: hidden !important; }'; document.head.appendChild(s); })()")
-            seek(page, sc.probe, job.plan.fps)
+            seek(page, sc.probe, fps)
             png = page.screenshot("png")
             page.evaluate("document.getElementById('__nocap').remove()")
-            seek(page, sc.probe, job.plan.fps)
+            seek(page, sc.probe, fps)
             return Image.open(io.BytesIO(png)).convert("RGB")
 
-        f, t = pagecheck.evaluate(pr, job.ad, f"scene {sc.id} @ frame {sc.probe}", backdrop)
+        where = f"scene {sc.id} @ frame {sc.probe}" + (f" ({fmt})" if len(job.formats) > 1 else "")
+        f, t = pagecheck.evaluate(pr, job.ad, where, backdrop)
         self.findings += f
         self.text += t
+        tag = f"{sc.id}:{fmt}" if len(job.formats) > 1 else sc.id
         for i, x in enumerate(f):
             if x.result == con.REVIEW:
-                self.reviews.append({"id": f"contrast:{sc.id}:{i + 1}", "check": "contrast", "kind": "technical",
-                                     "note": x.line().strip()[:600], "evidence": f"sheet: scene {sc.id}"})
-        safe = vd.FORMATS[job.fmt]["safe"][job.ad.get("safeAreas", "standard")]
+                self.reviews.append({"id": f"contrast:{tag}:{i + 1}", "check": "contrast", "kind": "technical",
+                                     "note": x.line().strip()[:600], "evidence": f"sheet: scene {sc.id} ({fmt})"})
+        safe = vd.FORMATS[fmt]["safe"][job.ad.get("safeAreas", "standard")]
         outside = [r["text"] for r in pr["runs"] if any(
             rect[0] < safe["left"] - 0.5 or rect[1] < safe["top"] - 0.5 or rect[2] > w - safe["right"] + 0.5
             or rect[3] > h - safe["bottom"] + 0.5 for rect in r["rects"])]
         if outside:
-            self.reviews.append({"id": f"safe-area:{sc.id}", "check": "safe area", "kind": "suitability",
-                                 "note": f"scene {sc.id}: text inside the platforms' UI zones ({job.fmt}): "
+            self.reviews.append({"id": f"safe-area:{tag}", "check": "safe area", "kind": "suitability",
+                                 "note": f"scene {sc.id}: text inside the platforms' UI zones ({fmt}): "
                                          + ", ".join(repr(x) for x in outside[:4])[:500]})
 
 
-def render_frames(job: Job, chrome: str, build: vd.Build, dest: Path | None, ff: str | None, profile: str,
-                  step: int = 1, scale: float = 1.0, check: bool = True, determinism: int = 0) -> tuple[Probe, dict, int]:
-    """Render the frames into ffmpeg (or only the scene stills when ff is None). Returns
-    (probe findings, determinism report, frames written)."""
-    pl = job.plan
-    probe = Probe(job)
+def _split(frames: list[int], k: int) -> list[list[int]]:
+    """k contiguous runs of frames, as even as possible (the encoder gets them back in order)."""
+    k = max(1, min(k, len(frames)))
+    q, r = divmod(len(frames), k)
+    out, i = [], 0
+    for j in range(k):
+        n = q + (j < r)
+        out.append(frames[i:i + n])
+        i += n
+    return out
+
+
+class Worker(threading.Thread):
+    """One more browser rendering a run of frames into a spool file, for the encoder to take in
+    order. It also hashes its first frame and the first frame of the next run: neighbouring
+    browsers must draw the frame where they meet identically (the seek contract across workers)."""
+
+    def __init__(self, chrome: str, page_path: Path, size: tuple[int, int], fps: int, frames: list[int],
+                 nxt: int | None, spool: Path, scale: float, sample: set[int], stop: threading.Event) -> None:
+        super().__init__()
+        self.args = (chrome, page_path, size, fps, frames, nxt, spool, scale, sample)
+        self.stop = stop
+        self.error: BaseException | None = None
+        self.first: str | None = None
+        self.next_hash: str | None = None
+        self.hashes: dict[int, str] = {}
+
+    def run(self) -> None:
+        chrome, page_path, size, fps, frames, nxt, spool, scale, sample = self.args
+        try:
+            with cdp.Browser.launch(chrome, size) as b, open(spool, "wb") as out:
+                page, _ = open_page(b, page_path, size)
+                for i, n in enumerate(frames):
+                    if self.stop.is_set():
+                        return
+                    seek(page, n, fps)
+                    out.write(page.screenshot("jpeg", QUALITY, size, scale))
+                    if i == 0:
+                        self.first = png_hash(page)
+                    if n in sample:
+                        self.hashes[n] = png_hash(page)
+                if nxt is not None:
+                    seek(page, nxt, fps)
+                    self.next_hash = png_hash(page)
+        except BaseException as e:  # noqa: BLE001 - handed to the main thread
+            self.error = e
+
+
+def render_frames(job: Job, fmt: str, chrome: str, build: vd.Build, dest: Path | None, ff: str | None, profile: str,
+                  step: int = 1, scale: float = 1.0, check: bool = True, determinism: int = 0, workers: int = 1,
+                  spool_dir: Path | None = None) -> tuple[Probe, dict, int, dict]:
+    """Render one format's frames into ffmpeg (or only the scene stills when ff is None). Returns
+    (probe findings, determinism report, frames written, workers report). With several workers
+    each renders a contiguous run in its own browser; the encoder gets the same frames in the same
+    order, so the file does not depend on the number of workers."""
+    pl = job.plans[fmt]
+    size = vd.FORMATS[fmt]["size"]
+    probe = Probe(job, fmt)
     det: dict = {}
+    wk: dict = {"workers": 1}
     sample = sorted({min(pl.frames - 1, round(i * (pl.frames - 1) / max(1, determinism - 1))) for i in range(determinism)}) if determinism else []
     hashes: dict[int, str] = {}
     written = 0
-    with cdp.Browser.launch(chrome, job.size) as b:
-        page, info = open_page(b, build.page, job.size)
-        probs = page_problems(info, pl)
-        if probs:
-            raise InputError("the built composition does not match its plan: " + "; ".join(probs))
-        first = None
-        if dest is not None and ff is not None:
-            from harnesslib import framecheck
-            sc0 = pl.scenes[0]
-            seek(page, sc0.probe, pl.fps)  # reached again after the encode: history must not matter
-            first = framecheck.pixel_hash(page.screenshot("png"))
-            out_fps = f"{pl.fps}/{step}" if step > 1 else pl.fps  # exact rate, so drafts keep the planned timing
-            with ffm.Encoder(ff, profile, dest, out_fps) as enc:
-                for n in range(0, pl.frames, step):
-                    seek(page, n, pl.fps)
-                    enc.write(page.screenshot("jpeg", QUALITY, job.size, scale))
-                    written += 1
-                    if n in sample:
-                        from harnesslib import framecheck
-                        hashes[n] = framecheck.pixel_hash(page.screenshot("png"))
-            if pl.frames > 600 and written:
-                print(f"encoded {written} frames")
-        for sc in pl.scenes:
-            probe.scene(page, sc, check)
-        if first is not None:
-            from harnesslib import framecheck
-            if framecheck.pixel_hash(probe.stills[pl.scenes[0].id]) != first:
-                raise InputError(f"scene {pl.scenes[0].id}: its still frame changed when it was reached again after "
-                                 "the whole video (something in the page depends on playback history)")
+    encode = dest is not None and ff is not None
+    runs = _split(list(range(0, pl.frames, step)), workers if encode else 1)
+    stop = threading.Event()
+    helpers: list[Worker] = []
+    tmp = Path(tempfile.mkdtemp(prefix="spool-", dir=spool_dir)) if len(runs) > 1 else None
+    try:
+        for k in range(1, len(runs)):
+            nxt = runs[k + 1][0] if k + 1 < len(runs) else None
+            helpers.append(Worker(chrome, build.page, size, pl.fps, runs[k], nxt, tmp / f"{k}.bin", scale,  # type: ignore[operator]
+                                  set(sample), stop))
+        for t in helpers:
+            t.start()
+        with cdp.Browser.launch(chrome, size) as b:
+            page, info = open_page(b, build.page, size)
+            probs = page_problems(info, pl)
+            if probs:
+                raise InputError("the built composition does not match its plan: " + "; ".join(probs))
+            first = None
+            if encode:
+                sc0 = pl.scenes[0]
+                seek(page, sc0.probe, pl.fps)  # reached again after the encode: history must not matter
+                first = png_hash(page)
+                out_fps = f"{pl.fps}/{step}" if step > 1 else pl.fps  # exact rate, so drafts keep the planned timing
+                with ffm.Encoder(ff, profile, dest, out_fps) as enc:  # type: ignore[arg-type]
+                    for n in runs[0]:
+                        seek(page, n, pl.fps)
+                        enc.write(page.screenshot("jpeg", QUALITY, size, scale))
+                        written += 1
+                        if n in sample:
+                            hashes[n] = png_hash(page)
+                    boundary = {}
+                    if helpers:
+                        seek(page, runs[1][0], pl.fps)
+                        boundary[runs[1][0]] = [png_hash(page)]
+                    for k, t in enumerate(helpers, 1):
+                        t.join()
+                        if t.error is not None:
+                            raise t.error
+                        enc.feed(t.args[6], len(runs[k]))
+                        written += len(runs[k])
+                        Path(t.args[6]).unlink(missing_ok=True)
+                        hashes.update(t.hashes)
+                        boundary.setdefault(runs[k][0], []).append(t.first)
+                        if t.next_hash is not None:
+                            boundary.setdefault(runs[k + 1][0], []).append(t.next_hash)
+                if helpers:
+                    wk = {"workers": len(runs), "boundaries": sorted(boundary),
+                          "differ": sorted(n for n, hs in boundary.items() if len(set(hs)) != 1 or len(hs) != 2)}
+                if pl.frames > 600 and written:
+                    print(f"encoded {written} frames ({fmt}, {len(runs)} browser(s))")
+            for sc in pl.scenes:
+                probe.scene(page, sc, check)
+            if first is not None:
+                if pixel_of(probe.stills[pl.scenes[0].id]) != first:
+                    raise InputError(f"scene {pl.scenes[0].id}: its still frame changed when it was reached again after "
+                                     "the whole video (something in the page depends on playback history)")
+    finally:
+        stop.set()
+        for t in helpers:
+            t.join()  # every call a worker makes is bounded; its browser closes on the way out
+        if tmp is not None:
+            shutil.rmtree(tmp, ignore_errors=True)
     if sample:
-        from harnesslib import framecheck
-        with cdp.Browser.launch(chrome, job.size) as b:
-            page, _ = open_page(b, build.page, job.size)
+        with cdp.Browser.launch(chrome, size) as b:
+            page, _ = open_page(b, build.page, size)
             again = {}
             for n in reversed(sample):  # a fresh browser, reached in the opposite order
                 seek(page, n, pl.fps)
-                again[n] = framecheck.pixel_hash(page.screenshot("png"))
+                again[n] = png_hash(page)
         det = {"frames": sample, "differ": [n for n in sample if again[n] != hashes.get(n)]}
-    return probe, det, written
+    return probe, det, written, wk
 
 
-def sheet(job: Job, probe: Probe, dest: Path) -> Path:
+def pixel_of(png: bytes) -> str:
+    from harnesslib import framecheck
+    return framecheck.pixel_hash(png)
+
+
+def sheet(probe: Probe, dest: Path) -> Path:
     imaging, _ = need_pillow()
     with tempfile.TemporaryDirectory() as tmp:
         paths = []
-        for sc in job.plan.scenes:
+        for sc in probe.plan.scenes:
             f = Path(tmp) / f"{sc.id}.png"
             f.write_bytes(probe.stills[sc.id])
             paths.append(f)
-        return imaging.sheet(paths, dest, cols=min(4, len(paths)), width=270)
+        w, h = probe.size
+        return imaging.sheet(paths, dest, cols=min(4, len(paths)), width=270 if h >= w else 400)
 
 
-def flash_reviews(ff: str, path: Path, fps: int) -> tuple[dict, list[dict]]:
+def flash_reviews(frames: list[bytes], fps: int, tag: str = "") -> tuple[dict, list[dict]]:
     _, framecheck = need_pillow()
-    frames, _, _ = ffm.gray_frames(ff, path)
     hits = framecheck.flash_signal(frames, fps)
     if not hits:
         return {"result": "PASS", "detail": "no flashing found by the WCAG 2.3.1 heuristic (a signal, not a conformance claim)"}, []
     return ({"result": "REVIEW REQUIRED", "detail": f"possible flashing at {', '.join(f'{t:.1f} s' for t in hits)}"},
-            [{"id": f"flash:{t:.1f}".replace(".", "-"), "check": "flashing", "kind": "technical",
+            [{"id": f"flash:{t:.1f}".replace(".", "-") + tag, "check": "flashing", "kind": "technical",
               "note": f"more than three flashes within one second from {t:.1f} s (heuristic; WCAG 2.3.1)"} for t in hits])
+
+
+def loop_size(fmt: str, width: int) -> tuple[int, int]:
+    w, h = vd.FORMATS[fmt]["size"]
+    lw = min(width, w)
+    return lw, max(2, round(h * lw / w))
+
+
+def write_webp(frames: list[bytes], size: tuple[int, int], rate: int, dest: Path) -> None:
+    from PIL import Image, features
+    if not features.check("webp"):
+        raise OperationalError("this Pillow has no WebP support: pip install --upgrade pillow")
+    ims = [Image.frombytes("RGB", size, f) for f in frames]
+    durs = [round((i + 1) * 1000 / rate) - round(i * 1000 / rate) for i in range(len(ims))]
+    ims[0].save(dest, "WEBP", save_all=True, append_images=ims[1:], duration=durs, loop=0, quality=80, method=4)
 
 
 # ------------------------------------------------------------------ commands
@@ -388,24 +545,26 @@ def lint(a: argparse.Namespace) -> int:
     print("gate: " + ("storyboard approved" if g.ok else "NOT MET: " + "; ".join(g.problems)))
     if not a.static and not errors:
         chrome = browser.find_chrome(a.chrome)
-        with tempfile.TemporaryDirectory() as tmp:
-            build = vd.compose(job.p, job.pid, job.piece, job.plan, job.ad, job.fmt, Path(tmp) / "build", draft=True)
-            with cdp.Browser.launch(chrome, job.size) as b:
-                page, info = open_page(b, build.page, job.size)
-                probs = page_problems(info, job.plan)
-                _, framecheck = need_pillow()
-                sc = job.plan.scenes[0]
-                seek(page, sc.probe, job.plan.fps)
-                first = framecheck.pixel_hash(page.screenshot("png"))
-                seek(page, job.plan.frames - 1, job.plan.fps)
-                seek(page, sc.probe, job.plan.fps)
-                if framecheck.pixel_hash(page.screenshot("png")) != first:
-                    probs.append("a frame changed when it was reached a second time (something in the page "
-                                 "depends on playback history)")
+        _, framecheck = need_pillow()
+        for fmt in job.formats:
+            pl, size = job.plans[fmt], vd.FORMATS[fmt]["size"]
+            with tempfile.TemporaryDirectory() as tmp:
+                build = vd.compose(job.p, job.pid, job.piece, pl, job.ad, fmt, Path(tmp) / "build", draft=True, media=job.media)
+                with cdp.Browser.launch(chrome, size) as b:
+                    page, info = open_page(b, build.page, size)
+                    probs = page_problems(info, pl)
+                    sc = pl.scenes[0]
+                    seek(page, sc.probe, pl.fps)
+                    first = png_hash(page)
+                    seek(page, pl.frames - 1, pl.fps)
+                    seek(page, sc.probe, pl.fps)
+                    if png_hash(page) != first:
+                        probs.append("a frame changed when it was reached a second time (something in the page "
+                                     "depends on playback history)")
             for x in probs:
-                print(f"FAIL  page: {x}")
+                print(f"FAIL  page ({fmt}): {x}")
             errors += len(probs)
-            print(f"page: {info['animations']} animations, {info['clips']} clips, ends at {info['animationEndMs']:.0f} ms")
+            print(f"page ({fmt}): {info['animations']} animations, {info['clips']} clips, ends at {info['animationEndMs']:.0f} ms")
     print(f"lint: {errors} problem(s)")
     return 1 if errors else 0
 
@@ -442,29 +601,37 @@ def preview(a: argparse.Namespace) -> int:
             print(f"note: {e}; writing the stills only")
     out = Path(a.out) if a.out else self_ignoring_dir(job.dir / ".preview", "render_video.py drafts") / run_id()
     out.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory() as tmp:
-        build = vd.compose(job.p, job.pid, job.piece, job.plan, job.ad, job.fmt, Path(tmp) / "build", draft=True)
-        step = max(1, round(job.plan.fps / 15))  # about 15 fps; the encoder gets the exact rate fps/step
-        probe, _, n = render_frames(job, chrome, build, out / "draft.mp4" if ff else None, ff, "h264-draft",
-                                    step=step, scale=0.5, check=not a.no_contrast)
-    sheet(job, probe, out / "sheet.png")
+    failed = False
+    step = max(1, round(job.plan.fps / 15))  # about 15 fps; the encoder gets the exact rate fps/step
+    for fmt in job.formats:
+        (out / fmt).mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            build = vd.compose(job.p, job.pid, job.piece, job.plans[fmt], job.ad, fmt, Path(tmp) / "build", draft=True,
+                               media=job.media)
+            probe, _, n, _ = render_frames(job, fmt, chrome, build, out / fmt / "draft.mp4" if ff else None, ff,
+                                           "h264-draft", step=step, scale=0.5, check=not a.no_contrast,
+                                           workers=workers_for(a, job.plan.frames // step), spool_dir=Path(tmp))
+        sheet(probe, out / fmt / "sheet.png")
+        for f in probe.findings:
+            if f.result != con.PASS:
+                print(f.line())
+        for t in probe.text:
+            print(f"FAIL  text ({fmt}): {t}")
+        for r in probe.reviews:
+            print(f"REVIEW REQUIRED  {r['note']}")
+        failed = failed or bool(probe.text) or any(f.result == con.FAIL for f in probe.findings)
+        print(f"{fmt}: sheet.png" + (f", draft.mp4 ({n} frames at half size)" if ff else ""))
 
     def write(rel: str, text: str) -> None:
         write_atomic(out / rel, text)
 
     _, cue_errors, cue_reviews = vd.write_text_outputs(write, job.pid, job.piece, job.plan, job.ad, job.p.direction["mood"])
-    for f in probe.findings:
-        if f.result != con.PASS:
-            print(f.line())
-    for t in probe.text:
-        print(f"FAIL  text: {t}")
-    for r in probe.reviews + cue_reviews:
+    for r in cue_reviews:
         print(f"REVIEW REQUIRED  {r['note']}")
     for e in cue_errors:
         print(f"FAIL  {e}")
-    print(f"draft ({job.concept_rel}, NOT approved for production) in {out}: sheet.png"
-          + (f", draft.mp4 ({n} frames at half size)" if ff else "") + ", voice/")
-    return 1 if probe.text or cue_errors or any(f.result == con.FAIL for f in probe.findings) else 0
+    print(f"draft ({job.concept_rel}, NOT approved for production) in {out}: one folder per format, voice/")
+    return 1 if failed or cue_errors else 0
 
 
 def render(a: argparse.Namespace) -> int:
@@ -473,6 +640,98 @@ def render(a: argparse.Namespace) -> int:
         return _render(a, job)
     finally:
         job.close()
+
+
+def _render_format(a: argparse.Namespace, job: Job, fmt: str, build: vd.Build, pub: Publisher, chrome: str, ff: str,
+                   fp: str, workers: int, spool: Path, checks: dict, reviews: list, meta: dict) -> None:
+    """One format: frames -> master video, then loops and poster, each checked."""
+    pl, pid = job.plans[fmt], job.pid
+    size = vd.FORMATS[fmt]["size"]
+    profile = vd.FORMATS[fmt]["profile"]
+    sfx = f":{fmt}"
+    tag = sfx if len(job.formats) > 1 else ""
+    mp4_rel = f"{fmt}/{pid}.mp4"
+    mp4 = pub.stage_path(mp4_rel)
+    _, framecheck = need_pillow()
+    probe, det, _, wk = render_frames(job, fmt, chrome, build, mp4, ff, profile, check=not a.no_contrast,
+                                      determinism=a.determinism, workers=workers, spool_dir=spool)
+    info = ffm.probe(fp, mp4)
+    tech = ffm.check_profile(info, mp4, profile, pl.frames, size, pl.fps)
+    checks["technical" + sfx] = {"result": "FAIL" if tech else "PASS",
+                                 "detail": "; ".join(tech) or f"{ffm.PROFILES[profile]['label']}, {pl.frames} frames"}
+    s = [x for x in info["streams"] if x.get("codec_type") == "video"][0]
+    meta[mp4_rel] = dict(size=list(size), profile=profile, durationS=round(pl.seconds, 6), fps=pl.fps, frames=pl.frames,
+                         codec=s.get("codec_name", ""), pixFmt=s.get("pix_fmt", ""), audio=False, format=fmt)
+    gray, _, _ = ffm.gray_frames(ff, mp4)
+    fl, fl_reviews = flash_reviews(gray, pl.fps, tag)
+    checks["flashing" + sfx] = fl
+    reviews += fl_reviews
+    counts = con.summary(probe.findings)
+    checks["contrast" + sfx] = ({"result": "SKIPPED", "detail": "--no-contrast"} if a.no_contrast else
+                                {"result": con.overall(counts), "detail": f"{len(probe.findings)} text runs at the scenes' still frames"})
+    checks["text" + sfx] = {"result": "SKIPPED" if a.no_contrast else ("FAIL" if probe.text else "PASS"),
+                            "detail": "; ".join(probe.text)[:2000] or "glyph coverage and clipping of every text run"}
+    reviews += probe.reviews
+    safe = [r for r in probe.reviews if r["check"] == "safe area"]
+    if a.no_contrast:
+        checks["safe-area" + sfx] = {"result": "SKIPPED", "detail": "--no-contrast"}
+    else:
+        checks["safe-area" + sfx] = {"result": "REVIEW REQUIRED" if safe else "PASS",
+                                     "detail": f"{len(safe)} scene(s) with text in the platforms' UI zones" if safe else
+                                     f"all text inside the {fmt} safe insets ({job.ad.get('safeAreas', 'standard')})"}
+    if det:
+        checks["determinism" + sfx] = {"result": "FAIL" if det["differ"] else "PASS",
+                                       "detail": f"frames {det['frames']} re-rendered in a fresh browser"
+                                                 + (f"; differ: {det['differ']}" if det["differ"] else "")}
+    if wk["workers"] > 1:
+        checks["workers" + sfx] = {"result": "FAIL" if wk["differ"] else "PASS",
+                                   "detail": f"{wk['workers']} browsers; the frames where they meet ({wk['boundaries']}) "
+                                             + (f"differ: {wk['differ']}" if wk["differ"] else "are identical")}
+    sheet(probe, pub.stage_path(f"{fmt}/{pid}-sheet.png"))
+    poster = (job.piece.get("poster") or {}).get("scene")
+    if poster:
+        rel = f"{fmt}/{pid}-poster.png"
+        pub.stage_path(rel).write_bytes(probe.stills[poster])
+        probs, _ = framecheck.anim_problems(pub.stage_path(rel), "poster", 1, size, 0)
+        checks["poster" + sfx] = {"result": "FAIL" if probs else "PASS",
+                                  "detail": "; ".join(probs) or f"scene {poster}'s still frame, {size[0]}x{size[1]} PNG"}
+        meta[rel] = dict(size=list(size), profile="poster", format=fmt)
+    lp = vd.loop_spec(job.piece)
+    if job.piece["kind"] == "loop":
+        # the seam of what people share: the loop's own frames when there is a GIF or WebP
+        seam, limit = framecheck.seam_signal(gray[::pl.fps // lp["fps"]] if lp and lp["outputs"] else gray)
+        if seam > limit:
+            checks["loop-seam" + sfx] = {"result": "REVIEW REQUIRED",
+                                         "detail": f"the jump from the last frame back to the first ({seam:.1f}) is larger "
+                                                   f"than the piece's own changes ({limit:.1f})"}
+            reviews.append({"id": "loop-seam" + tag, "check": "loop seam", "kind": "content",
+                            "note": f"{fmt}: the loop jumps visibly when it repeats (last frame to first: {seam:.1f} "
+                                    f"against {limit:.1f}); end on the opening picture or accept the cut"})
+        else:
+            checks["loop-seam" + sfx] = {"result": "PASS", "detail": f"last frame to first {seam:.1f} (limit {limit:.1f})"}
+    if lp and lp["outputs"]:
+        step = pl.fps // lp["fps"]
+        lsize = loop_size(fmt, lp["width"])
+        n = -(-pl.frames // step)
+        for kind in lp["outputs"]:
+            prof = "gif" if kind == "gif" else "webp-anim"
+            rel = f"{fmt}/{pid}{ffm.ANIMATED[prof]['suffix']}"
+            dest = pub.stage_path(rel)
+            if kind == "gif":
+                ffm.make_gif(ff, mp4, dest, step, lp["fps"], lsize)
+            else:
+                write_webp(ffm.rgb_frames(ff, mp4, step, lsize), lsize, lp["fps"], dest)
+            probs, found = framecheck.anim_problems(dest, prof, n, lsize, n / lp["fps"])
+            big = dest.stat().st_size > lp["maxBytes"]
+            checks[kind + sfx] = {"result": "FAIL" if probs else "REVIEW REQUIRED" if big else "PASS",
+                                  "detail": "; ".join(probs) or f"{ffm.ANIMATED[prof]['label']}, {lsize[0]}x{lsize[1]}, "
+                                            f"{lp['fps']} fps, {dest.stat().st_size:,} bytes"}
+            if big and not probs:
+                reviews.append({"id": f"size:{kind}" + tag, "check": "file size", "kind": "suitability",
+                                "note": f"{rel} is {dest.stat().st_size:,} bytes, over the piece's {lp['maxBytes']:,} "
+                                        "(email and chat apps may refuse or not play it): narrow it or shorten the piece"})
+            meta[rel] = dict(size=list(lsize), profile=prof, durationS=round(n / lp["fps"], 6), fps=lp["fps"],
+                             frames=found.get("frames", n), loop=0, format=fmt)
 
 
 def _render(a: argparse.Namespace, job: Job) -> int:
@@ -488,53 +747,29 @@ def _render(a: argparse.Namespace, job: Job) -> int:
     need_pillow()
     chrome = browser.find_chrome(a.chrome)
     ff, fp = ffm.find_ffmpeg(a.ffmpeg)
-    pl, fmt, pid = job.plan, job.fmt, job.pid
+    pl, pid = job.plan, job.pid
     started = dl.now_utc()
     rid = run_id()
-    profile = vd.FORMATS[fmt]["profile"]
     build_dir = job.dir / ".build" / rid
     checks: dict[str, dict] = {}
-    reviews = list(pl.reviews)
+    reviews = list(job.merged("reviews"))
+    meta: dict[str, dict] = {}
+    workers = workers_for(a, pl.frames)
     try:
-        build = vd.compose(job.p, pid, job.piece, pl, job.ad, fmt, build_dir, draft=False)
-        # The gate again, now that fonts, logo and motif are copied: equal hashes prove the copies the
-        # frames come from are the bytes that were approved (nothing changed between check and copy).
+        builds = {fmt: vd.compose(job.p, pid, job.piece, job.plans[fmt], job.ad, fmt, build_dir / fmt, draft=False,
+                                  media=job.media) for fmt in job.formats}
+        # The gate again, now that fonts, logo, motif and images are copied: equal hashes prove the
+        # copies the frames come from are the bytes that were approved (nothing changed in between).
         if vd.gate_piece(job.p, pid).hashes != job.gate.hashes:
             raise InputError(f"{job.rel} or something it uses changed while the render was starting; run it again")
         with Publisher(job.dir / "out", f"video {pid}", run=rid) as pub:
-            mp4_rel = f"{fmt}/{pid}.mp4"
-            mp4 = pub.stage_path(mp4_rel)
-            probe, det, written = render_frames(job, chrome, build, mp4, ff, profile, check=not a.no_contrast,
-                                                determinism=a.determinism)
-            info = ffm.probe(fp, mp4)
-            tech = ffm.check_profile(info, mp4, profile, pl.frames, job.size, pl.fps)
-            checks["technical"] = {"result": "FAIL" if tech else "PASS",
-                                   "detail": "; ".join(tech) or f"{ffm.PROFILES[profile]['label']}, {pl.frames} frames"}
-            fl, fl_reviews = flash_reviews(ff, mp4, pl.fps)
-            checks["flashing"] = fl
-            reviews += fl_reviews
-            counts = con.summary(probe.findings)
-            checks["contrast"] = ({"result": "SKIPPED", "detail": "--no-contrast"} if a.no_contrast else
-                                  {"result": con.overall(counts), "detail": f"{len(probe.findings)} text runs at the scenes' still frames"})
-            checks["text"] = {"result": "SKIPPED" if a.no_contrast else ("FAIL" if probe.text else "PASS"),
-                              "detail": "; ".join(probe.text)[:2000] or "glyph coverage and clipping of every text run"}
-            reviews += probe.reviews
-            safe = [r for r in probe.reviews if r["check"] == "safe area"]
+            for fmt in job.formats:
+                _render_format(a, job, fmt, builds[fmt], pub, chrome, ff, fp, workers, build_dir, checks, reviews, meta)
             if a.no_contrast:
-                checks["safe-area"] = {"result": "SKIPPED", "detail": "--no-contrast"}
                 reviews.append({"id": "skipped:contrast-text-safe-area", "check": "skipped checks", "kind": "technical",
                                 "note": "contrast, glyph coverage and safe areas were not checked (--no-contrast); "
                                         "look at every scene's text before using the video"})
-            else:
-                checks["safe-area"] = {"result": "REVIEW REQUIRED" if safe else "PASS",
-                                   "detail": f"{len(safe)} scene(s) with text in the platforms' UI zones" if safe else
-                                   f"all text inside the {fmt} safe insets ({job.ad.get('safeAreas', 'standard')})"}
-            if det:
-                checks["determinism"] = {"result": "FAIL" if det["differ"] else "PASS",
-                                         "detail": f"frames {det['frames']} re-rendered in a fresh browser"
-                                                   + (f"; differ: {det['differ']}" if det["differ"] else "")}
             checks["audio"] = {"result": "SKIPPED", "detail": "silent video (the default); see voice/ for the script and prompt"}
-            sheet(job, probe, pub.stage_path(f"{pid}-sheet.png"))
 
             def write(rel: str, text: str) -> None:
                 write_atomic(pub.stage_path(rel), text)
@@ -547,9 +782,6 @@ def _render(a: argparse.Namespace, job: Job) -> int:
                 checks["voice-over"] = {"result": "REVIEW REQUIRED", "detail": f"{len(cue_reviews)} line(s) longer than their scene"}
             else:
                 checks["voice-over"] = {"result": "PASS", "detail": "the planned voice-over fits its scenes"}
-            for f in probe.findings:
-                if f.result != con.PASS:
-                    print(f.line())
             for name, c in checks.items():
                 print(f"{c['result']:<16} {name}: {c['detail']}")
             failed = [k for k, c in checks.items() if c["result"] == "FAIL"]
@@ -560,29 +792,26 @@ def _render(a: argparse.Namespace, job: Job) -> int:
             for rel in pub.staged():
                 f = pub.stage / rel
                 entry = {"path": (Path(vd.PIECES) / pid / "out" / rel).as_posix(), "sha256": sha256_file(f),
-                         "bytes": f.stat().st_size}
-                if rel == mp4_rel:
-                    s = [x for x in info["streams"] if x.get("codec_type") == "video"][0]
-                    entry.update(size=list(job.size), profile=profile, durationS=round(pl.seconds, 6), fps=pl.fps,
-                                 frames=pl.frames, codec=s.get("codec_name", ""), pixFmt=s.get("pix_fmt", ""), audio=False)
+                         "bytes": f.stat().st_size, **meta.get(Path(rel).as_posix(), {})}
                 outputs.append(entry)
-            status = "review-required" if reviews or any(c["result"] in ("REVIEW REQUIRED",) for c in checks.values()) else "complete"
+            status = "review-required" if reviews or any(c["result"] == "REVIEW REQUIRED" for c in checks.values()) else "complete"
             manifest = {"schemaVersion": 1, "runId": rid, "family": "video", "mode": "production", "tool": "render_video.py",
                         "startedAt": started, "finishedAt": dl.now_utc(),
                         "engine": {"api": harnesslib.API_VERSION, "browser": browser.version(chrome), "renderer": "ours",
-                                   "capture": "screenshot", "ffmpeg": ffm.version(ff)},
+                                   "capture": "screenshot", "ffmpeg": ffm.version(ff), "workers": workers},
                         "inputs": {"config": sha256_text(canonical(job.piece)),
                                    "direction": job.gate.concept_gate.direction[0] if job.gate.concept_gate.direction else None,
                                    "concept": job.gate.concept_gate.concept[0] if job.gate.concept_gate.concept else None,
-                                   "assets": [{"path": x["path"], "sha256": x["sha256"]} for x in build.assets]},
-                        "approvals": job.gate.records + pl.exceptions,
+                                   "assets": sorted({(x["path"], x["sha256"]) for b in builds.values() for x in b.assets})},
+                        "approvals": job.gate.records + job.exceptions(),
                         "fonts": [{"family": f["family"], "source": f.get("source", "local"), "weight": f["weight"],
                                    "style": f["style"], **({"sha256": f["sha256"]} if "sha256" in f else {})}
                                   for f in job.ad["faces"]],
                         "seed": None, "outputs": outputs, "checks": checks, "status": status,
                         "piece": {"path": job.rel, "hash": job.gate.hashes[0], "inputs": job.gate.hashes[1],  # type: ignore[index]
-                                  "formats": [fmt], "frames": pl.frames, "fps": pl.fps, "captions": "planned"},
+                                  "formats": job.formats, "frames": pl.frames, "fps": pl.fps, "captions": "planned"},
                         "reviews": reviews}
+            manifest["inputs"]["assets"] = [{"path": p_, "sha256": s_} for p_, s_ in manifest["inputs"]["assets"]]
             path = dl.write_run_manifest(job.root, manifest)  # first: an interrupted publish stays traceable
             pub.publish(prune=True)
         print(f"published {len(outputs)} file(s) to {(Path(vd.PIECES) / pid / 'out').as_posix()}; run manifest "
@@ -604,26 +833,41 @@ def check(a: argparse.Namespace) -> int:
     root = root_of(a)
     vd.piece_rel(a.id)
     ff, fp = ffm.find_ffmpeg(a.ffmpeg)
+    _, framecheck = need_pillow()
     if a.file:  # a file of your own: judged against the piece's current plan
         job = Job(a, production=False)
-        f, profile = Path(a.file), vd.FORMATS[job.fmt]["profile"]
-        frames, size, fps = job.plan.frames, job.size, job.plan.fps
-    else:  # the published file: judged against the run that made it
+        f = Path(a.file)
+        if f.suffix.lower() != ".mp4":
+            raise UsageError(f"{f}: check takes an .mp4 of your own (published GIF, WebP and poster files are "
+                             "checked against their run with no file argument)")
+        size = vd.FORMATS[job.fmt]["size"]
+        todo = [{"file": f, "label": f.name, "profile": vd.FORMATS[job.fmt]["profile"], "frames": job.plan.frames, "size": size,
+                 "fps": job.plan.fps}]
+    else:  # the published files: judged against the run that made them
         runs = vd.piece_runs(root, a.id)
         if not runs:
             raise UsageError(f"{a.id}: no production run yet (render first, or pass a file)")
-        out = [o for o in runs[-1]["outputs"] if o.get("profile")]
-        if not out:
+        todo = [{"file": root / o["path"], "label": o["path"], "profile": o["profile"], "frames": o.get("frames", 1), "size": tuple(o["size"]),
+                 "fps": o.get("fps", 0), "durationS": o.get("durationS", 0)} for o in runs[-1]["outputs"] if o.get("profile")]
+        if not todo:
             raise InputError(f"run {runs[-1]['runId']} records no video output")
-        o = out[0]
-        f, profile, frames, size, fps = root / o["path"], o["profile"], o["frames"], tuple(o["size"]), int(o["fps"])
-    if not f.is_file():
-        raise UsageError(f"{f}: no such file (render first, or pass the file)")
-    problems = ffm.check_profile(ffm.probe(fp, f), f, profile, frames, size, fps)  # type: ignore[arg-type]
-    print(("FAIL  " if problems else "PASS  ") + f"technical ({profile}): " + ("; ".join(problems) or "as specified"))
-    fl, _ = flash_reviews(ff, f, fps)
-    print(f"{fl['result']:<16} flashing: {fl['detail']}")
-    return 1 if problems else 0
+    bad = 0
+    for t in todo:
+        f, profile = t["file"], t["profile"]
+        if not f.is_file():
+            raise UsageError(f"{f}: no such file (render first, or pass the file)")
+        if profile in ffm.PROFILES:
+            problems = ffm.check_profile(ffm.probe(fp, f), f, profile, t["frames"], t["size"], int(t["fps"]))
+            gray, _, _ = ffm.gray_frames(ff, f)
+            fl, _ = flash_reviews(gray, int(t["fps"]))
+        else:
+            problems, _ = framecheck.anim_problems(f, profile, t["frames"], t["size"], t.get("durationS", 0))
+            fl = None
+        bad += bool(problems)
+        print(("FAIL  " if problems else "PASS  ") + f"technical ({profile}) {t['label']}: " + ("; ".join(problems) or "as specified"))
+        if fl:
+            print(f"{fl['result']:<16} flashing {t['label']}: {fl['detail']}")
+    return 1 if bad else 0
 
 
 def status(a: argparse.Namespace) -> int:
@@ -649,6 +893,12 @@ def status(a: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def workers_arg(v: str) -> str:
+    if v == "auto" or (v.isdigit() and 1 <= int(v) <= MAX_WORKERS):
+        return v
+    raise argparse.ArgumentTypeError(f"--workers takes auto or 1-{MAX_WORKERS}")
+
+
 def main() -> int:
     for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(errors="replace")
@@ -664,6 +914,7 @@ def main() -> int:
     li = sub.add_parser("lint")
     li.add_argument("id")
     li.add_argument("--concept")
+    li.add_argument("--format", help="one of the piece's formats (default: all)")
     li.add_argument("--static", action="store_true", help="skip the browser part")
     vo = sub.add_parser("voice")
     vo.add_argument("id")
@@ -672,6 +923,7 @@ def main() -> int:
     pv = sub.add_parser("preview")
     pv.add_argument("id")
     pv.add_argument("--concept")
+    pv.add_argument("--format", help="one of the piece's formats (default: all)")
     pv.add_argument("--frames-only", action="store_true")
     pv.add_argument("--no-contrast", action="store_true")
     pv.add_argument("--out")
@@ -681,6 +933,9 @@ def main() -> int:
     rn.add_argument("--no-contrast", action="store_true")
     rn.add_argument("--determinism", type=int, default=0, metavar="K",
                     help="re-render K frames in a fresh browser and compare (same machine)")
+    for p_ in (pv, rn):
+        p_.add_argument("--workers", type=workers_arg, default="auto",
+                        help="browsers rendering in parallel: auto (default) or 1-8; the output does not depend on it")
     ck = sub.add_parser("check")
     ck.add_argument("id")
     ck.add_argument("file", nargs="?")

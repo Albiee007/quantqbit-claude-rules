@@ -9,7 +9,8 @@
 #    storyboard is approved, a full render (H.264 profile, contrast, safe area, flashing,
 #    determinism), the run manifest written before publishing, review acknowledgements bound to
 #    the outputs (kept by a byte-identical re-render), stale storyboards naming what changed,
-#    interrupted publishes, locks.
+#    interrupted publishes, locks; then a two-format loop (a still scene over a picture, GIF, WebP,
+#    posters) rendered by parallel browsers, and a changed picture making its storyboard stale.
 # Needs Python 3.9+ with Pillow; parts 2-3 need Chrome, Chromium or Edge, and part 3 ffmpeg.
 # Missing tools are a SKIP locally and a failure when CI=true.
 # Usage: bash tests/video.test.sh
@@ -94,7 +95,7 @@ check "production is refused without approvals" rc 1
 check "the refusal names the missing approval" has "no owner approval"
 runin "$P" "$VIDEO" preview launch --concept "$CON" --ffmpeg "$FF" --out "$W/draft"
 check "a draft renders without approval" rc 0
-check "the draft has a sheet, a half-size video and the voice files" bash -c "[[ -f '$W/draft/sheet.png' && -f '$W/draft/draft.mp4' && -f '$W/draft/voice/script.md' && -f '$W/draft/voice/voice-prompt.md' && -f '$W/draft/voice/captions.planned.vtt' ]]"
+check "the draft has a sheet, a half-size video and the voice files" bash -c "[[ -f '$W/draft/social-9x16/sheet.png' && -f '$W/draft/social-9x16/draft.mp4' && -f '$W/draft/voice/script.md' && -f '$W/draft/voice/voice-prompt.md' && -f '$W/draft/voice/captions.planned.vtt' ]]"
 check "nothing was published by the draft" test ! -e "$P/brand/video/launch/out"
 check "the voice prompt carries the concept's casting" grep -q "warm, unhurried gardener" "$W/draft/voice/voice-prompt.md"
 check "the captions say they are planned" grep -q "NOTE planned timing" "$W/draft/voice/captions.planned.vtt"
@@ -119,7 +120,7 @@ for c in "PASS             technical" "PASS             contrast" "PASS         
   check "render reports ${c##* } as ${c%% *}" has "$c"
 done
 OUT="$P/brand/video/launch/out"
-check "the video, sheet and voice files are published" bash -c "[[ -f '$OUT/social-9x16/launch.mp4' && -f '$OUT/launch-sheet.png' && -f '$OUT/voice/script.md' && -f '$OUT/voice/cues.json' && -f '$OUT/voice/captions.planned.srt' ]]"
+check "the video, sheet and voice files are published" bash -c "[[ -f '$OUT/social-9x16/launch.mp4' && -f '$OUT/social-9x16/launch-sheet.png' && -f '$OUT/voice/script.md' && -f '$OUT/voice/cues.json' && -f '$OUT/voice/captions.planned.srt' ]]"
 check "the owned-files record names the run" grep -q '"run"' "$OUT/.render-manifest.json"
 RUN="$(ls "$P/brand/runs/video" | head -1)"; RUN="${RUN%.json}"
 check "a run manifest was written" test -n "$RUN"
@@ -147,8 +148,9 @@ check "the owner acknowledges the review items" rc 0
 runin "$P" "$VIDEO" status launch
 check "then it is cleared for use" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'cleared for use' '$W/out'"
 SHA1="$(hc_py -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$OUT/social-9x16/launch.mp4")"
-runin "$P" "$VIDEO" render launch --ffmpeg "$FF"
-check "a re-render with nothing changed works" rc 0
+runin "$P" "$VIDEO" render launch --ffmpeg "$FF" --workers 3
+check "a re-render with nothing changed works (three browsers)" rc 0
+check "the browsers draw the frames where their runs meet identically" has "PASS             workers:social-9x16"
 SHA2="$(hc_py -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$OUT/social-9x16/launch.mp4")"
 if [[ "$SHA1" == "$SHA2" ]]; then
   runin "$P" "$VIDEO" status launch
@@ -156,6 +158,7 @@ if [[ "$SHA1" == "$SHA2" ]]; then
 else
   ok "the re-render is not byte-identical on this machine ($SHA1 vs $SHA2); the acknowledgement rightly does not carry over"
 fi
+[[ "$SHA1" == "$SHA2" ]] && ok "one browser and three browsers encode the same bytes"
 
 cp "$OUT/social-9x16/launch.mp4" "$W/keep.mp4"; rm "$OUT/social-9x16/launch.mp4"
 runin "$P" "$VIDEO" status launch
@@ -184,6 +187,40 @@ cp "$W/video.bak" "$V"
 runin "$P" "$DIR" approve --gate storyboard --piece launch --by Owner --evidence "back to the first headline"
 runin "$P" "$VIDEO" status launch
 check "approving the rendered storyboard again makes the render current" rc 0
+
+echo "== 4. a two-format loop: still scene, GIF, WebP, posters, parallel browsers"
+runin "$P" "$VIDEO" lint card --format social-1x1
+check "lint checks one format's page on request" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'page (social-1x1)' '$W/out' && ! grep -q 'page (og-card)' '$W/out'"
+runin "$P" "$DIR" approve --gate storyboard --piece card --by Owner --evidence "watched both drafts"
+check "the loop's storyboard is approved" rc 0
+runin "$P" "$VIDEO" render card --ffmpeg "$FF" --workers 2
+check "the loop renders in both formats" rc 0
+for c in technical:og-card technical:social-1x1 workers:og-card gif:og-card webp:og-card poster:og-card gif:social-1x1 webp:social-1x1 poster:social-1x1; do
+  check "render reports $c as PASS" has "PASS             $c"
+done
+check "a loop that does not return to its opening picture is a seam review item" has "REVIEW REQUIRED  loop-seam:og-card"
+CO="$P/brand/video/card/out"
+check "each format has its video, GIF, WebP, poster and sheet" bash -c "for f in og-card social-1x1; do for x in card.mp4 card.gif card.webp card-poster.png card-sheet.png; do [[ -f '$CO/'\$f/\$x ]] || exit 1; done; done"
+CRUN="$(ls -t "$P/brand/runs/video" | head -1)"
+hc_py -c "
+import json, sys
+m = json.load(open(sys.argv[1], encoding='utf-8'))
+by = {o['path'].split('/out/')[1]: o for o in m['outputs']}
+assert by['og-card/card.gif']['size'] == [480, 252] and by['og-card/card.gif']['loop'] == 0, by['og-card/card.gif']
+assert by['social-1x1/card.mp4']['frames'] == m['piece']['frames'] and by['social-1x1/card.mp4']['format'] == 'social-1x1'
+assert m['piece']['formats'] == ['og-card', 'social-1x1'] and m['engine']['workers'] == 2
+assert any(a['path'] == 'brand/art/garden.png' for a in m['inputs']['assets'])
+assert any(r['id'] == 'loop-seam:og-card' for r in m['reviews'])
+" "$P/brand/runs/video/$CRUN" > "$W/out" 2>&1
+check "the manifest records each format's outputs, the workers and the picture it used" test $? -eq 0
+runin "$P" "$VIDEO" check card --ffmpeg "$FF"
+check "check re-verifies every published video, loop and poster" bash -c "[[ \$(cat '$W/rc') == 0 ]] && [[ \$(grep -c '^PASS  technical' '$W/out') == 8 ]]"
+cp "$P/brand/art/garden.png" "$W/garden.bak"; printf 'x' >> "$P/brand/art/garden.png"
+runin "$P" "$DIR" status
+check "changing the picture's bytes makes the loop's storyboard stale, naming it" has "Gate 3 storyboard card: NOT MET.*an image it shows"
+check "and leaves the launch piece approved" has "Gate 3 storyboard launch: approved"
+cp "$W/garden.bak" "$P/brand/art/garden.png"
+runin "$P" "$DIR" status; check "restoring the picture restores the approval" has "Gate 3 storyboard card: approved"
 
 check "no __pycache__ was left in harness/" test -z "$(find "$ROOT/harness" -name __pycache__ -print -quit)"
 echo "video tests: $pass passed, $fail failed"

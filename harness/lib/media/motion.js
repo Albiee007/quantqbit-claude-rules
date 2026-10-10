@@ -6,8 +6,11 @@
    (timeline.js seeks them); nothing reads a clock or schedules a timer. Times arrive from Python
    in whole frames and are turned into milliseconds here: ms(n) = n * 1000 / fps.
 
-   VIDEO = { id, width, height, fps, frames, safe: {top, right, bottom, left}, draft, assets: {logo?, motif?},
-             scenes: [{ id, template, start, frames, overlap, enter, transition, layout, background, copy }] } */
+   VIDEO = { id, width, height, fps, frames, safe: {top, right, bottom, left}, typeScale, draft, assets: {logo?},
+             scenes: [{ id, template, start, frames, overlap, enter, transition, layout, background, copy,
+                        media?: {src, fit, motion, focus} }] }
+   Type is sized from the format's short side (times typeScale), so a 9:16, 1:1 or 16:9 frame of
+   the same piece reads alike; captions never run wider than about 1.3 short sides. */
 (function () {
   'use strict';
   const V = window.VIDEO;
@@ -111,11 +114,14 @@
   /* ---------------- templates: each returns the text parts to animate, in reading order */
   const W = V.width, H = V.height, S = V.safe;
   const innerW = W - S.left - S.right;
-  const headPx = () => W * AD.caption.headScale;
+  const short = Math.min(W, H) * (V.typeScale || 1);
+  const capW = Math.min(innerW, short * 1.3);
+  const headPx = () => short * AD.caption.headScale;
 
   function placeCaption(parent, copy, bgName, layout, px) {
     const align = layout === 'type-center' ? 'center' : AD.caption.align;
-    const box = { left: S.left, width: innerW, top: 0, headPx: px, align, bgName };
+    const left = align === 'center' ? S.left + (innerW - capW) / 2 : S.left;
+    const box = { left, width: capW, top: 0, headPx: px, align, bgName };
     const cap = ArtDir.caption(parent, copy, box);
     const room = H - S.top - S.bottom;
     let top;
@@ -136,7 +142,8 @@
     const el = document.createElement('div');
     el.className = 'cap';
     el.dataset.bg = bgName;
-    el.style.cssText = `position:absolute;left:${S.left}px;width:${innerW}px;top:${top}px;text-align:${align === 'center' ? 'center' : 'start'};`;
+    const left = align === 'center' ? S.left + (innerW - capW) / 2 : S.left;
+    el.style.cssText = `position:absolute;left:${left}px;width:${capW}px;top:${top}px;text-align:${align === 'center' ? 'center' : 'start'};`;
     for (const line of lines) {
       const p = document.createElement('p');
       p.style.cssText = `margin:0 0 ${px * 0.5}px;${ArtDir.textCSS(AD.caption.sub, px)}color:${b.text.sub}`;
@@ -172,7 +179,8 @@
       cap.className = 'cap';
       cap.dataset.bg = sc.background;
       const align = sc.layout === 'type-center' ? 'center' : AD.caption.align;
-      cap.style.cssText = `position:absolute;left:${S.left}px;width:${innerW}px;top:0;text-align:${align === 'center' ? 'center' : 'start'};`;
+      const left = align === 'center' ? S.left + (innerW - capW) / 2 : S.left;
+      cap.style.cssText = `position:absolute;left:${left}px;width:${capW}px;top:0;text-align:${align === 'center' ? 'center' : 'start'};`;
       const sub = px * AD.caption.subRatio;
       cap.innerHTML =
         (sc.copy.kicker && AD.caption.kicker ? `<div class="kicker" style="${ArtDir.textCSS(AD.caption.kicker, sub * 0.86)}color:${b.text.accent};margin:0 0 ${sub * 0.6}px">${ArtDir.copy(sc.copy.kicker)}</div>` : '') +
@@ -203,9 +211,36 @@
         parts.push(img);
       }
       const copy = { kicker: sc.copy.kicker, head: sc.copy.head, sub: sc.copy.url || sc.copy.sub };
-      const cap = ArtDir.caption(el, copy, { left: S.left, width: innerW, top: 0, headPx: px * 0.9, align: 'center', bgName: sc.background });
+      const cap = ArtDir.caption(el, copy, { left: S.left + (innerW - capW) / 2, width: capW, top: 0, headPx: px * 0.9, align: 'center', bgName: sc.background });
       cap.style.top = Math.min(H - S.bottom - cap.offsetHeight, Math.max(logoBottom + px * 0.8, S.top + (H - S.top - S.bottom - cap.offsetHeight) / 2)) + 'px';
       return parts.concat(capParts(cap));
+    },
+    /* A picture filling the frame (cover) or framed on the scene background (contain), with an
+       optional slow linear move over the whole scene, and an optional caption on top. */
+    still(el, sc) {
+      const m = sc.media;
+      const [fy0, fx0] = [(m.focus || [0.5, 0.5])[1], (m.focus || [0.5, 0.5])[0]];
+      // a pan needs picture beyond both edges: keep its zoom origin near the middle
+      const fx = m.motion && m.motion.startsWith('pan-') ? Math.min(0.625, Math.max(0.375, fx0)) : fx0;
+      const fy = fy0;
+      const img = document.createElement('img');
+      img.className = 'still-image';
+      img.alt = '';
+      img.src = m.src;
+      img.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${H}px;object-fit:${m.fit};` +
+        `object-position:${fx * 100}% ${fy * 100}%;transform-origin:${fx * 100}% ${fy * 100}%;`;
+      el.appendChild(img);
+      const z = 1.08, dx = W * 0.03;
+      const MOVES = {
+        'push-in': [{ transform: 'scale(1)' }, { transform: `scale(${z})` }],
+        'pull-out': [{ transform: `scale(${z})` }, { transform: 'scale(1)' }],
+        'pan-left': [{ transform: `translateX(${dx}px) scale(${z})` }, { transform: `translateX(${-dx}px) scale(${z})` }],
+        'pan-right': [{ transform: `translateX(${-dx}px) scale(${z})` }, { transform: `translateX(${dx}px) scale(${z})` }],
+      };
+      if (MOVES[m.motion]) anim(img, MOVES[m.motion], ms(sc.start), ms(sc.frames), 'linear');
+      const c = sc.copy || {};
+      if (!c.head && !c.sub && !c.kicker) return [];
+      return capParts(placeCaption(el, c, sc.background, sc.layout, headPx()));
     },
   };
 

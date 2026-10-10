@@ -37,7 +37,8 @@ PROFILES = {
     },
     "h264-draft": {
         "label": "H.264 draft (previews only)",
-        "args": ["-vf", BT709, "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-profile:v", "high",
+        # half size can be odd (1200x630 -> 600x315); 4:2:0 needs even sides
+        "args": ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2," + BT709, "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-profile:v", "high",
                  "-pix_fmt", "yuv420p", "-movflags", "+faststart"],
         "suffix": ".mp4",
     },
@@ -128,6 +129,20 @@ class Encoder:
             raise OperationalError(f"ffmpeg stopped while encoding {self.dest.name}: {self._stderr()}") from None
         self.frames += 1
 
+    def feed(self, path: Path, frames: int) -> None:
+        """Frames spooled to a file by another worker (concatenated images), in order."""
+        with open(path, "rb") as f:
+            while True:
+                chunk = f.read(1 << 20)
+                if not chunk:
+                    break
+                assert self.proc and self.proc.stdin
+                try:
+                    self.proc.stdin.write(chunk)
+                except (BrokenPipeError, OSError):
+                    raise OperationalError(f"ffmpeg stopped while encoding {self.dest.name}: {self._stderr()}") from None
+        self.frames += frames
+
     def _stderr(self) -> str:
         if self._err is None:
             return ""
@@ -201,6 +216,35 @@ def check_profile(info: dict, path: Path, profile: str, frames: int, size: tuple
     if str(got) != str(frames):
         out.append(f"{got} frames, want {frames}")
     return out
+
+
+# Animated images and stills made from a format's master video (they have no encoder profile of
+# their own; framecheck.anim_problems checks them).
+ANIMATED = {
+    "gif": {"label": "GIF, one 256-colour palette for the file, loops forever", "suffix": ".gif"},
+    "webp-anim": {"label": "animated WebP (lossy, quality 80), loops forever", "suffix": ".webp"},
+    "poster": {"label": "PNG still frame", "suffix": ".png"},
+}
+
+
+def _every(step: int, size: tuple[int, int]) -> str:
+    """Every step-th frame of the master, scaled: a loop keeps the master's frames, never new ones."""
+    return f"select='not(mod(n,{step}))',scale={size[0]}:{size[1]}:flags=lanczos"
+
+
+def make_gif(ff: str, master: Path, dest: Path, step: int, rate: int, size: tuple[int, int]) -> None:
+    vf = (f"{_every(step, size)},setpts=N/({rate}*TB),split[a][b];[a]palettegen=max_colors=256:stats_mode=full[p];"
+          "[b][p]paletteuse=dither=sierra2_4a")
+    _run([ff, "-v", "error", "-y", "-i", str(master), "-vf", vf, "-r", str(rate), "-loop", "0", str(dest)],
+         f"GIF {Path(dest).name}")
+
+
+def rgb_frames(ff: str, master: Path, step: int, size: tuple[int, int]) -> list[bytes]:
+    """Every step-th frame of the master as raw RGB at size (for encoders outside ffmpeg)."""
+    r = _run([ff, "-v", "error", "-i", str(master), "-vf", _every(step, size), "-fps_mode", "passthrough",
+              "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], f"decode {Path(master).name}")
+    n = size[0] * size[1] * 3
+    return [r.stdout[i:i + n] for i in range(0, len(r.stdout) - n + 1, n)]
 
 
 def gray_frames(ff: str, path: Path, width: int = 64) -> tuple[list[bytes], int, int]:

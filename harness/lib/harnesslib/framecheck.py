@@ -63,3 +63,53 @@ def pixel_hash(png_bytes: bytes) -> str:
     from PIL import Image
     with Image.open(io.BytesIO(png_bytes)) as im:
         return hashlib.sha256(im.convert("RGB").tobytes()).hexdigest()
+
+
+def _mad(a: bytes, b: bytes) -> float:
+    return sum(abs(x - y) for x, y in zip(a, b)) / (len(a) or 1)
+
+
+def seam_signal(frames: list[bytes]) -> tuple[float, float]:
+    """(jump at the loop point, threshold) on small grey frames: the change from the last frame back
+    to the first, against the piece's own larger frame-to-frame changes. A jump above the threshold
+    is a visible seam when the loop repeats (a signal: a deliberate cut can be fine)."""
+    if len(frames) < 3:
+        return 0.0, 0.0
+    steps = sorted(_mad(frames[i - 1], frames[i]) for i in range(1, len(frames)))
+    p95 = steps[min(len(steps) - 1, int(len(steps) * 0.95))]
+    return _mad(frames[-1], frames[0]), max(3.0, 2 * p95)
+
+
+def anim_problems(path, profile: str, frames: int, size: tuple[int, int], duration_s: float) -> tuple[list[str], dict]:
+    """Problems with an animated GIF or WebP, or a poster PNG, against what was asked for (empty =
+    PASS), and what was found {frames, size, loop, durationS}."""
+    from PIL import Image
+    want = {"gif": "GIF", "webp-anim": "WEBP", "poster": "PNG"}[profile]
+    try:
+        with Image.open(path) as im:
+            fmt, got_size = im.format, im.size
+            n = getattr(im, "n_frames", 1)
+            loop = im.info.get("loop")
+            total = 0
+            if profile != "poster":
+                for i in range(n):
+                    im.seek(i)
+                    im.load()  # WebP sets a frame's duration only once it is decoded
+                    total += im.info.get("duration", 0)
+    except (OSError, ValueError) as e:
+        return [f"unreadable: {e}"], {}
+    found = {"frames": n, "size": list(got_size), "loop": loop, "durationS": round(total / 1000, 3)}
+    out = []
+    if fmt != want:
+        out.append(f"format {fmt}, want {want}")
+    if tuple(got_size) != tuple(size):
+        out.append(f"{got_size[0]}x{got_size[1]}, want {size[0]}x{size[1]}")
+    if profile == "poster":
+        return out, found
+    if not 0 < n <= frames:  # encoders may merge identical frames into one longer frame
+        out.append(f"{n} frames, want at most {frames}")
+    if loop != 0:
+        out.append(f"loop count {loop}, want 0 (forever)")
+    if abs(total / 1000 - duration_s) > max(0.1, duration_s * 0.02):
+        out.append(f"plays {total / 1000:.2f} s, want {duration_s:.2f} s")
+    return out, found

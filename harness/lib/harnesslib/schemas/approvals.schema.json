@@ -35,7 +35,8 @@
             "properties": {
               "visual": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
               "timing": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-              "script": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              "script": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "media": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "the bytes of the images the scenes show" }
             }
           },
           "run": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$", "description": "review: the run whose outputs the owner looked at" },

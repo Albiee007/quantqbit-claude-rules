@@ -24,7 +24,8 @@
         "renderer": { "enum": ["ours", "hyperframes"] },
         "capture": { "enum": ["screenshot", "beginframe"] },
         "ffmpeg": { "type": "string", "maxLength": 200 },
-        "hyperframes": { "type": "string", "maxLength": 40 }
+        "hyperframes": { "type": "string", "maxLength": 40 },
+        "workers": { "type": "integer", "minimum": 1, "maximum": 16 }
       }
     },
     "inputs": {
@@ -84,7 +85,9 @@
           "frames": { "type": "integer", "minimum": 0 },
           "codec": { "type": "string", "maxLength": 40 },
           "pixFmt": { "type": "string", "maxLength": 40 },
-          "audio": { "type": "boolean" }
+          "audio": { "type": "boolean" },
+          "format": { "type": "string", "maxLength": 40 },
+          "loop": { "type": "integer", "minimum": 0, "description": "animated image repeat count (0 = forever)" }
         }
       }
     },

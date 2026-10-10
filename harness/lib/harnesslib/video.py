@@ -33,14 +33,34 @@ PIECES = "brand/video"
 MEDIA = Path(__file__).resolve().parent.parent / "media"
 PIECE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 
-# Safe insets keep text clear of the platforms' own buttons and captions. They are a heuristic
-# shared by Reels, Shorts and TikTok (measured from their UI in 2026); "strict" leaves more room.
+# Safe insets keep text clear of the platforms' own buttons and captions. They are heuristics
+# (measured from the platforms' UI in 2026); "strict" leaves more room. typeScale sizes the type
+# against the format's short side (a link card is seen small, so its type is larger).
 FORMATS: dict[str, dict] = {
-    "social-9x16": {"size": (1080, 1920), "min": 3.0, "max": 90.0, "profile": "h264-web",
+    "social-9x16": {"size": (1080, 1920), "min": 3.0, "max": 90.0, "profile": "h264-web", "typeScale": 1.0,
                     "label": "9:16 vertical (Reels, Shorts, TikTok)",
                     "safe": {"standard": {"top": 220, "right": 120, "bottom": 400, "left": 90},
                              "strict": {"top": 260, "right": 140, "bottom": 480, "left": 120}}},
+    "social-4x5": {"size": (1080, 1350), "min": 3.0, "max": 60.0, "profile": "h264-web", "typeScale": 1.0,
+                   "label": "4:5 portrait feed (Instagram, Facebook, LinkedIn)",
+                   "safe": {"standard": {"top": 80, "right": 80, "bottom": 140, "left": 80},
+                            "strict": {"top": 110, "right": 100, "bottom": 190, "left": 100}}},
+    "social-1x1": {"size": (1080, 1080), "min": 3.0, "max": 60.0, "profile": "h264-web", "typeScale": 1.0,
+                   "label": "1:1 square feed",
+                   "safe": {"standard": {"top": 80, "right": 80, "bottom": 120, "left": 80},
+                            "strict": {"top": 100, "right": 100, "bottom": 160, "left": 100}}},
+    "wide-16x9": {"size": (1920, 1080), "min": 3.0, "max": 600.0, "profile": "h264-web", "typeScale": 1.0,
+                  "label": "16:9 landscape (YouTube, web, presentations)",
+                  "safe": {"standard": {"top": 96, "right": 160, "bottom": 150, "left": 160},
+                           "strict": {"top": 108, "right": 192, "bottom": 200, "left": 192}}},
+    "og-card": {"size": (1200, 630), "min": 1.0, "max": 15.0, "profile": "h264-web", "typeScale": 1.3,
+                "label": "1.91:1 link card and short loop (Open Graph, email, chat)",
+                "safe": {"standard": {"top": 48, "right": 64, "bottom": 48, "left": 64},
+                         "strict": {"top": 64, "right": 80, "bottom": 64, "left": 80}}},
 }
+LOOP_MAX_S = 15.0  # GIF and animated WebP outputs: short loops only
+LOOP_DEFAULT = {"outputs": ["gif"], "width": 600, "fps": 15, "maxBytes": 5_000_000}
+IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".svg")
 PLACEHOLDER = re.compile(r"\bREPLACE\b|\{\{[^}]*\}\}|\bTODO\b|lorem ipsum", re.I)
 
 
@@ -75,6 +95,58 @@ def list_pieces(root: Path) -> list[str]:
     return sorted(d.name for d in base.iterdir() if (d / "video.json").is_file()) if base.is_dir() else []
 
 
+def scene_for(sc: dict, fmt: str) -> dict:
+    """A scene as one format shows it: byFormat may change its layout, replace copy fields and
+    hide some. Never timing: every format shares one timeline (and one voice-over script)."""
+    o = (sc.get("byFormat") or {}).get(fmt)
+    if not o:
+        return sc
+    out = dict(sc)
+    if "layout" in o:
+        out["layout"] = o["layout"]
+    copy = dict(sc.get("copy") or {})
+    copy.update(o.get("copy") or {})
+    for k in o.get("hide") or []:
+        copy.pop(k, None)
+    out["copy"] = copy
+    return out
+
+
+def _own_copy(sc: dict, fmt: str) -> bool:
+    o = (sc.get("byFormat") or {}).get(fmt) or {}
+    return bool(o.get("copy") or o.get("hide"))
+
+
+def loop_spec(piece: dict) -> dict | None:
+    """The animated loop outputs (GIF, WebP) a piece asks for; a "loop" piece gets a GIF by default."""
+    if "loop" not in piece and piece["kind"] != "loop":
+        return None
+    # default rate: the largest divisor of the piece's fps up to 15 (30 -> 15, 24 -> 12, 25 -> 5)
+    rate = max(x for x in range(5, 16) if piece["fps"] % x == 0)
+    return {**LOOP_DEFAULT, "fps": rate, **(piece.get("loop") or {})}
+
+
+def media_files(root: Path | None, piece: dict) -> tuple[dict[str, str], list[str]]:
+    """{project-relative path: sha256} of the images the scenes show, and the problems finding them.
+    The bytes are part of the storyboard approval: a changed image needs a new look."""
+    out: dict[str, str] = {}
+    errors: list[str] = []
+    for sc in piece["scenes"]:
+        rel = (sc.get("media") or {}).get("image")
+        if not rel or rel in out:
+            continue
+        if not rel.lower().endswith(IMAGE_SUFFIXES):
+            errors.append(f"scene {sc['id']}: {rel} is not an image ({', '.join(IMAGE_SUFFIXES)})")
+            continue
+        if root is None:
+            continue
+        try:
+            out[rel] = sha256_file(resolve_inside(root, rel, f"scene {sc['id']} image", must_exist=True))
+        except InputError as e:
+            errors.append(str(e))
+    return out, errors
+
+
 # ------------------------------------------------------------------ the frame plan
 
 @dataclass
@@ -94,11 +166,15 @@ class ScenePlan:
     copy: dict
     vo: str
     read_seconds: float
+    media: dict | None = None
 
     def page(self) -> dict:
-        return {"id": self.id, "template": self.template, "start": self.start, "frames": self.frames,
-                "overlap": self.overlap, "transition": self.transition, "enter": self.enter,
-                "layout": self.layout, "background": self.background, "copy": self.copy}
+        out = {"id": self.id, "template": self.template, "start": self.start, "frames": self.frames,
+               "overlap": self.overlap, "transition": self.transition, "enter": self.enter,
+               "layout": self.layout, "background": self.background, "copy": self.copy}
+        if self.media:
+            out["media"] = self.media
+        return out
 
 
 @dataclass
@@ -137,6 +213,9 @@ def _drawn(template: str, copy: dict, ad: dict) -> tuple[list[str], int]:
         logo = bool(ad.get("logo")) and ad["endCard"]["logo"]
         texts = [kicker, copy.get("head"), tail]
         n = int(logo) + bool(kicker) + head_parts(copy.get("head")) + bool(tail)
+    elif template == "still":  # the image arrives with the scene; only its caption animates in
+        texts = [kicker, copy.get("head"), copy.get("sub")]
+        n = bool(kicker) + head_parts(copy.get("head")) + bool(copy.get("sub"))
     else:
         points = list(copy.get("points") or []) if template == "feature" else []
         texts = [kicker, copy.get("head"), copy.get("sub")] + points
@@ -175,10 +254,14 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
         (out.errors if production else out.warnings).append(msg)
         return not production
 
+    for sc in piece["scenes"]:
+        for other in sorted(set(sc.get("byFormat") or {}) - set(piece["formats"])):
+            out.warnings.append(f"scene {sc['id']}: byFormat.{other} is not one of the piece's formats; it is ignored")
     text_in_ms = 0 if m["textIn"] == "none" else m["durations"]["base"]
     text_out = 0 if m["textOut"] == "none" else ms_frames(m["durations"]["fast"])
     raw = []
-    for i, sc in enumerate(piece["scenes"]):
+    for i, authored in enumerate(piece["scenes"]):
+        sc = scene_for(authored, fmt)
         sid = sc["id"]
         for key in ("duration", "hold"):
             if key in sc and abs(frames_of(sc[key], fps) / fps - sc[key]) > 0.001:
@@ -201,10 +284,15 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
         if bgname not in ad["backgrounds"]:
             out.errors.append(f"scene {sid}: background {bgname!r} is not in the concept ({', '.join(ad['backgrounds'])})")
         copy = sc.get("copy") or {}
-        need = {"title": ("head",), "feature": ("head",), "stat": ("value",), "end-card": ("head",)}[sc["template"]]
+        need = {"title": ("head",), "feature": ("head",), "stat": ("value",), "end-card": ("head",), "still": ()}[sc["template"]]
         for k in need:
             if not copy.get(k):
-                out.errors.append(f"scene {sid}: a {sc['template']} scene needs copy.{k}")
+                out.errors.append(f"scene {sid}: a {sc['template']} scene needs copy.{k}" +
+                                  (f" (hidden in {fmt} by byFormat)" if k in (authored.get("copy") or {}) else ""))
+        if sc["template"] == "still" and not (sc.get("media") or {}).get("image"):
+            out.errors.append(f"scene {sid}: a still scene needs media.image (a picture inside the project)")
+        if sc.get("media") and sc["template"] != "still":
+            out.warnings.append(f"scene {sid}: media is only shown by still scenes; it is ignored here")
         for k, v in list(copy.items()) + [("vo", sc.get("vo", ""))]:
             for text in (v if isinstance(v, list) else [v]):
                 if isinstance(text, str) and PLACEHOLDER.search(text):
@@ -212,9 +300,9 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
         parts = _text_parts(sc["template"], copy, ad)
         stagger = m["stagger"]["perItemMs"] * max(0, min(parts, m["stagger"]["maxItems"]) - 1)
         enter = overlap + (ms_frames(text_in_ms + stagger) if parts and text_in_ms else 0)
-        raw.append((sc, sid, n, tr, overlap, enter, layout, bgname, copy))
+        raw.append((sc, sid, n, tr, overlap, enter, layout, bgname, copy, _own_copy(authored, fmt)))
     start = 0
-    for i, (sc, sid, n, tr, overlap, enter, layout, bgname, copy) in enumerate(raw):
+    for i, (sc, sid, n, tr, overlap, enter, layout, bgname, copy, own) in enumerate(raw):
         if i > 0:
             start = start + raw[i - 1][2] - overlap
         if overlap >= n:
@@ -235,34 +323,78 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
         on_screen = _on_screen(sc["template"], copy, ad)
         read = words(on_screen) / pace["readingWpm"] * 60 + 0.5 if on_screen else 0.0
         if usable > 0 and read > usable / fps + 1e-9:
-            out.reviews.append({"id": f"reading:{sid}", "check": "reading time", "kind": "content",
-                                "note": f"scene {sid}: {words(on_screen)} words need about {read:.1f} s at "
+            out.reviews.append({"id": f"reading:{sid}" + (f":{fmt}" if own else ""), "check": "reading time", "kind": "content",
+                                "note": f"scene {sid}" + (f" ({fmt})" if own else "") + f": {words(on_screen)} words need about {read:.1f} s at "
                                         f"{pace['readingWpm']:g} wpm; the still part lasts {usable / fps:.1f} s"})
         probe = start + hold_start + max(usable, 1) // 2
+        media = None
+        if sc["template"] == "still" and sc.get("media"):
+            md = sc["media"]
+            media = {"image": md.get("image"), "fit": md.get("fit", "cover"), "motion": md.get("motion", "none"),
+                     "focus": md.get("focus", [0.5, 0.5])}
+            if md.get("image") and not md["image"].startswith("brand/") and not md.get("license"):
+                out.reviews.append({"id": f"provenance:{sid}", "check": "image provenance", "kind": "suitability",
+                                    "note": f"scene {sid} shows {md['image']} with no media.license: say where it comes from "
+                                            "and that the project may use it (stock, generated or third-party pictures)"})
         out.scenes.append(ScenePlan(sid, sc["template"], start, n, overlap, tr, enter, hold_start, hold_end,
-                                    probe, layout, bgname, copy, sc.get("vo", ""), read))
+                                    probe, layout, bgname, copy, sc.get("vo", ""), read, media))
     out.frames = (out.scenes[-1].start + out.scenes[-1].frames) if out.scenes else 0
     f = FORMATS[fmt]
     if not f["min"] <= out.seconds <= f["max"]:
         out.errors.append(f"{fmt}: the piece lasts {out.seconds:.2f} s; this format takes {f['min']:g}-{f['max']:g} s")
+    lp = loop_spec(piece)
+    if lp:
+        if lp["outputs"] and out.seconds > LOOP_MAX_S:
+            out.errors.append(f"the piece lasts {out.seconds:.2f} s; GIF and WebP loops take up to {LOOP_MAX_S:g} s "
+                              "(drop loop.outputs or shorten it)")
+        if fps % lp["fps"]:
+            out.errors.append(f"loop.fps {lp['fps']} does not divide the piece's {fps} fps (the loop keeps every "
+                              f"n-th frame); use one of {', '.join(str(x) for x in range(5, 31) if fps % x == 0)}")
+        elif lp["outputs"] and out.frames % (fps // lp["fps"]):
+            step = fps // lp["fps"]
+            short = out.frames % step
+            out.errors.append(f"the piece lasts {out.frames} frames, not a whole number of loop frames ({step} each at "
+                              f"{lp['fps']} fps): the loop's last frame would hold too long. Lengthen a scene by "
+                              f"{step - short} frame(s) or shorten one by {short}")
+    poster = (piece.get("poster") or {}).get("scene")
+    if poster and poster not in [s.id for s in out.scenes]:
+        out.errors.append(f"poster.scene {poster!r} is not a scene of the piece")
     return out
 
 
 # ------------------------------------------------------------------ hashes and gates
 
-def _parts(piece: dict) -> dict:
-    visual = {"kind": piece["kind"], "formats": piece["formats"],
-              "scenes": [{k: s.get(k) for k in ("id", "template", "layout", "background", "copy")} for s in piece["scenes"]]}
+def _parts(piece: dict, media: dict[str, str] | None = None) -> dict:
+    """Hashes of what the owner approves, in parts so a stale record can say what changed. Keys
+    added after 1.8 (byFormat, media, loop, poster) enter only when a piece uses them, so a 1.8
+    approval of a piece without them stays valid."""
+    def scene_visual(s: dict) -> dict:
+        out = {k: s.get(k) for k in ("id", "template", "layout", "background", "copy")}
+        out.update({k: s[k] for k in ("byFormat", "media") if k in s})
+        return out
+    visual = {"kind": piece["kind"], "formats": piece["formats"], "scenes": [scene_visual(s) for s in piece["scenes"]]}
+    visual.update({k: piece[k] for k in ("loop", "poster") if k in piece})
     timing = {"fps": piece["fps"], "scenes": [{k: s.get(k) for k in ("id", "duration", "hold", "transitionIn")}
                                               for s in piece["scenes"]]}
     script = {"scenes": [{"id": s["id"], "vo": s.get("vo")} for s in piece["scenes"]], "voice": piece.get("voice")}
-    return {k: sha256_text(canonical(v)) for k, v in (("visual", visual), ("timing", timing), ("script", script))}
+    out = {k: sha256_text(canonical(v)) for k, v in (("visual", visual), ("timing", timing), ("script", script))}
+    if media:
+        out["media"] = sha256_text(canonical(sorted(media.items())))
+    return out
+
+
+def piece_media(p: dl.Project, piece: dict) -> dict[str, str]:
+    """media_files for hashing: a missing or unreadable image hashes as missing (the plan reports it)."""
+    found, _ = media_files(p.root, piece)
+    rels = [(sc.get("media") or {}).get("image") for sc in piece["scenes"]]
+    return {r: found.get(r, "missing") for r in rels if r}
 
 
 def piece_hashes(p: dl.Project, rel: str, piece: dict, g: dl.Gate) -> tuple[tuple[str, str], dict]:
     """((content, inputs), parts) for the storyboard gate. Inputs: the video concept's approval
-    hashes (which cover every resolved colour, type and motion value, the motif and the logo)."""
-    parts = _parts(piece)
+    hashes (which cover every resolved colour, type and motion value, the motif and the logo).
+    The content covers the piece and the bytes of every image it shows."""
+    parts = _parts(piece, piece_media(p, piece))
     content = sha256_text(canonical({"path": rel, "parts": parts}))
     inputs = sha256_text(canonical({"concept": g.concept_rel, "hashes": list(g.concept or ())}))
     return (content, inputs), parts
@@ -293,7 +425,8 @@ def gate_piece(p: dl.Project, pid: str) -> PieceGate:
     elif (rec["hash"], rec["inputs"]) != h:
         if rec["hash"] != h[0]:
             changed = [k for k, v in parts.items() if (rec.get("parts") or {}).get(k) != v] or ["the piece"]
-            what = " and ".join({"visual": "on-screen content", "timing": "timing", "script": "the voice-over script"}.get(c, c)
+            what = " and ".join({"visual": "on-screen content", "timing": "timing", "script": "the voice-over script",
+                                 "media": "an image it shows"}.get(c, c)
                                 for c in changed)
         else:
             what = "the video concept or a value it resolves"
@@ -309,10 +442,13 @@ def approve_storyboard(p: dl.Project, pid: str, by: str, evidence: str, recorded
         raise dl.GateError("approve the direction and the video concept first: " + "; ".join(g.problems))
     rel, piece = load_piece(p, pid)
     ad = dl.resolve_family(p, "video", dl.load_concept(p, g.concept_rel))  # type: ignore[arg-type]
-    pl = plan(p, pid, piece, ad, piece["formats"][0], production=True)
-    _, cue_errors, _ = cues(pl, piece, ad)
-    if pl.errors or cue_errors:
-        raise InputError(f"{rel} has problems to fix before it can be approved:\n  - " + "\n  - ".join(pl.errors + cue_errors))
+    _, errors = media_files(p.root, piece)
+    plans = [plan(p, pid, piece, ad, fmt, production=True) for fmt in piece["formats"]]
+    for pl in plans:
+        errors += [e for e in pl.errors if e not in errors]
+    _, cue_errors, _ = cues(plans[0], piece, ad)
+    if errors or cue_errors:
+        raise InputError(f"{rel} has problems to fix before it can be approved:\n  - " + "\n  - ".join(errors + cue_errors))
     h, parts = piece_hashes(p, rel, piece, g)
     return dl.record_approval(p, "storyboard", rel, h, by, evidence, recorded_by, family="video", extra={"parts": parts})
 
@@ -564,9 +700,11 @@ class Build:
     assets: list[dict]  # {path (project-relative), sha256, role}
 
 
-def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, dest: Path, draft: bool) -> Build:
-    """The composition for one format in dest: the runtime, fonts, logo and motif copied in (a
-    snapshot: the render reads only these copies), verified against the hashes the gates used."""
+def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, dest: Path, draft: bool,
+            media: dict[str, str] | None = None) -> Build:
+    """The composition for one format in dest: the runtime, fonts, logo, motif and scene images
+    copied in (a snapshot: the render reads only these copies), verified against the hashes the
+    gates used (media: {image path: sha256} as hashed for the storyboard)."""
     if dest.exists():
         shutil.rmtree(dest)
     (dest / "fonts").mkdir(parents=True)
@@ -605,9 +743,26 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
         files[role] = f"assets/{role}{src.suffix}"
     if "motif" in files:
         page_ad["motif"] = dict(ad["motif"], src=files["motif"])
+    scenes = [s.page() for s in pl.scenes]
+    copied: dict[str, str] = {}
+    for sc in scenes:
+        rel = (sc.get("media") or {}).get("image")
+        if not rel:
+            continue
+        if rel not in copied:
+            src = resolve_inside(p.root, rel, f"scene {sc['id']} image", must_exist=True)
+            name = f"assets/media-{len(copied) + 1}{src.suffix.lower()}"
+            shutil.copyfile(src, dest / name)
+            sha = sha256_file(dest / name)
+            if media is not None and media.get(rel) != sha:
+                raise InputError(f"{rel} changed since the piece was checked; run it again")
+            assets.append({"path": rel, "sha256": sha, "role": "media"})
+            copied[rel] = name
+        sc["media"] = dict(sc["media"], src=copied[rel])
     safe = FORMATS[fmt]["safe"][ad.get("safeAreas", "standard")]
     data = {"id": pid, "width": w, "height": h, "fps": pl.fps, "frames": pl.frames, "safe": safe, "draft": draft,
-            "assets": {k: v for k, v in files.items() if k == "logo"}, "scenes": [s.page() for s in pl.scenes]}
+            "typeScale": FORMATS[fmt]["typeScale"], "assets": {k: v for k, v in files.items() if k == "logo"},
+            "scenes": scenes}
     (dest / "direction.generated.js").write_text("window.AD = " + script_json(page_ad) + ";\n", encoding="utf-8")
     (dest / "video.generated.js").write_text("window.VIDEO = " + script_json(data) + ";\n", encoding="utf-8")
     return Build(dest / "video.html", assets)

@@ -45,6 +45,21 @@ Pick two or three per concept, with one default. A piece may use only those; any
 
 Stagger is per part: kicker, head, sub, then each point. It stops growing after `maxItems`. `textOut` (optional) runs the reverse just before the next scene.
 
+## Still scenes
+
+A `still` scene shows a picture from the project: a story-art still, a canvas export, a screenshot. The concept opts in by listing `still` in `sceneTemplates`.
+
+| `media.motion` | What it does | Use for |
+|---|---|---|
+| `none` | the picture holds | type-led looks, busy pictures |
+| `push-in` | a slow zoom to 108 % towards `focus` | arrivals, detail |
+| `pull-out` | the reverse | reveals, context |
+| `pan-left`, `pan-right` | a slow sideways drift at 108 % | wide pictures, landscapes |
+
+- The move is linear and spans the whole scene, so it never stops on screen.
+- `fit: cover` fills the frame and crops around `focus`; `contain` frames the picture on the scene's background.
+- A caption over a picture is checked against the pixels behind it. Choose the picture and the scene background so the text keeps its contrast.
+
 ## Pace and reading
 
 - `pace.readingWpm` is the on-screen reading speed the concept assumes; about 180–220 for short social copy.

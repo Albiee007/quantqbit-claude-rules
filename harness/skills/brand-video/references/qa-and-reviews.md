@@ -14,8 +14,10 @@
 | Backgrounds in the concept; required copy per template; placeholder copy (`REPLACE`, `TODO`, `{{…}}`) | FAIL (placeholders are a warning in `preview`) |
 | Durations that are not whole frames | warning |
 | A transition as long as its scene; a still part under the concept's `minHold` | FAIL |
-| Length outside the format's range | FAIL |
-| Reading time longer than the still part | REVIEW REQUIRED (`reading:<scene>`) |
+| Length outside the format's range; a loop over 15 s; a loop rate that does not divide the fps; an unknown poster scene | FAIL |
+| A still scene with no picture, or a picture that is missing or not an image | FAIL |
+| A picture outside `brand/` with no `media.license` | REVIEW REQUIRED (`provenance:<scene>`) |
+| Reading time longer than the still part | REVIEW REQUIRED (`reading:<scene>`, or `reading:<scene>:<format>` when a format changes the copy) |
 | Planned voice-over longer than its scene | REVIEW REQUIRED (`vo-fit:<scene>`) |
 | Planned voice-over ending after the video | FAIL |
 | Page: script errors, network requests, frame count, endless animations, animations past the end | FAIL |
@@ -23,9 +25,15 @@
 
 ## After rendering
 
+Checks that look at a format's output are named `<check>:<format>` (for example `technical:social-1x1`); review item ids carry `:<format>` when a piece has more than one format.
+
 | Check | Label |
 |---|---|
 | `technical`: the output profile (see formats-and-profiles) | PASS / FAIL |
+| `gif`, `webp`, `poster`: format, size, loop forever, play length, at most the master's frames | PASS / FAIL |
+| `gif`, `webp` over the piece's `loop.maxBytes` (default 5 MB) | REVIEW REQUIRED (`size:<kind>`) |
+| `loop-seam` (`kind: "loop"`): the jump from the last frame back to the first, against the piece's own frame-to-frame changes | PASS or REVIEW REQUIRED (`loop-seam`) |
+| `workers` (more than one browser): the frames where their runs meet are drawn identically | PASS / FAIL |
 | `contrast`: computed against solid backgrounds and caption plates; whole-gradient bound | PASS / FAIL |
 | `contrast` sampled from pixels (text over a drawn object, a failing gradient) | REVIEW REQUIRED (`contrast:<scene>:<n>`) or FAIL |
 | `text`: glyph coverage from the font file; text cut off by the frame | PASS / FAIL |
@@ -39,7 +47,7 @@ Contrast is checked on each scene's still frame, at the concept's display width.
 ## Run integrity
 
 1. **Lock.** `render` takes the piece's lock before it reads any input.
-2. **Snapshot.** Fonts, the logo and the motif are copied into the build and checked against the hashes the gates used. The frames come only from those copies.
+2. **Snapshot.** Fonts, the logo, the motif and the scenes' pictures are copied into the build and checked against the hashes the gates used. The frames come only from those copies.
 3. **Manifest first.** The run manifest (`brand/runs/video/<run>.json`) is written before the outputs move into `out/`.
 4. **Ownership.** `out/.render-manifest.json` records which files the run owns.
 

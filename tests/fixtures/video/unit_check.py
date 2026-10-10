@@ -187,6 +187,99 @@ def plan_checks() -> None:
           "a piece longer than the format allows fails")
 
 
+def format_checks() -> None:
+    for name, f in vd.FORMATS.items():
+        w, h = f["size"]
+        ok = all(s["left"] + s["right"] < w * 0.5 and s["top"] + s["bottom"] < h * 0.5 and w % 2 == 0 and h % 2 == 0
+                 for s in f["safe"].values()) and f["safe"]["strict"]["top"] >= f["safe"]["standard"]["top"]
+        check(ok, f"{name}: even size, safe insets leave most of the frame, strict is stricter")
+    sc = [{"id": "a", "template": "title", "duration": 3, "copy": {"head": "Hi", "sub": "A long subtitle line"},
+           "byFormat": {"social-1x1": {"layout": "type-lower", "hide": ["sub"]}, "wide-16x9": {"copy": {"head": "Hello"}}}},
+          {"id": "b", "template": "stat", "duration": 3, "copy": {"value": "3x", "label": "faster"}, "transitionIn": {"type": "fade"}}]
+    p_ = dict(piece(sc), formats=["social-9x16", "social-1x1", "wide-16x9"])
+    plans = {f: vd.plan(None, "t", p_, AD, f, False) for f in p_["formats"]}
+    check(len({(pl.frames, tuple((s.start, s.frames) for s in pl.scenes)) for pl in plans.values()}) == 1,
+          "every format of a piece shares one timeline")
+    a1, aw = plans["social-1x1"].scenes[0], plans["wide-16x9"].scenes[0]
+    check(a1.layout == "type-lower" and "sub" not in a1.copy and aw.copy["head"] == "Hello" and aw.copy["sub"],
+          "byFormat changes layout, hides and replaces copy for that format only")
+    check(plans["social-9x16"].scenes[0].copy["sub"] and plans["social-9x16"].scenes[0].layout == "type-start",
+          "other formats keep the authored scene")
+    hidden = [{"id": "a", "template": "title", "duration": 3, "copy": {"head": "Hi"}, "byFormat": {"social-1x1": {"hide": ["head"]}}}]
+    check(any("hidden in social-1x1" in e for e in vd.plan(None, "t", dict(piece(hidden), formats=["social-9x16", "social-1x1"]),
+                                                            AD, "social-1x1", False).errors),
+          "hiding copy a template needs fails, naming the format")
+    ad = dict(AD, sceneTemplates=AD["sceneTemplates"] + ["still"])
+    st = [{"id": "s", "template": "still", "duration": 3}]
+    check(any("needs media.image" in e for e in vd.plan(None, "t", piece(st), ad, "social-9x16", False).errors),
+          "a still scene needs a picture")
+    st = [{"id": "s", "template": "still", "duration": 3, "media": {"image": "art/x.png", "motion": "push-in"}}]
+    pl = vd.plan(None, "t", piece(st), ad, "social-9x16", True)
+    check(not pl.errors and pl.scenes[0].media["motion"] == "push-in" and any(r["id"] == "provenance:s" for r in pl.reviews),
+          "a still scene plans, and a picture outside brand/ with no licence is a provenance review item")
+    check(any("outside the concept" in e for e in vd.plan(None, "t", piece(st), AD, "social-9x16", True).errors),
+          "still scenes are opted in by the concept (sceneTemplates)")
+    lp = dict(piece([{"id": "a", "template": "title", "duration": 20, "copy": {"head": "Hi"}}]), kind="loop")
+    check(any("loops take up to" in e for e in vd.plan(None, "t", lp, AD, "social-9x16", False).errors),
+          "a GIF/WebP loop longer than 15 s fails")
+    lp = dict(piece([{"id": "a", "template": "title", "duration": 4, "copy": {"head": "Hi"}}]), loop={"fps": 12},
+              poster={"scene": "zz"})
+    errs = vd.plan(None, "t", lp, AD, "social-9x16", False).errors
+    check(any("does not divide" in e for e in errs) and any("poster.scene" in e for e in errs),
+          "a loop rate that does not divide the fps, and an unknown poster scene, fail")
+    check(vd.loop_spec(dict(piece([]), kind="loop")) == vd.LOOP_DEFAULT and vd.loop_spec(piece([])) is None,
+          "a loop piece gets a GIF by default; a social piece no loop")
+    check(vd.loop_spec(dict(piece([], fps=24), kind="loop"))["fps"] == 12 and
+          vd.loop_spec(dict(piece([], fps=25), kind="loop"))["fps"] == 5, "the default loop rate divides 24 and 25 fps too")
+    odd = dict(piece([{"id": "a", "template": "title", "duration": 91 / 30, "copy": {"head": "Hi"}}]), kind="loop")
+    check(any("whole number of loop frames" in e for e in vd.plan(None, "t", odd, AD, "social-9x16", False).errors),
+          "a loop whose length is not whole loop frames fails (its last frame would hold too long)")
+    m18 = {"schemaVersion": 1, "id": "t", "kind": "social", "formats": ["social-9x16"], "fps": 30,
+           "scenes": [{"id": "a", "template": "title", "duration": 3, "copy": {"head": "Hi"}, "vo": "Hello."},
+                      {"id": "b", "template": "stat", "duration": 3, "copy": {"value": "3x"},
+                       "transitionIn": {"type": "fade", "duration": 0.5}}], "voice": {"language": "en"}}
+    check(vd._parts(m18, {}) == {"visual": "2d5f31c38832f9275a8b944f8ba37b3f6a9c971a8716d94fb7267243c42eeb3b",
+                                 "timing": "47f6dd7b93636e5023a5d924af2d4826995bfaac01daa0ca506430a276acc6d6",
+                                 "script": "829717203ccbba24b8dd47d27b3c0c6a1cada2479f431056377acbf37e585223"},
+          "a 1.8 piece hashes as in 1.8 (its storyboard approval stays valid)")
+    with_media = vd._parts(dict(m18, scenes=m18["scenes"] + [{"id": "s", "template": "still", "duration": 3,
+                                                               "media": {"image": "brand/a.png"}}]), {"brand/a.png": "0" * 64})
+    other = vd._parts(dict(m18, scenes=m18["scenes"] + [{"id": "s", "template": "still", "duration": 3,
+                                                          "media": {"image": "brand/a.png"}}]), {"brand/a.png": "1" * 64})
+    check("media" in with_media and with_media["media"] != other["media"] and with_media["visual"] == other["visual"],
+          "the bytes of a picture are their own part of the storyboard hash")
+
+
+def loop_checks() -> None:
+    w = 16 * 16
+    ramp = [bytes([i * 8]) * w for i in range(30)]
+    seam, limit = framecheck.seam_signal(ramp)
+    check(seam > limit, f"a loop that ends far from its start has a seam ({seam:.0f} > {limit:.0f})")
+    tri = [bytes([abs(15 - i) * 8]) * w for i in range(30)]
+    seam, limit = framecheck.seam_signal(tri)
+    check(seam <= limit, f"a loop that returns to its start has none ({seam:.0f} <= {limit:.0f})")
+    from PIL import Image
+    tmp = Path(os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp")
+    ims = [Image.new("RGB", (48, 24), (i * 30, 40, 90)) for i in range(6)] + [Image.new("RGB", (48, 24), (150, 40, 90))] * 2
+    gif, webp, png = tmp / f"lp-{os.getpid()}.gif", tmp / f"lp-{os.getpid()}.webp", tmp / f"lp-{os.getpid()}.png"
+    try:
+        ims[0].save(gif, save_all=True, append_images=ims[1:], duration=100, loop=0)
+        ims[0].save(webp, "WEBP", save_all=True, append_images=ims[1:], duration=100, loop=0)
+        ims[0].save(png)
+        check(framecheck.anim_problems(gif, "gif", 8, (48, 24), 0.8)[0] == [], "a looping GIF of the asked size and length passes")
+        check(framecheck.anim_problems(webp, "webp-anim", 8, (48, 24), 0.8)[0] == [],
+              "an animated WebP passes even when identical frames were merged")
+        probs = framecheck.anim_problems(gif, "gif", 8, (64, 24), 2.0)[0]
+        check(len(probs) == 2, f"the wrong size and length each fail ({probs})")
+        ims[0].save(gif, save_all=True, append_images=ims[1:], duration=100)
+        check(any("loop" in x for x in framecheck.anim_problems(gif, "gif", 8, (48, 24), 0.8)[0]), "a GIF that plays once fails")
+        check(framecheck.anim_problems(png, "poster", 1, (48, 24), 0)[0] == [] and
+              framecheck.anim_problems(png, "gif", 1, (48, 24), 0)[0], "a poster is a PNG of the format's size")
+    finally:
+        for f in (gif, webp, png):
+            f.unlink(missing_ok=True)
+
+
 def caption_checks() -> None:
     sc = [{"id": "a", "template": "title", "duration": 4, "copy": {"head": "Hi"}, "vo": "One two three four five six seven eight."},
           {"id": "b", "template": "title", "duration": 2, "copy": {"head": "Yo"}, "transitionIn": {"type": "cut"},
@@ -265,6 +358,8 @@ def ffmpeg_lookup() -> None:
 def main() -> int:
     websocket_checks()
     plan_checks()
+    format_checks()
+    loop_checks()
     caption_checks()
     signal_checks()
     token_checks()

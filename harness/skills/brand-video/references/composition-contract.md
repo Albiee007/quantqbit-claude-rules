@@ -35,7 +35,19 @@ How a video piece becomes frames. `render_video.py` and the libraries it uses (`
 
   An overlap must leave the previous scene its minimum hold.
 - A clip (`[data-start][data-duration]`) shows frames `[start, start + frames)`: the end frame belongs to the next scene.
-- Every format of a piece shares one timeline, so one script and one set of captions serve them all. A piece that needs different timing is a separate piece.
+- Every format of a piece shares one timeline, so one script and one set of captions serve them all. A scene's `byFormat` entry may change its layout, replace copy fields or hide some in one format, never its timing. A piece that needs different timing is a separate piece.
+- Type is sized from the format's short side (times the format's `typeScale`), and captions run no wider than about 1.3 short sides, so a 9:16, 1:1 and 16:9 frame of one piece read alike.
+
+## Parallel browsers
+
+- `--workers N` splits a format's frames into N contiguous runs; each run is drawn by its own browser. The first browser's run goes straight into the encoder; the others spool to a scratch file and follow in order. The encoder gets the same frames in the same order, so **the output is the same file whatever the number of workers** (checked by the tests: 1, 2 and 3 browsers give identical bytes).
+- Where two runs meet, both browsers draw the meeting frame and the render compares them (`workers:<format>`, PASS / FAIL). A difference means the page depends on something other than the frame number.
+- `auto` (the default) uses one browser per 90 frames, at most half the CPUs and 4.
+
+## Loops and posters
+
+- A loop (GIF or animated WebP) is made from the format's master video: every `fps / loop.fps`-th frame, scaled to `loop.width`. It has the master's frames, never new ones, and loops forever.
+- A poster is the PNG still frame of `poster.scene`, captured losslessly from the browser.
 
 ## Markup (HyperFrames-compatible)
 

@@ -8,7 +8,9 @@ recorded as a local font (test use only; nothing is committed).
 
 Usage: python make_project.py DIR VARIANT [--approve] [--video] [--font PATH]
 --video also writes motion tokens (render_video.py motion-tokens), a video concept and a piece
-brand/video/launch/video.json; with --approve the video concept and the storyboard are approved too.
+brand/video/launch/video.json (and, when the concept allows still scenes, a two-format loop
+brand/video/card/video.json over brand/art/garden.png); with --approve the video concept and the
+launch storyboard are approved too.
 Variants: fernway (garden journal: warm, serif display, gradient, frameless, split layouts)
           kestrel (logistics: slate + orange, mono display, solid, framed, inset/caption-bottom)
           samebrand (keeps 1.6-like Inter + indigo on purpose, listed in direction "keep")
@@ -106,6 +108,7 @@ VARIANTS = {
             "caption": {"head": {"font": "display", "weight": 700, "lineHeight": 1.05}, "sub": {"font": "text", "weight": 400},
                         "align": "start", "accent": "underline"},
             "layouts": ["type-start", "type-lower"], "defaultLayout": "type-start", "defaultBackground": "dawn",
+            "sceneTemplates": ["title", "feature", "stat", "end-card", "still"],
             "motion": {"transitions": ["cut", "fade", "dip"], "defaultTransition": "fade", "textIn": "fade-up"},
             "pace": {"readingWpm": 200, "minHold": 1.0, "voWpm": 145},
             "endCard": {"background": "soil", "logo": False},
@@ -214,6 +217,35 @@ def piece(v: dict) -> dict:
             "captions": {"sidecar": ["srt", "vtt"]}}
 
 
+def loop_piece(v: dict) -> dict:
+    """A short loop in two formats: a still scene over a picture, then the name; GIF, WebP, poster."""
+    return {"schemaVersion": 1, "id": "card", "kind": "loop", "title": "Link card loop", "formats": ["og-card", "social-1x1"],
+            "fps": 30,
+            "scenes": [
+                {"id": "art", "template": "still", "duration": 2.5,
+                 "media": {"image": "brand/art/garden.png", "motion": "push-in", "focus": [0.5, 0.4]},
+                 "copy": {"head": "Notes that <em>grow</em>"}},
+                {"id": "name", "template": "title", "duration": 2.4, "copy": {"head": v["name"], "sub": "Your garden journal"},
+                 "byFormat": {"social-1x1": {"layout": "type-lower"}}}],
+            "loop": {"outputs": ["gif", "webp"], "width": 480, "fps": 15},
+            "poster": {"scene": "art"}}
+
+
+def garden_png(path: Path) -> None:
+    """A soft, light picture for the still scene (made here: no third-party image in the fixture)."""
+    from PIL import Image, ImageDraw
+    w, h = 1600, 1000
+    im = Image.new("RGB", (w, h))
+    d = ImageDraw.Draw(im)
+    for y in range(h):
+        t = y / h
+        d.line([(0, y), (w, y)], fill=(round(246 - 18 * t), round(239 - 22 * t), round(222 - 30 * t)))
+    for i, (cx, cy, r) in enumerate([(300, 700, 220), (820, 760, 300), (1350, 690, 240)]):
+        d.ellipse([cx - r, cy - r // 2, cx + r, cy + r // 2], fill=(214 - 6 * i, 222 - 4 * i, 196 - 8 * i))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    im.save(path, optimize=False)
+
+
 def build(root: Path, variant: str, approve: bool, font: Path, video: bool = False) -> None:
     v = VARIANTS[variant]
     root.mkdir(parents=True, exist_ok=True)
@@ -293,6 +325,10 @@ def build(root: Path, variant: str, approve: bool, font: Path, video: bool = Fal
     if video and "video" in v:
         (brand / "video" / "launch").mkdir(parents=True, exist_ok=True)
         (brand / "video" / "launch" / "video.json").write_text(json.dumps(piece(v), indent=2), encoding="utf-8")
+        if "still" in v["video"].get("sceneTemplates", []):
+            garden_png(brand / "art" / "garden.png")
+            (brand / "video" / "card").mkdir(parents=True, exist_ok=True)
+            (brand / "video" / "card" / "video.json").write_text(json.dumps(loop_piece(v), indent=2), encoding="utf-8")
     if approve:
         run(DIRECTION, "approve", "--gate", "direction", "--by", "Fixture Owner", "--evidence", "test fixture approval", cwd=root)
         for fam in fams:

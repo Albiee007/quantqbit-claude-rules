@@ -8,6 +8,42 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.9.0] - 2026-10-10
+
+Branded video in more shapes: one piece now renders in several formats that share its timeline, short pieces also ship as GIF and animated WebP loops with poster stills, scenes can show the project's own pictures, and parallel browsers render faster without changing a byte of the output.
+
+### Added
+- **Formats** `social-4x5` (1080×1350), `social-1x1` (1080×1080), `wide-16x9` (1920×1080) and `og-card` (1200×630, an animated link card), next to `social-9x16`. Each has its own length range and safe insets (standard and strict).
+  - A piece lists every format it is for. They share one timeline, so one voice-over script and one set of captions serve them all.
+  - A scene's `byFormat` entry changes its layout, replaces copy fields or hides some in one format; never its timing.
+  - Type is sized from the format's short side, so the formats read alike; `og-card` sets it larger, because a link card is seen small.
+- **Loops and posters.**
+  - `loop` makes a GIF and/or an animated WebP per format from the format's master video (pieces up to 15 s; width, rate and a size budget per piece).
+  - `kind: "loop"` pieces get a GIF by default and a loop-seam signal: the jump from the last frame back to the first.
+  - `poster` writes a PNG of a scene's still frame per format.
+  - Checks: format, size, loop forever, play length, frame count (`gif`, `webp`, `poster`). Over the size budget: REVIEW REQUIRED.
+- **`still` scenes:** a picture from the project (`cover` or `contain`), with an optional slow `push-in`, `pull-out` or pan, and an optional caption.
+  - The concept opts in by listing `still` in `sceneTemplates`.
+  - The picture is copied into the build snapshot and checked against the approved bytes. Its bytes are a separate part of the storyboard approval, so a changed picture makes the storyboard stale and `status` says so.
+  - A picture outside `brand/` with no `media.license` is a provenance review item.
+- **Parallel rendering:** `render` and `preview` take `--workers N|auto`.
+  - Each browser draws a contiguous run of frames; the encoder gets the same frames in the same order, so the output does not depend on the number of workers (the tests compare 1, 2 and 3 browsers byte for byte).
+  - Where two runs meet, both browsers draw the frame, and the render compares them (`workers:<format>`).
+  - `auto` uses one browser per 90 frames, at most half the CPUs and 4.
+- `lint` and `preview` take `--format` to work on one format. `check` re-verifies every published video, loop and poster against its run.
+
+### Changed
+- Per-format results are named `<check>:<format>` in the report and the run manifest (`technical:social-9x16`). Review item ids carry `:<format>` when a piece has more than one format.
+- Published files are grouped per format: `out/<format>/<id>.mp4`, `<id>-sheet.png`, and when asked for `<id>.gif`, `<id>.webp`, `<id>-poster.png`. Drafts likewise: `.preview/<run>/<format>/`.
+- Run manifests record `engine.workers`, and each output's `format` (and `loop` for animated images). Storyboard approvals may record a `media` part.
+- Approving a storyboard checks every format's plan, not only the first.
+
+### Upgrade notes
+- Storyboard approvals and 9:16 renders from 1.8 stay valid: a piece without the new fields hashes as before, and its video is byte-identical.
+- The sheet moved from `out/<id>-sheet.png` to `out/<format>/<id>-sheet.png`; the next render prunes the old file.
+- To use `still` scenes, the creative-director adds `still` to the video concept's `sceneTemplates` and the owner re-approves the concept.
+- Animated WebP needs a Pillow with WebP support (any recent wheel has it).
+
 ## [1.8.0] - 2026-10-05
 
 Branded video, made the same way as the stills: from the project's approved direction, through a concept round and owner approvals. This release is the first slice: vertical social videos (9:16), rendered silent, with a voice-over script, a voice prompt and planned captions, so the voice can be recorded or generated in any tool. Approvals also become scoped, so requesting a new family no longer invalidates the others.

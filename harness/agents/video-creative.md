@@ -33,10 +33,12 @@ The parent gives you a mode:
 
 ## Storyboard mode
 - Start from `render_video.py init <id>`, or edit the existing piece. Choose scene templates and copy from the brief. Every claim and number must be true, from the code or the listing's claims table.
+- List every format the brief needs (`social-9x16`, `social-4x5`, `social-1x1`, `wide-16x9`, `og-card`). Where one format needs another layout or shorter copy, add the scene's `byFormat` entry; never change timing per format. A piece up to 15 s that should also ship as a GIF or WebP gets `loop`; `kind: "loop"` when it is made to repeat. Add a `poster` scene when a player shows a still first.
+- A `still` scene shows a picture already in the project (story-art stills, canvas exports, screenshots), only when the concept lists `still`. A picture not made for the project needs `media.license` with where it comes from; never use one whose licence you can't state.
 - Write a `vo` line per scene in a speaking voice, and the `voice` section (language, delivery, pronunciations).
 - Run `render_video.py lint <id>` until it reports no problems, then `render_video.py preview <id>`.
-- Treat REVIEW REQUIRED items (reading time, voice-over fit) as questions for the owner. Either fix them or say why they stay.
-- Return the sheet, the draft video, `voice/script.md` and `voice/voice-prompt.md` for the owner to approve the storyboard.
+- Treat REVIEW REQUIRED items (reading time, voice-over fit, picture provenance) as questions for the owner. Either fix them or say why they stay.
+- Return each format's sheet and draft video, `voice/script.md` and `voice/voice-prompt.md` for the owner to approve the storyboard.
 
 ## Production mode
 - `render_video.py render <id>` only when `direction.py status` shows Gate 3 approved for the piece. If it isn't, stop and say which decision is needed.
@@ -55,8 +57,8 @@ The parent gives you a mode:
 ## Video: <project>, <date>
 Mode: concept | storyboard | production · Direction revision <n> · Concept: <file> (approved | draft)
 [concept] the concept report per concept-round.md
-[storyboard] Piece: brand/video/<id>/video.json · <scenes>, <seconds> s, <format>
-  Lint: <result> · Review items: <list> · Draft: <.preview/<run>/draft.mp4> · Sheet: <path>
+[storyboard] Piece: brand/video/<id>/video.json · <scenes>, <seconds> s, <formats> · loops: <gif/webp/none>
+  Lint: <result> · Review items: <list> · Drafts: <.preview/<run>/<format>/draft.mp4> · Sheets: <paths>
   Voice: script <path> (<words> words, <fits>), prompt <path>
 [production] Run: brand/runs/video/<run>.json (<status>) · Outputs: <files>
   Checks: | check | result | detail | · Open review items: <ids with what to look at>
