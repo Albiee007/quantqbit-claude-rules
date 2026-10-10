@@ -36,7 +36,16 @@ Without `--release` the checker only inspects what exists, so a missing folder p
  "play": {"icon": "../assets/play-icon-512.png", "tablet_slots": ["tablet10"]},
  "min_counts": {"play-phone": 4}}
 ```
-- Required with `--release`: Play phone screenshots, exactly one feature graphic and the Play icon; iPhone 6.9″ screenshots; iPad 13″ when the app supports iPad (`ios.supports_tablet`, or read from `app_json`); Play tablet slots listed in `tablet_slots`.
+- **Required with `--release` (harness defaults, from [store-slots.json](references/store-slots.json)):**
+  - Play: phone screenshots, exactly one feature graphic, and the Play icon. Tablet slots are required when listed in `tablet_slots`.
+  - iOS: iPhone 6.3″ screenshots (`ios/6.3`, 1206 × 2622 or 1179 × 2556). iPad 13″ when the app supports iPad (`ios.supports_tablet`, or read from `app_json`).
+  - 6.9″ and 6.5″ are optional. See store-specs for why.
+- **When the store asks for something else, declare it in `store-assets.json` `slots`.** Never edit the harness or write a one-off script.
+  - Add a slot: `"ios-6.1": {"store": "ios", "folder": "ios/6.1", "sizes": ["1179x2556"], "need": "always"}`. A slot gives `store`, `folder` (inside `play/` or `ios/`), and either exact `sizes` or `{"rule": {"maxSide": N}}`. `count` and `need` are optional.
+  - Change a built-in slot: `"ios-6.9": {"need": "always"}`. It takes `need`, `count` and `sizes` only.
+  - `need` is one of `always`, `tablet`, `declared` (listed in `play.tablet_slots`) or `optional`.
+  - Landscape sizes are accepted automatically.
+- **`unknown-folder`:** images in a folder under `play/` or `ios/` that no slot reads (`ios/6.1/`, `ios/6.3/old/`) are a warning when inspecting and an ERROR with `--release`. Declare the folder or move the files.
 - `--stores` and `--[no-]supports-tablet` override the file. Without either source of truth the check stops with exit 2 rather than guessing.
 - Exit 0 = no errors, 1 = errors (each one is a BLOCKER), 2 = bad arguments or config. `--json` gives machine-readable findings.
 
@@ -72,6 +81,7 @@ Verdict: READY | READY-WITH-FIXES | NOT READY
 
 ## References
 - [store-specs](references/store-specs.md): every size, format, count and text limit (the single source of truth).
+- [store-slots.json](references/store-slots.json): the same screenshot slots as data, read by `check_store_assets.py` and `store-mockups`. Projects extend it from `store-assets.json`, never by editing it.
 - [app-store-checklist](references/app-store-checklist.md), [play-checklist](references/play-checklist.md)
 - [consistency-checks](references/consistency-checks.md)
 - Scripts: [check_store_assets.py](scripts/check_store_assets.py), [check_public_urls.sh](scripts/check_public_urls.sh)

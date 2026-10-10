@@ -47,7 +47,28 @@
       }
     },
     "props": { "type": "array", "uniqueItems": true, "items": { "enum": ["finance"] } },
-    "sizes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["play-phone", "play-tab7", "play-tab10", "ios-69", "ios-69-1320", "ios-65", "ios-ipad13"] } },
+    "sizes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "size keys from store-submission-precheck/references/store-slots.json, or a size of the project's own; the renderer checks keys, bounds (320-7680 px per side) and folder collisions",
+      "items": {
+        "oneOf": [
+          { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+          {
+            "type": "object",
+            "required": ["key", "size", "platform"],
+            "additionalProperties": false,
+            "properties": {
+              "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+              "size": { "type": "string", "pattern": "^[1-9][0-9]{1,4}x[1-9][0-9]{1,4}$" },
+              "platform": { "enum": ["ios", "play", "android"] },
+              "folder": { "type": "string", "pattern": "^(play|ios)(/[A-Za-z0-9][A-Za-z0-9._-]*)+$" }
+            }
+          }
+        ]
+      }
+    },
     "gutter": { "type": "number", "minimum": 0, "maximum": 200 },
     "frames": {
       "type": "array",

@@ -1,6 +1,6 @@
 Store & brand checklist (mobile releases):
 - Delegate by persona: creative-director (direction, concepts) → screen-capturer → store-creative / listing-copywriter / icon-creator / brand-asset-creator / illustrator → store-precheck-auditor.
-- Sizes and limits come from store-submission-precheck/references/store-specs.md only. Never quote them from memory.
+- Sizes and limits come from store-submission-precheck/references/store-specs.md only. Never quote them from memory. A size or slot the harness lacks is declared in the project: frames.json `sizes` to render it, `store-assets.json` `slots` to gate it. Never write a wrapper script or edit harness files.
 - Screenshots: faithful rebuilds of real screens, fictional consistent demo data, no alpha, exact store sizes.
 - Copy: every claim backed by code; Android-only and Premium features marked or left out per platform; no fixed prices.
 - Icons: iOS icon opaque; adaptive foreground transparent inside the safe zone; notification icon a white silhouette.

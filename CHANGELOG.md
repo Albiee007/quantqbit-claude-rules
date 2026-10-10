@@ -8,6 +8,40 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.9.1] - 2026-10-10
+
+Store screenshots and videos in any size, declared by the project. A project had to make App Store Connect's required iPhone 6.3″ set with a throwaway wrapper script, because the renderer and the checker each had a fixed size list, and the checker skipped the folder silently. Now sizes and slots are data the project extends in its own files, and an image folder no slot reads can no longer pass a release.
+
+### Added
+- **iPhone 6.3″ slot** `ios-6.3` (`ios/6.3`, 1206 × 2622 or 1179 × 2556) and the render key `ios-63`.
+- **`store-slots.json`** (store-submission-precheck references): the built-in screenshot slots as data. Each has a folder, exact sizes or a size rule, a count, when it is required, and the render keys that produce it. The checker and the renderer both read it.
+- **Project slots:** `store-assets.json` `slots`.
+  - Add a slot: `store`, `folder`, and `sizes` or `rule`; `count` and `need` are optional.
+  - Change a built-in slot's `need`, `count` or `sizes`.
+  - Malformed entries, unsafe or shared folders, and bad counts are config errors (exit 2).
+- **Unchecked folders are reported.** An image folder under `play/` or `ios/` that no slot reads is `unknown-folder`: WARN when inspecting, ERROR with `--release`.
+- **Any render size** in `render_frames.py`:
+  - frames.json `sizes` takes `{"key", "size", "platform", "folder"}` objects next to the built-in keys;
+  - `--sizes` takes one-offs as `platform:WxH[:folder]` (folder default `<play|ios>/<WxH>`);
+  - sides are 320–7680 px, the folder must stay in its store's tree, and `play` and `android` mean the same.
+- **Custom video formats:** a piece's `customFormats` (`{"size": "1200x628", "like": "og-card"}`).
+  - It inherits the length range, profile and type scale from `like`, and its safe insets are scaled to the size.
+  - Sides must be even, 128–3840 px. `byFormat` works with custom ids.
+  - `customFormats` is part of the storyboard's on-screen content.
+
+### Changed
+- **iOS defaults follow App Store Connect's required-device list** (checked 2026-10-10): `ios-6.3` is required; `ios-6.9` and `ios-6.5` are optional. Apple's 6.5″ row still contradicts that list; store-specs.md records it.
+- **`render --all` gates with the project's `store-assets.json`** (kit, then its parent, then the project): `check_store_assets.py --config <file> --release`. Without one it inspects as before and says so in the console and the run manifest.
+- **Size conflicts are refused.** Two selected sizes that write one folder at different dimensions (`ios-69` with `ios-69-1320`) are a usage error. An alias of the same size renders once.
+- **The feature graphic** is verified for size, RGB and file size, not only presence.
+- **Defaults:** when frames.json lists no sizes, the renderer uses `play-phone` and `ios-63`. New kits list `ios-63`.
+- `play.tablet_slots` accepts any Play slot name; `tablet7` and `tablet10` still work.
+
+### Upgrade notes
+- **An iOS release now needs `ios/6.3/`.** Add `ios-63` to the kit's `sizes` and render again. If App Store Connect asks for a different set, override `need` in `store-assets.json` (e.g. `"slots": {"ios-6.9": {"need": "always"}}`).
+- **Projects with a `store-assets.json` get the release gate in `render --all`.** A set that misses a required slot, or renders to an undeclared folder, is no longer published. Fix the set or declare the slot.
+- Existing size keys, legacy 1.6 kits (pixel-identical) and video approvals of pieces without `customFormats` are unchanged.
+
 ## [1.9.0] - 2026-10-10
 
 Branded video in more shapes: one piece now renders in several formats that share its timeline, short pieces also ship as GIF and animated WebP loops with poster stills, scenes can show the project's own pictures, and parallel browsers render faster without changing a byte of the output.

@@ -222,6 +222,36 @@ check "and leaves the launch piece approved" has "Gate 3 storyboard launch: appr
 cp "$W/garden.bak" "$P/brand/art/garden.png"
 runin "$P" "$DIR" status; check "restoring the picture restores the approval" has "Gate 3 storyboard card: approved"
 
+echo "== 5. a format of the piece's own: customFormats"
+CV="$P/brand/video/card/video.json"; cp "$CV" "$W/card.bak"
+jset "$CV" 'd["customFormats"] = {"li-card": {"size": "1201x628", "like": "og-card"}}; d["formats"] = ["li-card"]'
+runin "$P" "$VIDEO" lint card --static
+check "an odd custom size is refused when the piece loads" bash -c "[[ \$(cat '$W/rc') != 0 ]] && grep -q 'odd side' '$W/out'"
+jset "$CV" 'd["customFormats"]["li-card"]["size"] = "1200x628"; d["scenes"][0]["byFormat"] = {"li-card": {"layout": d["scenes"][0].get("layout", "type-start")}}'
+runin "$P" "$DIR" status
+check "adding a custom format makes the storyboard stale, naming on-screen content" has "Gate 3 storyboard card: NOT MET.*on-screen content"
+runin "$P" "$DIR" approve --gate storyboard --piece card --by Owner --evidence "watched the LinkedIn draft"
+check "the custom-format storyboard is approved" rc 0
+runin "$P" "$VIDEO" render card --ffmpeg "$FF"
+check "a 1200x628 custom format like og-card renders" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'PASS             technical' '$W/out'"
+CRUN="$(ls -t "$P/brand/runs/video" | head -1)"
+hc_py -c "
+import json, sys
+m = json.load(open(sys.argv[1], encoding='utf-8'))
+by = {o['path'].split('/out/')[1]: o for o in m['outputs']}
+assert by['li-card/card.mp4']['size'] == [1200, 628] and by['li-card/card.mp4']['format'] == 'li-card', by.get('li-card/card.mp4')
+assert by['li-card/card.gif']['size'] == [480, 251], by['li-card/card.gif']
+" "$P/brand/runs/video/$CRUN" > "$W/out" 2>&1
+check "the encoded video is 1200x628 and its loop keeps the aspect" test $? -eq 0
+runin "$P" "$VIDEO" check card --ffmpeg "$FF"
+check "check re-verifies the custom format's files against their size" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q '^PASS  technical' '$W/out'"
+jset "$CV" 'd["customFormats"]["li-card"]["safe"] = {"standard": {"left": 90}}'
+runin "$P" "$DIR" status
+check "changing a custom format's insets makes the approval stale" has "Gate 3 storyboard card: NOT MET.*on-screen content"
+jset "$CV" 'd["customFormats"]["li-card"].pop("safe")'
+runin "$P" "$DIR" status; check "restoring the insets restores the approval" has "Gate 3 storyboard card: approved"
+cp "$W/card.bak" "$CV"
+
 check "no __pycache__ was left in harness/" test -z "$(find "$ROOT/harness" -name __pycache__ -print -quit)"
 echo "video tests: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

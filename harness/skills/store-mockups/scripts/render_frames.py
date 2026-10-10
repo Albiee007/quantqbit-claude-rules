@@ -38,7 +38,13 @@ Usage:
                                    [--frames ...] [--sizes ...] [--out DIR]
   python render_frames.py contrast store-assets/mockup-kit
   common: [--project <app dir>] [--chrome PATH] [--jobs N]; render also takes [--check-only] [--out DIR]
-Needs Pillow and Chrome, Chromium or Edge. Sizes follow store-submission-precheck/references/store-specs.md.
+Sizes: the size keys in store-submission-precheck/references/store-slots.json (play-phone, play-tab7,
+play-tab10, ios-63, ios-69, ios-69-1320, ios-65, ios-ipad13), a frames.json "sizes" object
+{"key": "ios-61", "size": "1179x2556", "platform": "ios", "folder": "ios/6.1"}, or on the command line a
+one-off platform:WxH[:folder] such as ios:1206x2622:ios/6.3 (folder default <play|ios>/<WxH>).
+render --all gates the staged set with check_store_assets.py: --release with the project's
+store-assets.json (looked up in the kit, its parent, then the project), inspect mode without one.
+Needs Pillow and Chrome, Chromium or Edge.
 Exit codes: 0 done (the report may say REVIEW REQUIRED), 1 a check or gate failed, 2 bad arguments,
 a missing dependency or an operational failure (browser, lock).
 """
@@ -47,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import importlib.util
 import json
 import os
 import re
@@ -55,6 +62,7 @@ import subprocess
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 
 # harness lib bootstrap (see .claude/harness/lib/README.md)
@@ -84,18 +92,14 @@ TEMPLATES = HERE.parent / "templates"
 LEGACY_ENGINE = TEMPLATES / "legacy-1.6"
 MEDIA = Path(harnesslib.__file__).resolve().parent.parent / "media"
 STORE_CHECK = HERE.parent.parent / "store-submission-precheck" / "scripts" / "check_store_assets.py"
-# key: (width, height, platform, output path relative to "out")
-SIZES = {
-    "play-phone": (1080, 1920, "android", "play/phone"),
-    "play-tab7": (1200, 1920, "android", "play/tablet7"),
-    "play-tab10": (1620, 2880, "android", "play/tablet10"),
-    "ios-69": (1290, 2796, "ios", "ios/6.9"),
-    "ios-69-1320": (1320, 2868, "ios", "ios/6.9"),
-    "ios-65": (1242, 2688, "ios", "ios/6.5"),
-    "ios-ipad13": (2064, 2752, "ios", "ios/ipad13"),
-    "fg": (1024, 500, "android", "play"),
-}
-FG_FILE = "play/feature_graphic_1024x500.png"
+DEFAULT_SIZES = ["play-phone", "ios-63"]
+PLATFORMS = {"android": "android", "play": "android", "ios": "ios"}  # declarations may say play; the page says android
+STORE_DIR = {"android": "play", "ios": "ios"}
+SIDE = (320, 7680)
+SIZE_KEY = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+SIZE_ARG = re.compile(r"^(play|android|ios):([1-9][0-9]{1,4})x([1-9][0-9]{1,4})(?::(.+))?$")
+FOLDER = re.compile(r"^(play|ios)(/[A-Za-z0-9][A-Za-z0-9._-]*)+$")
+SIZE_OBJECT_KEYS = {"key", "size", "platform", "folder"}
 MAX_BYTES = 8 * 1024 * 1024
 CONTENT_FILES = {  # template -> kit name; copied once by init, then owned by the project
     "app.css": "app.css",
@@ -127,6 +131,146 @@ PLACEHOLDER = re.compile(r"\bREPLACE\b")
 
 class RenderError(InputError):
     """A rendered file failed its check (exit 1)."""
+
+
+@dataclass(frozen=True)
+class SizePlan:
+    """Every size the page can be asked for (key -> (width, height, platform, folder), "fg" included) and the
+    selected keys, in order. Built fresh for each command from the catalog and frames.json."""
+    table: dict
+    keys: list
+    fg_file: str
+
+    def size(self, key: str) -> tuple[int, int]:
+        return self.table[key][0], self.table[key][1]
+
+    def platform(self, key: str) -> str:
+        return self.table[key][2]
+
+    def folder(self, key: str) -> str:
+        return self.table[key][3]
+
+
+def store_catalog():
+    """The store slot catalog, loaded and validated by check_store_assets.py (one source for both)."""
+    if not STORE_CHECK.is_file():
+        raise OperationalError(f"{STORE_CHECK} is missing (the store-submission-precheck skill); re-run harness sync")
+    mod = sys.modules.get("check_store_assets")
+    if mod is None:
+        spec = importlib.util.spec_from_file_location("check_store_assets", STORE_CHECK)
+        mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+        sys.modules["check_store_assets"] = mod  # dataclasses look their module up while the file runs
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    try:
+        return mod.load_catalog()
+    except mod.ConfigError as e:
+        raise OperationalError(f"store slot catalog: {e}") from e
+
+
+def parse_wh(value, where: str) -> tuple[int, int]:
+    m = re.match(r"^([1-9][0-9]{1,4})x([1-9][0-9]{1,4})$", value) if isinstance(value, str) else None
+    if not m:
+        raise UsageError(f"{where}: {value!r} is not a size like \"1206x2622\"")
+    w, h = int(m[1]), int(m[2])
+    if not (SIDE[0] <= w <= SIDE[1] and SIDE[0] <= h <= SIDE[1]):
+        raise UsageError(f"{where}: {value}: each side must be {SIDE[0]}-{SIDE[1]} px")
+    return w, h
+
+
+def size_folder(folder, platform: str, w: int, h: int, where: str) -> str:
+    """A render folder under out/: relative, in the platform's own store tree, no '..'."""
+    store = STORE_DIR[platform]
+    if folder is None:
+        return f"{store}/{w}x{h}"
+    if not isinstance(folder, str) or not FOLDER.match(folder) or ".." in folder.split("/"):
+        raise UsageError(f"{where}: folder {folder!r} must be a relative path such as \"{store}/name\" "
+                         "(letters, digits, '.', '_', '-'; no '..')")
+    if folder.split("/", 1)[0] != store:
+        raise UsageError(f"{where}: a {platform} size renders under \"{store}/\", not {folder!r}")
+    return folder
+
+
+def size_platform(value, where: str) -> str:
+    if value not in PLATFORMS:
+        raise UsageError(f"{where}: platform must be ios, play or android (got {value!r})")
+    return PLATFORMS[value]
+
+
+def plan_table(cfg: dict) -> tuple[dict, str, list]:
+    """(table, feature graphic file, frames.json selection): catalog presets plus frames.json size objects."""
+    cat = store_catalog()
+    table = {k: (w, h, PLATFORMS[store], folder) for k, (w, h, store, folder) in cat.render.items()}
+    fg_folder = cat.fg_file.rsplit("/", 1)[0]
+    table["fg"] = (*cat.feature_graphic, "android", fg_folder)
+    chosen = []
+    entries = cfg.get("sizes")
+    if entries is not None and not isinstance(entries, list):
+        raise UsageError("frames.json sizes must be a list of size keys or size objects")
+    for i, e in enumerate(entries or []):
+        if isinstance(e, str):
+            chosen.append(e)
+            continue
+        where = f"frames.json sizes[{i}]"
+        if not isinstance(e, dict) or not {"key", "size", "platform"} <= set(e) or set(e) - SIZE_OBJECT_KEYS:
+            raise UsageError(f"{where}: a size object has key, size and platform, and optionally folder")
+        key = e["key"]
+        if not isinstance(key, str) or not SIZE_KEY.match(key) or key == "fg":
+            raise UsageError(f"{where}: key {key!r} must be lowercase letters, digits and '-' (and not 'fg')")
+        if key in table:
+            raise UsageError(f"{where}: key {key!r} is already a size ({'built-in' if key in cat.render else 'declared twice'})")
+        w, h = parse_wh(e["size"], where)
+        platform = size_platform(e["platform"], where)
+        table[key] = (w, h, platform, size_folder(e.get("folder"), platform, w, h, where))
+        chosen.append(key)
+    return table, cat.fg_file, chosen
+
+
+def plan_sizes(cfg: dict, args: argparse.Namespace) -> tuple[SizePlan, set[str], list[str]]:
+    frames_filter = {f for f in getattr(args, "frames", "").split(",") if f}
+    sizes_filter = [s for s in args.sizes.split(",") if s]
+    if getattr(args, "all", False) and (frames_filter or sizes_filter):
+        raise UsageError("--all renders the whole set; drop --frames/--sizes (or drop --all for a quick look)")
+    table, fg_file, chosen = plan_table(cfg)
+    keys = []
+    for s_ in sizes_filter or chosen or DEFAULT_SIZES:
+        m = SIZE_ARG.match(s_)
+        if m:  # a one-off from the command line: platform:WxH[:folder]
+            platform = PLATFORMS[m[1]]
+            w, h = parse_wh(f"{m[2]}x{m[3]}", f"--sizes {s_}")
+            folder = size_folder(m[4], platform, w, h, f"--sizes {s_}")
+            entry = (w, h, platform, folder)
+            key = next((k for k, v in table.items() if v == entry and k != "fg"), None)
+            if key is None:
+                base = key = f"{STORE_DIR[platform]}-{w}x{h}"
+                n = 1
+                while key in table:
+                    n += 1
+                    key = f"{base}-{n}"
+                table[key] = entry
+            keys.append(key)
+        elif s_ in table and s_ != "fg":
+            keys.append(s_)
+        else:
+            choices = [k for k in table if k != "fg"]
+            raise UsageError(f"unknown size key(s): {[s_]}; choose from {choices}, declare a size object in "
+                             "frames.json, or pass platform:WxH[:folder] (e.g. ios:1206x2622:ios/6.3)")
+    picked: list[str] = []
+    for k in keys:  # the same size twice (an alias, or a repeat) renders once
+        if all(table[k] != table[q] for q in picked):
+            picked.append(k)
+    by_folder: dict[str, str] = {}
+    for k in picked:
+        other = by_folder.setdefault(table[k][3], k)
+        if other != k:
+            raise UsageError(f"sizes {other!r} ({table[other][0]}x{table[other][1]}) and {k!r} ({table[k][0]}x{table[k][1]}) "
+                             f"both write to {table[k][3]}/; pick one, or give one of them its own folder")
+    frames = cfg.get("frames") or []
+    if not frames:
+        raise InputError("frames.json has no frames")
+    missing = sorted(frames_filter - {fr.get("id") for fr in frames})
+    if missing:
+        raise UsageError(f"unknown frame id(s): {missing}")
+    return SizePlan(table, picked, fg_file), frames_filter, sizes_filter
 
 
 def run_all(jobs: int, tasks: list) -> None:
@@ -448,11 +592,11 @@ def font_css(build: Path, ad: dict, cfg: dict, project: Path) -> list[str]:
 
 
 def prepare_build(build: Path, kit: Path, cfg: dict, images: dict[int, Path], project: Path,
-                  ad: dict | None, mode: str) -> Path:
+                  ad: dict | None, mode: str, plan: SizePlan) -> Path:
     build.mkdir(exist_ok=True)
     (build / ".gitignore").write_text("# regenerated by render_frames.py on every render\n*\n", encoding="utf-8")
     generated = json.loads(json.dumps(cfg))
-    generated["sizes"] = {k: list(v[:3]) for k, v in SIZES.items()}
+    generated["sizes"] = {k: list(v[:3]) for k, v in plan.table.items()}
     for k, found in images.items():
         try:
             src = found.resolve().relative_to(kit.resolve()).as_posix()
@@ -514,9 +658,8 @@ def shoot(chrome: str, url: str, size: tuple[int, int], dest: Path, quiet: bool 
         print(f"ok  {dest.name}  {size[0]}x{size[1]}")
 
 
-def probe(chrome: str, base: str, f: str, key: str) -> dict:
-    w, h = SIZES[key][:2]
-    dom = browser.dump_dom(chrome, f"{base}?f={f}&s={key}&probe=1", (w, h))
+def probe(chrome: str, base: str, f: str, key: str, size: tuple[int, int]) -> dict:
+    dom = browser.dump_dom(chrome, f"{base}?f={f}&s={key}&probe=1", size)
     m = re.search(r'<pre id="probe"[^>]*>(.*?)</pre>', dom, re.S)
     if not m:
         raise RenderError(f"f={f} @ {key}: the caption probe returned nothing (a script error in screens.js, "
@@ -524,42 +667,41 @@ def probe(chrome: str, base: str, f: str, key: str) -> dict:
     return json.loads(html.unescape(m.group(1)))
 
 
-def backdrop(chrome: str, base: str, f: str, key: str) -> Image.Image:
-    w, h = SIZES[key][:2]
+def backdrop(chrome: str, base: str, f: str, key: str, size: tuple[int, int]) -> Image.Image:
     with tempfile.TemporaryDirectory() as tmp:
         shot = Path(tmp) / "bg.png"
-        shoot(chrome, f"{base}?f={f}&s={key}&nocap=1", (w, h), shot, quiet=True)
+        shoot(chrome, f"{base}?f={f}&s={key}&nocap=1", size, shot, quiet=True)
         with Image.open(shot) as im:
             return im.convert("RGB")
 
 
 # ------------------------------------------------------------------ checks
 
-def contrast_targets(cfg: dict, sizes: list[str]) -> list[tuple[str, str, str]]:
-    """(label, f param, size key): every frame at the first size per platform, plus the feature graphic."""
+def contrast_targets(cfg: dict, plan: SizePlan) -> list[tuple[str, str, str, tuple[int, int]]]:
+    """(label, f param, size key, size): every frame at the first size per platform, plus the feature graphic."""
     targets = []
     seen = set()
-    for key in sizes:
-        platform = SIZES[key][2]
+    for key in plan.keys:
+        platform = plan.platform(key)
         if platform in seen:
             continue
         seen.add(platform)
         for i, fr in enumerate(cfg.get("frames") or []):
             if platform in fr.get("platforms", ["android", "ios"]):
-                targets.append((f"{fr['id']} @ {key}", str(i), key))
+                targets.append((f"{fr['id']} @ {key}", str(i), key, plan.size(key)))
     if cfg.get("featureGraphic"):
-        targets.append(("feature graphic", "fg", "fg"))
+        targets.append(("feature graphic", "fg", "fg", plan.size("fg")))
     return targets
 
 
-def check_legacy_contrast(chrome: str, base: str, cfg: dict, sizes: list[str], jobs: int) -> list[con.Finding]:
+def check_legacy_contrast(chrome: str, base: str, cfg: dict, plan: SizePlan, jobs: int) -> list[con.Finding]:
     """1.6 kits: sampled backdrop, 1.6 thresholds (headline 3:1, other caption text 4.5:1)."""
-    targets = contrast_targets(cfg, sizes)
+    targets = contrast_targets(cfg, plan)
     results: dict[str, list[con.Finding]] = {}
 
-    def one(label: str, f: str, key: str) -> None:
-        pr = probe(chrome, base, f, key)
-        bg = backdrop(chrome, base, f, key)
+    def one(label: str, f: str, key: str, size: tuple[int, int]) -> None:
+        pr = probe(chrome, base, f, key, size)
+        bg = backdrop(chrome, base, f, key, size)
         out = []
         for run in pr["runs"]:
             p5 = imaging.percentile5(imaging.sample_ratios(bg, run["rects"], run["color"]))
@@ -570,13 +712,14 @@ def check_legacy_contrast(chrome: str, base: str, cfg: dict, sizes: list[str], j
     return [f for label, *_ in targets for f in results.get(label, [])]
 
 
-def check_v2(chrome: str, base: str, cfg: dict, ad: dict, sizes: list[str], jobs: int) -> tuple[list[con.Finding], list[str]]:
+def check_v2(chrome: str, base: str, cfg: dict, ad: dict, plan: SizePlan, jobs: int) -> tuple[list[con.Finding], list[str]]:
     """Format 2: computed contrast where the backdrop colour is known, sampled otherwise; font coverage."""
-    targets = contrast_targets(cfg, sizes)
+    targets = contrast_targets(cfg, plan)
     results: dict[str, tuple[list[con.Finding], list[str]]] = {}
 
-    def one(label: str, f: str, key: str) -> None:
-        results[label] = pagecheck.evaluate(probe(chrome, base, f, key), ad, label, lambda: backdrop(chrome, base, f, key))
+    def one(label: str, f: str, key: str, size: tuple[int, int]) -> None:
+        results[label] = pagecheck.evaluate(probe(chrome, base, f, key, size), ad, label,
+                                            lambda: backdrop(chrome, base, f, key, size))
 
     run_all(jobs, [lambda t=t: one(*t) for t in targets])
     findings = [x for label, *_ in targets for x in results.get(label, ([], []))[0]]
@@ -594,10 +737,10 @@ def report_contrast(findings: list[con.Finding], header: str) -> str:
     return con.overall(counts)
 
 
-def verify_outputs(out: Path, cfg: dict, sizes: list[str]) -> int:
+def verify_outputs(out: Path, cfg: dict, plan: SizePlan) -> int:
     allowed: dict[str, set] = {}
-    for key in sizes:
-        allowed.setdefault(SIZES[key][3], set()).add(SIZES[key][:2])
+    for key in plan.keys:
+        allowed.setdefault(plan.folder(key), set()).add(plan.size(key))
     problems = count = 0
     for folder, dims in allowed.items():
         for p in sorted((out / folder).glob("*.png")):
@@ -608,26 +751,32 @@ def verify_outputs(out: Path, cfg: dict, sizes: list[str]) -> int:
                     print(f"  FAIL  {p.name}: {im.size[0]}x{im.size[1]} {im.mode} {p.stat().st_size} bytes")
     if cfg.get("featureGraphic"):
         count += 1
-        if not (out / FG_FILE).is_file():
+        fg = out / plan.fg_file
+        if not fg.is_file():
             problems += 1
-            print(f"  FAIL  {FG_FILE} missing")
+            print(f"  FAIL  {plan.fg_file} missing")
+        else:
+            with Image.open(fg) as im:
+                if im.size != plan.size("fg") or im.mode != "RGB" or fg.stat().st_size >= MAX_BYTES:
+                    problems += 1
+                    print(f"  FAIL  {fg.name}: {im.size[0]}x{im.size[1]} {im.mode} {fg.stat().st_size} bytes")
     print(f"verify: {count} files, {problems} problem(s)")
     return problems
 
 
-def contact_sheets(out: Path, cfg: dict, sizes: list[str]) -> list[Path]:
+def contact_sheets(out: Path, cfg: dict, plan: SizePlan) -> list[Path]:
     sheet_script = HERE / "contact_sheet.py"
-    folders = list(dict.fromkeys(SIZES[k][3] for k in sizes))
+    folders = list(dict.fromkeys(plan.folder(k) for k in plan.keys))
     main = "play/phone" if "play/phone" in folders else folders[0]
     made = []
     cmd = [sys.executable, str(sheet_script), str(out / main), "-o", str(out / "contact-sheet.png")]
-    if (out / FG_FILE).is_file():
-        cmd += ["--feature", str(out / FG_FILE)]
+    if (out / plan.fg_file).is_file():
+        cmd += ["--feature", str(out / plan.fg_file)]
     subprocess.run(cmd, check=True, timeout=300)
     made.append(out / "contact-sheet.png")
     if continuous(cfg):
         for platform in ("android", "ios"):
-            first = next((SIZES[k][3] for k in sizes if SIZES[k][2] == platform), None)
+            first = next((plan.folder(k) for k in plan.keys if plan.platform(k) == platform), None)
             if first:
                 dest = out / f"strip-{platform}.png"
                 subprocess.run([sys.executable, str(sheet_script), str(out / first), "--strip", "--check-seams",
@@ -638,29 +787,11 @@ def contact_sheets(out: Path, cfg: dict, sizes: list[str]) -> list[Path]:
 
 # ------------------------------------------------------------------ render
 
-def plan_sizes(cfg: dict, args: argparse.Namespace) -> tuple[list[str], set[str], list[str]]:
-    frames_filter = {f for f in args.frames.split(",") if f}
-    sizes_filter = [s for s in args.sizes.split(",") if s]
-    if getattr(args, "all", False) and (frames_filter or sizes_filter):
-        raise UsageError("--all renders the whole set; drop --frames/--sizes (or drop --all for a quick look)")
-    sizes = sizes_filter or cfg.get("sizes") or ["play-phone", "ios-69"]
-    unknown = [s for s in sizes if s not in SIZES or s == "fg"]
-    if unknown:
-        raise UsageError(f"unknown size key(s): {unknown}; choose from {[k for k in SIZES if k != 'fg']}")
-    frames = cfg.get("frames") or []
-    if not frames:
-        raise InputError("frames.json has no frames")
-    missing = sorted(frames_filter - {fr.get("id") for fr in frames})
-    if missing:
-        raise UsageError(f"unknown frame id(s): {missing}")
-    return sizes, frames_filter, sizes_filter
-
-
-def shots(chrome: str, base: str, cfg: dict, sizes: list[str], frames_filter: set[str], with_fg: bool,
+def shots(chrome: str, base: str, cfg: dict, plan: SizePlan, frames_filter: set[str], with_fg: bool,
           dest_of) -> list:
     tasks = []
-    for key in sizes:
-        w, h, platform, folder = SIZES[key]
+    for key in plan.keys:
+        w, h, platform, folder = plan.table[key]
         for i, fr in enumerate(cfg["frames"]):
             if frames_filter and fr["id"] not in frames_filter:
                 continue
@@ -669,7 +800,7 @@ def shots(chrome: str, base: str, cfg: dict, sizes: list[str], frames_filter: se
             rel = f"{folder}/{fr['id']}.png"
             tasks.append(lambda i=i, key=key, rel=rel, size=(w, h): shoot(chrome, f"{base}?f={i}&s={key}", size, dest_of(rel)))
     if cfg.get("featureGraphic") and with_fg:
-        tasks.append(lambda: shoot(chrome, f"{base}?f=fg&s=fg", (1024, 500), dest_of(FG_FILE)))
+        tasks.append(lambda: shoot(chrome, f"{base}?f=fg&s=fg", plan.size("fg"), dest_of(plan.fg_file)))
     return tasks
 
 
@@ -710,7 +841,7 @@ def legacy_note(kit: Path) -> None:
 def render(args: argparse.Namespace) -> int:
     kit: Path = args.kit
     cfg = load_cfg(kit)
-    sizes, frames_filter, sizes_filter = plan_sizes(cfg, args)
+    plan, frames_filter, sizes_filter = plan_sizes(cfg, args)
     v2 = is_v2(cfg)
     ad: dict | None = None
     info: dict = {}
@@ -759,10 +890,10 @@ def render(args: argparse.Namespace) -> int:
     started = dl.now_utc()
     with DirLock(kit / BUILD / "render.lock", f"the kit {kit}"):
         chrome = browser.find_chrome(args.chrome)
-        build = prepare_build(kit / BUILD, kit, cfg, images, args.project, ad, "production")
+        build = prepare_build(kit / BUILD, kit, cfg, images, args.project, ad, "production", plan)
         base = (build / "frame.html").resolve().as_uri()
         with Publisher(out, "store renders") as pub:
-            tasks = shots(chrome, base, cfg, sizes, frames_filter, not frames_filter and not sizes_filter, pub.stage_path)
+            tasks = shots(chrome, base, cfg, plan, frames_filter, not frames_filter and not sizes_filter, pub.stage_path)
             run_all(args.jobs, tasks)
             if not args.all:
                 pub.publish(prune=False)
@@ -771,14 +902,14 @@ def render(args: argparse.Namespace) -> int:
                     write_manifest(p, info, cfg, ad, out, pub, chrome, started, {"release-set": ("SKIPPED", "not --all")})
                 return 0
             stage = pub.stage
-            sheets = contact_sheets(stage, cfg, sizes)
-            problems = verify_outputs(stage, cfg, sizes)
+            sheets = contact_sheets(stage, cfg, plan)
+            problems = verify_outputs(stage, cfg, plan)
             checks: dict[str, tuple[str, str]] = {"verify": ("FAIL" if problems else "PASS", f"{problems} problem(s)")}
             if args.no_contrast:
                 checks["contrast"] = ("SKIPPED", "--no-contrast")
                 print("contrast: SKIPPED (--no-contrast)")
             elif v2:
-                findings, fonts = check_v2(chrome, base, cfg, ad, sizes, args.jobs)  # type: ignore[arg-type]
+                findings, fonts = check_v2(chrome, base, cfg, ad, plan, args.jobs)  # type: ignore[arg-type]
                 res = report_contrast(findings, f"contrast (WCAG 2.2 at the smallest intended display: canvases shown "
                                                 f"{ad['displayWidth']} CSS px wide; computed where the backdrop colour is "  # type: ignore[index]
                                                 "known, sampled estimates otherwise)")
@@ -787,14 +918,11 @@ def render(args: argparse.Namespace) -> int:
                     print(f"  FAIL  text: {line}")
                 checks["text"] = ("FAIL" if fonts else "PASS", f"{len(fonts)} caption run(s) with missing glyphs or cut off")
             else:
-                findings = check_legacy_contrast(chrome, base, cfg, sizes, args.jobs)
+                findings = check_legacy_contrast(chrome, base, cfg, plan, args.jobs)
                 res = report_contrast(findings, "contrast (1.6 rule: headline 3:1, other caption text 4.5:1; sampled "
                                                 "estimates, so a pass needs a look)")
                 checks["contrast"] = (res, f"{len(findings)} text runs")
-            store_rc = None
-            if STORE_CHECK.is_file():
-                store_rc = subprocess.run([sys.executable, str(STORE_CHECK), str(stage)], timeout=600).returncode
-                checks["store"] = ("PASS" if store_rc == 0 else "FAIL", "check_store_assets.py inspect mode")
+            checks["store"] = store_gate(stage, kit, [args.project] + ([p.root] if v2 else []))
             failed = [k for k, (r, _) in checks.items() if r == "FAIL"]
             summary = "; ".join(f"{k} {r}" for k, (r, _) in checks.items())
             if failed:
@@ -804,7 +932,7 @@ def render(args: argparse.Namespace) -> int:
             pub.publish(prune=True)
             for rel in pub.removed:
                 print(f"removed stale {rel}")
-            stale = [p_ for d in {SIZES[k][3] for k in sizes} for p_ in sorted((out / d).glob("*.png"))]
+            stale = [p_ for d in {plan.folder(k) for k in plan.keys} for p_ in sorted((out / d).glob("*.png"))]
             for rel in pub.report_unowned(stale):
                 print(f"NOTE  {rel} was not written by a recorded render, so it was kept; delete it if it is obsolete")
             review = any(r == "REVIEW REQUIRED" for r, _ in checks.values())
@@ -813,6 +941,29 @@ def render(args: argparse.Namespace) -> int:
     print(f"\nrender --all: {len(tasks)} images -> {out}; sheets: {', '.join(s.name for s in sheets)}; {summary}"
           + ("; status REVIEW REQUIRED: look at every caption marked above before release" if review else ""))
     return 0
+
+
+def store_config(kit: Path, roots: list[Path]) -> Path | None:
+    """The project's store-assets.json: in the kit, the kit's parent, then the project roots."""
+    for d in dict.fromkeys([kit.resolve(), kit.resolve().parent, *(r.resolve() for r in roots)]):
+        if (d / "store-assets.json").is_file():
+            return d / "store-assets.json"
+    return None
+
+
+def store_gate(stage: Path, kit: Path, roots: list[Path]) -> tuple[str, str]:
+    """check_store_assets.py on the staged set: the release gate with the project's store-assets.json,
+    inspect mode without one."""
+    config = store_config(kit, roots)
+    cmd = [sys.executable, str(STORE_CHECK), str(stage)]
+    if config:
+        cmd += ["--config", str(config), "--release"]
+        how = f"check_store_assets.py --release with {config}"
+    else:
+        how = "check_store_assets.py inspect only (no store-assets.json in the kit, its parent or the project)"
+    print(f"store check: {how}")
+    rc = subprocess.run(cmd, timeout=600).returncode
+    return ("PASS" if rc == 0 else "FAIL", how if rc != 2 else f"{how}: config error (exit 2)")
 
 
 def write_manifest(p: dl.Project, info: dict, cfg: dict, ad: dict, out: Path, pub: Publisher, chrome: str,
@@ -846,7 +997,7 @@ def preview(args: argparse.Namespace) -> int:
     cfg = load_cfg(kit)
     if not is_v2(cfg):
         raise UsageError("preview is for format-2 kits; a 1.6 kit renders with `render` as before")
-    sizes, frames_filter, sizes_filter = plan_sizes(cfg, args)
+    plan, frames_filter, sizes_filter = plan_sizes(cfg, args)
     p, ad, info = resolve_v2(kit, args, "preview")
     errors, images = validate_v2(cfg, kit, args.project, ad, "preview", p)
     if errors:
@@ -872,19 +1023,20 @@ def preview(args: argparse.Namespace) -> int:
             except ValueError:
                 rel_images[k] = path
         chrome = browser.find_chrome(args.chrome)
-        build = prepare_build(copy / BUILD, copy, cfg, rel_images, args.project, ad, "preview")
+        build = prepare_build(copy / BUILD, copy, cfg, rel_images, args.project, ad, "preview", plan)
         base = (build / "frame.html").resolve().as_uri()
-        tasks = shots(chrome, base, cfg, sizes, frames_filter, not frames_filter, lambda rel: out / rel)
+        tasks = shots(chrome, base, cfg, plan, frames_filter, not frames_filter, lambda rel: out / rel)
         run_all(args.jobs, tasks)
-        findings, fonts = check_v2(chrome, base, cfg, ad, sizes, args.jobs) if not frames_filter else ([], [])
+        findings, fonts = check_v2(chrome, base, cfg, ad, plan, args.jobs) if not frames_filter else ([], [])
         if findings:
             report_contrast(findings, "contrast (draft):")
         for line in fonts:
             print(f"  WARN  text: {line}")
-    folders = [SIZES[k][3] for k in sizes]
+    folders = [plan.folder(k) for k in plan.keys]
     pngs = [q for d in dict.fromkeys(folders) for q in sorted((out / d).glob("*.png"))]
+    fg = out / plan.fg_file
     if pngs:
-        imaging.sheet(([out / FG_FILE] if (out / FG_FILE).is_file() else []) + pngs, out / "contact-sheet.png")
+        imaging.sheet(([fg] if fg.is_file() else []) + pngs, out / "contact-sheet.png")
     print(f"preview: {len(tasks)} image(s) -> {out} (DRAFT; concept {info['concept_rel']}); sheet contact-sheet.png")
     return 0
 
@@ -892,7 +1044,7 @@ def preview(args: argparse.Namespace) -> int:
 def contrast_cmd(args: argparse.Namespace) -> int:
     kit = args.kit
     cfg = load_cfg(kit)
-    sizes = [s for s in args.sizes.split(",") if s] or cfg.get("sizes") or ["play-phone", "ios-69"]
+    plan = plan_sizes(cfg, args)[0]
     if is_v2(cfg):
         p, ad, _ = resolve_v2(kit, args, "preview")
         errors, images = validate_v2(cfg, kit, args.project, ad, "preview", p)
@@ -904,14 +1056,14 @@ def contrast_cmd(args: argparse.Namespace) -> int:
         return 1
     with DirLock(kit / BUILD / "render.lock", f"the kit {kit}"):
         chrome = browser.find_chrome(args.chrome)
-        build = prepare_build(kit / BUILD, kit, cfg, images, args.project, ad, "preview")
+        build = prepare_build(kit / BUILD, kit, cfg, images, args.project, ad, "preview", plan)
         base = (build / "frame.html").resolve().as_uri()
         if ad is None:
-            res = report_contrast(check_legacy_contrast(chrome, base, cfg, sizes, args.jobs),
+            res = report_contrast(check_legacy_contrast(chrome, base, cfg, plan, args.jobs),
                                   "contrast (1.6 rule: headline 3:1, other caption text 4.5:1; sampled estimates)")
             fonts: list[str] = []
         else:
-            findings, fonts = check_v2(chrome, base, cfg, ad, sizes, args.jobs)
+            findings, fonts = check_v2(chrome, base, cfg, ad, plan, args.jobs)
             res = report_contrast(findings, f"contrast (canvases shown {ad['displayWidth']} CSS px wide)")
             for line in fonts:
                 print(f"  FAIL  text: {line}")
@@ -935,7 +1087,8 @@ def main() -> int:
                        ("contrast", "caption contrast check only")):
         p = sub.add_parser(name, help=text)
         p.add_argument("kit", type=Path)
-        p.add_argument("--sizes", default="", help="comma-separated size keys (default: frames.json sizes)")
+        p.add_argument("--sizes", default="", help="comma-separated size keys or platform:WxH[:folder] one-offs "
+                                                   "(default: frames.json sizes)")
         p.add_argument("--project", type=Path, default=Path("."), help="app folder with node_modules (icons, fonts) and photos")
         p.add_argument("--chrome", help="path to Chrome/Chromium/Edge")
         p.add_argument("--jobs", type=int, default=jobs, help=f"parallel Chrome runs (default {jobs}, at most 8)")
@@ -945,7 +1098,8 @@ def main() -> int:
         if name in ("preview", "contrast"):
             p.add_argument("--concept", help="a store concept file (relative to the project root); default: the selected one")
         if name == "render":
-            p.add_argument("--all", action="store_true", help="release set: every size, sheets, verify, contrast, store check")
+            p.add_argument("--all", action="store_true", help="release set: every frames.json size, the feature graphic, sheets, "
+                                                              "verify, contrast and the store gate")
             p.add_argument("--no-contrast", action="store_true", help="with --all: skip the contrast check")
             p.add_argument("--check-only", action="store_true", help="validate frames.json (and report the gates) without rendering")
     args = parser.parse_args()
