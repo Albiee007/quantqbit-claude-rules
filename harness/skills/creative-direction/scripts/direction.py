@@ -24,6 +24,8 @@ Usage:
   python direction.py approve --gate direction --by "Owner Name" --evidence "chat 2026-10-02: 'approved'"
   python direction.py approve --gate concept --family store --concept brand/concepts/store/<run>/b.json --by ... --evidence ...
   python direction.py approve --gate exception --scope "store:frame:05-brand:layout=inset" --by ... --evidence ...
+  python direction.py approve --gate storyboard --piece launch-teaser --by ... --evidence ...
+  python direction.py approve --gate review --run <run id> --items all --by ... --evidence ...
   python direction.py concept new --family store --id b --name "Field notes" [--run <run id>]
   python direction.py concept check brand/concepts/store/<run>/b.json
   python direction.py resolve store [--concept <file>]
@@ -250,7 +252,7 @@ def validate(a: argparse.Namespace) -> int:
             errors += 1
             continue
         print(f"ok    {rel} ({c['family']}: {c['name']})")
-        if c["family"] in ("store", "marketing"):
+        if c["family"] in ("store", "marketing", "video"):
             for f in pair_findings(r, c["family"]):
                 if f.result != con.PASS:
                     print(f.line())
@@ -273,13 +275,45 @@ def status(a: argparse.Namespace) -> int:
         own = [x for x in gg.problems if x not in g.problems]
         print(f"Gate 2 {fam}: {'approved (' + gg.concept_rel + ')' if gg.ok else 'NOT MET: ' + '; '.join(own or gg.problems)}")
         ok = ok and gg.ok
+        legacy = [x for x in gg.legacy if x not in g.legacy]
+        if legacy:
+            print(f"       note: {', '.join(legacy)} still uses the 1.7 hashing (any family's brief makes it stale); "
+                  "re-approving switches it to scoped hashes")
+    if g.legacy:
+        print(f"note: the direction approval {', '.join(g.legacy)} uses the 1.7 hashing; re-approving switches it to "
+              "scoped hashes (requesting or briefing a family then leaves it current)")
+    if (p.direction["families"].get("video") or {}).get("requested"):
+        from harnesslib import video as vd
+        video_problems = dl.gate(p, "video").problems
+        for pid in vd.list_pieces(p.root):
+            try:
+                pg = vd.gate_piece(p, pid)
+            except (InputError, TokenError) as e:
+                print(f"Gate 3 storyboard {pid}: NOT MET: {str(e).splitlines()[0]}")
+                ok = False
+                continue
+            own = [x for x in pg.problems if x not in video_problems] or pg.problems
+            print(f"Gate 3 storyboard {pid}: {'approved' if pg.ok else 'NOT MET: ' + '; '.join(own)}")
+            ok = ok and pg.ok
     return 0 if ok else 1
 
 
 def approve(a: argparse.Namespace) -> int:
     root = root_of(a)
     p = dl.load_project(root)
-    rec = dl.approve(p, a.gate, a.by, a.evidence, a.recorded_by, a.family, a.concept, a.scope)
+    if a.gate in ("storyboard", "review"):
+        from harnesslib import video as vd
+        if a.gate == "storyboard":
+            if not a.piece:
+                raise UsageError("a storyboard approval needs --piece <id> (brand/video/<id>/video.json)")
+            rec = vd.approve_storyboard(p, a.piece, a.by, a.evidence, a.recorded_by)
+        else:
+            if not a.run or not a.items:
+                raise UsageError("a review acknowledgement needs --run <run id> and --items <id,id,...|all>")
+            rec = vd.approve_review(p, a.run, [x.strip() for x in a.items.split(",") if x.strip()], a.by, a.evidence,
+                                    a.recorded_by)
+    else:
+        rec = dl.approve(p, a.gate, a.by, a.evidence, a.recorded_by, a.family, a.concept, a.scope)
     print(f"recorded {rec['gate']} approval {rec['id']} for {rec['subject']} by {rec['by']}")
     write_summary(root)
     return 0
@@ -298,6 +332,16 @@ SPEC_SKELETONS = {
                   "caption": {"head": {"font": "display", "weight": 700}, "sub": {"font": "text", "weight": 400}, "align": "start"},
                   "layouts": ["type-start"], "defaultLayout": "type-start", "defaultBackground": "primary"},
     "icon": {"background": {"recipe": "solid", "color": "{roles.accent}"}, "glyphScale": 0.58},
+    "video": {"backgrounds": {"primary": {"recipe": "solid", "color": "{roles.canvas}",
+                                          "text": {"head": "{roles.ink}", "sub": "{roles.inkMuted}"}}},
+              "caption": {"head": {"font": "display", "weight": 700}, "sub": {"font": "text", "weight": 400}, "align": "start"},
+              "layouts": ["type-start"], "defaultLayout": "type-start", "defaultBackground": "primary",
+              "motion": {"durations": {"fast": "{motion.duration.fast}", "base": "{motion.duration.base}",
+                                       "slow": "{motion.duration.slow}"},
+                         "easing": {"standard": "{motion.easing.standard}", "enter": "{motion.easing.enter}",
+                                    "exit": "{motion.easing.exit}"},
+                         "transitions": ["cut", "fade"], "defaultTransition": "fade", "textIn": "fade-up"},
+              "pace": {"readingWpm": 200, "minHold": 1.0, "voWpm": 150}},
     "illustration": {"style": "DRAFT: one render style from story-art references/style-vocabulary.md",
                      "palette": ["{roles.canvas}", "{roles.accent}"], "lighting": "DRAFT", "background": "DRAFT",
                      "storyWorld": {"setting": "DRAFT", "register": "DRAFT"}, "ratio": "4:3"},
@@ -333,7 +377,7 @@ def concept_check(a: argparse.Namespace) -> int:
     print(f"ok    {rel}: {c['family']} concept {c['id']!r} ({c['name']})")
     print(f"      preview: {c['preview'].get('path') or 'unavailable: ' + c['preview']['unavailable']}")
     fails = 0
-    if c["family"] in ("store", "marketing"):
+    if c["family"] in ("store", "marketing", "video"):
         for f in pair_findings(r, c["family"]):
             print(f.line())
             fails += f.result == con.FAIL
@@ -476,10 +520,13 @@ def main() -> int:
     sub.add_parser("status")
     sub.add_parser("summary")
     ap_ = sub.add_parser("approve")
-    ap_.add_argument("--gate", required=True, choices=["direction", "concept", "exception"])
+    ap_.add_argument("--gate", required=True, choices=["direction", "concept", "exception", "storyboard", "review"])
     ap_.add_argument("--family", choices=dl.FAMILIES)
     ap_.add_argument("--concept")
     ap_.add_argument("--scope")
+    ap_.add_argument("--piece", help="storyboard: the video piece id")
+    ap_.add_argument("--run", help="review: the video run id")
+    ap_.add_argument("--items", help="review: comma-separated review item ids, or 'all'")
     ap_.add_argument("--by", required=True)
     ap_.add_argument("--evidence", required=True)
     ap_.add_argument("--recorded-by", default="main session")

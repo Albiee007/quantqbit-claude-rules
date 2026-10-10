@@ -22,12 +22,13 @@ All of these are project-owned and committed. The machine-readable schemas ship 
   "keep": ["the existing green (owner, 2026-10-02)"],
   "motif": { "idea": "pressed-leaf silhouettes", "asset": "brand/motif.svg" },
   "families": { "store": {"requested": true, "brief": "...", "selected": "brand/concepts/store/<run>/<id>.json"},
-                "marketing": {"requested": true}, "icon": {"requested": false}, "illustration": {"requested": false} },
+                "marketing": {"requested": true}, "icon": {"requested": false}, "illustration": {"requested": false},
+                "video": {"requested": true, "brief": "a 15-second vertical teaser"} },
   "exceptions": [{"id": "dark-launch", "text": "..."}]
 }
 ```
 - Token-valued fields are token references (`{group.token}`); `{roles.x}` and `{fonts.x}` are shortcuts through this file. Everything else is a typed literal.
-- `selected` is written by `direction.py approve --gate concept` and is not part of the direction's hash: choosing a concept does not change the direction.
+- `selected` is written by `direction.py approve --gate concept`. Since 1.8 the whole `families` block is outside the direction's hash: requesting a family, briefing it or choosing a concept does not change the direction. A family's own `requested` and `brief` are part of that family's concept approval instead.
 - `brand/DIRECTION.md` is generated from this file (`direction.py summary`) and is never edited by hand.
 
 ## Font records (in the token file)
@@ -43,11 +44,16 @@ All of these are project-owned and committed. The machine-readable schemas ship 
 | marketing | `backgrounds`, `caption`, `layouts` [type-start, type-center, split-image, logo-band], `defaultLayout`, `defaultBackground`, `logo`, `motif`, `displayWidth` |
 | icon | `background` {recipe, color \| stops, angle, space}, `glyphScale`, `glyphOffset` [x, y], `qualityTarget` {markContrast} |
 | illustration | `style`, `palette` [refs], `lighting`, `background`, `texture`, `shot`, `storyWorld` {setting, era, cast, register}, `negatives`, `ratio` |
+| video | the marketing look (`backgrounds`, `caption`, `logo`, `motif`, `displayWidth`) with `layouts` [type-start, type-center, type-lower]; `motion` {durations {fast, base, slow}: refs to `$type` duration, easing {standard, enter, exit, emphasis?}: refs to `$type` cubicBezier, stagger {perItemMs, maxItems}, transitions [cut, fade, dip, slide, push, scale, wipe], defaultTransition, textIn / textOut [fade-up, mask-up, word-stagger, scale-in, fade, none], motifMotion none\|drift\|pulse}; `pace` {readingWpm, minHold, voWpm}; `subtitles` {style, position, font, weight, ink, plate, maxCharsPerLine, maxLines}; `sceneTemplates` [title, feature, stat, end-card, still] (default: all but still); `endCard` {background, logo}; `music` {mood, bpm, energy}; `voice` {casting, register, pace, accent}; `safeAreas` standard\|strict |
 
-`displayWidth` is the narrowest width, in CSS px, at which the asset is viewed (store frames default 320, marketing 500). Text sizes are judged at that width for WCAG large-text rules.
+`displayWidth` is the narrowest width, in CSS px, at which the asset is viewed (store frames default 320, marketing 500, video 360). Text sizes are judged at that width for WCAG large-text rules.
 
 ## `brand/approvals.json`
-Records written only by `direction.py approve`: `{id, gate direction|concept|exception, family?, subject, scope?, hash, inputs, by, evidence, at, recordedBy}`. `hash` is the approved content; `inputs` the resolved values it depended on. `direction.py status` recomputes both and reports each record as approved, stale (and what changed) or missing.
+Records written only by `direction.py approve`: `{id, gate direction|concept|exception|storyboard|review, family?, subject, scope?, hash, inputs, by, evidence, at, recordedBy, hashVersion, parts?, run?, items?}`. `hash` is the approved content; `inputs` the resolved values it depended on. `direction.py status` recomputes both and reports each record as approved, stale (and what changed) or missing.
+
+- `hashVersion` 2 (1.8): direction content leaves out `families`; a concept's inputs are the direction content, its own family entry and everything it resolves to (colours, type, font files, motion values, motif and logo hashes). A record without `hashVersion` was written by 1.7 and is checked the 1.7 way.
+- `storyboard` (video): subject `brand/video/<id>/video.json`; `parts` holds the visual, timing and script hashes so a stale record says what changed; inputs are the video concept's approval hashes. Audio never enters it.
+- `review` (video): subject the run manifest; `hash` is the run's output set, `items` the REVIEW REQUIRED ids the owner looked at. A byte-identical re-render keeps it.
 
 ## Run manifests: `brand/runs/<family>/<run>.json`
-One immutable file per production run: tool, times, engine and browser, input hashes (config, direction, concept, slot assets with licences), approvals in force, fonts with hashes, every output with its sha256 and size, each check as PASS / FAIL / SKIPPED / REVIEW REQUIRED, and a status (`complete`, `review-required`, `failed`). Commit them: they are the audit record. Images and build folders stay out of git.
+One immutable file per production run: tool, times, engine and browser, input hashes (config, direction, concept, slot assets with licences), approvals in force, fonts with hashes, every output with its sha256 and size, each check as PASS / FAIL / SKIPPED / REVIEW REQUIRED, and a status (`complete`, `review-required`, `failed`). Video runs add `piece` (the storyboard hashes, frames, fps, caption timing) and `reviews` (the items waiting for the owner); the manifest is written before the outputs are published. Commit them: they are the audit record. Images and build folders stay out of git.

@@ -11,6 +11,7 @@ Only the families the request needs, and only families the direction requests:
 | marketing (social, Open Graph, email header, banner), logo | `brand-asset-creator` | brand-assets |
 | icon | `icon-creator` | app-icons (mobile projects) |
 | illustration | `illustrator` | story-art |
+| video (motion, pace, transitions, voice direction) | `video-creative` | brand-video |
 
 A web-only project never needs `store-creative` or `icon-creator`. Independent families run in parallel.
 
@@ -20,7 +21,7 @@ If the family's approved concept is still current (`direction.py status` shows i
 ## Brief for a creator (from the main session)
 ```
 MODE: concept
-Family: store | marketing | icon | illustration
+Family: store | marketing | icon | illustration | video
 Direction: brand/direction.json (status from `direction.py status`)
 Scope: <frames / assets / placements this concerns>
 Previews: on | off
@@ -30,8 +31,8 @@ Run: <run id> (one per round; `direction.py concept new` creates files under it)
 ## What a creator does in concept mode
 - **Reads** the direction, the tokens, the family skill and ui-ux, typography and color-science. Reads project sources; edits none of them.
 - **Writes only** its own concept files, `brand/concepts/<family>/<run>/<id>.json`, plus previews under a gitignored folder (`<kit>/.preview/`, `out/creative/`, or wherever the family's preview command writes). Never the direction, tokens, kit content, approvals or production outputs. No kit `init`, no production render.
-- **Proposes 2–3 concepts** that differ in decisions that matter for this project (layout family, background treatment, type treatment, device or render style, how the motif is used, colour emphasis). At most one is a "safe evolution" of what exists. Numbers alone (a slightly different angle) are not a different concept.
-- **Previews** when it can: `render_frames.py preview --concept <file>`, `export_svg.py --plan ... --preview <dir> --concept <file>`, `make_icon_set.py preview --from-direction . --concept <file>`. A concept without a preview says so in `preview.unavailable` and is never described as visually reviewed.
+- **Proposes 2–3 concepts** that differ in decisions that matter for this project (layout family, background treatment, type treatment, device or render style, how the motif is used, colour emphasis; for video, how the brand moves: transitions, text entrances, pace, voice). At most one is a "safe evolution" of what exists. Numbers alone (a slightly different angle) are not a different concept.
+- **Previews** when it can: `render_frames.py preview --concept <file>`, `export_svg.py --plan ... --preview <dir> --concept <file>`, `make_icon_set.py preview --from-direction . --concept <file>`, `render_video.py preview <piece> --concept <file>`. A concept without a preview says so in `preview.unavailable` and is never described as visually reviewed.
 - **Checks** each concept: `direction.py concept check <file>` (schema, references, contrast pairs, signals).
 
 ## What a creator returns

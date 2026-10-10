@@ -15,7 +15,12 @@ pass=0; fail=0
 ok()   { pass=$((pass + 1)); printf '  [OK] %s\n' "$*"; }
 # A failure also shows the tail of the last command's output (sync or doctor).
 bad()  { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$*"
-         [[ -s "$WORK/out.log" ]] && tail -15 "$WORK/out.log" | sed 's/^/        | /'; return 0; }
+         [[ -s "$WORK/out.log" ]] && tail -15 "$WORK/out.log" | sed 's/^/        | /'; annotate "$*"; return 0; }
+annotate() { # on GitHub Actions, a failure also becomes an annotation (readable without the log)
+  [[ "${GITHUB_ACTIONS:-}" == "true" ]] || return 0
+  local body; body="$(tail -n 8 "$WORK/out.log" 2>/dev/null | cut -c1-300 | sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }')"
+  printf '::error title=sync: %s::%s\n' "${1//::/ }" "$body"
+}
 check() { local d="$1"; shift; if "$@"; then ok "$d"; else bad "$d"; return 1; fi; }
 
 new_repo() { # name [extra setup cmd]
@@ -243,7 +248,10 @@ check "lock source is canonical https" grep -q $'^source\thttps://github.com/' "
 
 echo "21. Windows clone keeps scripts LF (shipped .claude/.gitattributes)"
 R15="$(new_repo eol)"; run "$R15" --profiles all --commit
-git -c core.autocrlf=true clone -q "$R15" "$WORK/eolclone"
+{ git -c core.autocrlf=true clone "$R15" "$WORK/eolclone" 2>&1; echo "clone rc=$?"
+  git -C "$R15" branch -a 2>&1; git -C "$R15" log --oneline -3 2>&1; git -C "$R15" status --porcelain 2>&1 | head -5
+  git -C "$WORK/eolclone" ls-files 2>&1 | grep -c '^\.claude/'; } > "$WORK/out.log"
+check "the autocrlf clone has the harness files" test -f "$WORK/eolclone/.claude/harness/hooks/guard.sh"
 check ".claude/.gitattributes shipped" test -f "$R15/.claude/.gitattributes"
 check "guard.sh checked out LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$WORK/eolclone/.claude/harness/hooks/guard.sh")"
 check "lock checked out LF" test -z "$(awk -v BINMODE=3 '/\r$/ { print; exit }' "$WORK/eolclone/.claude/harness/lock")"
@@ -329,10 +337,10 @@ echo "29. mobile profile installs the store and brand agents and skills"
 R21="$(new_repo mobile)"
 run "$R21" --profiles mobile; check "mobile install exits 0" test $? -eq 0
 check "mobile gets surfaces-and-cards reference" test -f "$R21/.claude/skills/ui-ux/references/surfaces-and-cards.md"
-for a in creative-director screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator; do
+for a in creative-director screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator video-creative; do
   check "agent $a installed" test -f "$R21/.claude/agents/$a.md"
 done
-for s in creative-direction mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets story-art; do
+for s in creative-direction mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets story-art brand-video; do
   check "skill $s installed" test -f "$R21/.claude/skills/$s/SKILL.md"
 done
 check "store snippet installed" test -f "$R21/.claude/harness/snippets/store.md"
@@ -350,6 +358,8 @@ check "web gets the creative-director and the media library" test -f "$R22/.clau
 check "web gets no store agents" test ! -e "$R22/.claude/agents/store-creative.md"
 check "web gets story-art" test -f "$R22/.claude/skills/story-art/scripts/export_art.py"
 check "web gets illustrator" test -f "$R22/.claude/agents/illustrator.md"
+check "web gets brand-video and the video-creative" test -f "$R22/.claude/skills/brand-video/scripts/render_video.py" -a -f "$R22/.claude/agents/video-creative.md"
+check "web gets the video runtime" test -f "$R22/.claude/harness/lib/media/timeline.js" -a -f "$R22/.claude/harness/lib/harnesslib/cdp.py"
 check "web skips store-mockups" test ! -e "$R22/.claude/skills/store-mockups"
 check "web gets the art snippet" test -f "$R22/.claude/harness/snippets/art.md"
 check "web skips the store snippet" test ! -e "$R22/.claude/harness/snippets/store.md"
@@ -396,6 +406,7 @@ echo "mine" > "$R27/.claude/agents/creative-director.md"
 git -C "$R27" add -A; git -C "$R27" commit -qm own
 run "$R27" --profiles web; check "own creative-director agent blocks (exit 1)" test $? -eq 1
 check "the reserved list names creative-direction" grep -q 'creative-direction' "$WORK/out.log"
+check "the reserved list names brand-video and video-creative" bash -c "grep -q 'brand-video' '$WORK/out.log' && grep -q 'video-creative' '$WORK/out.log'"
 
 echo
 echo "sync tests: $pass passed, $fail failed"

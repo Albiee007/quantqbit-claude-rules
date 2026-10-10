@@ -165,6 +165,80 @@ jset "$K/store-assets/mockup-kit/frames.json" 'd["frames"][0]["head"] = "REPLACE
 run "$K" "$RENDER" render store-assets/mockup-kit --check-only
 check "placeholder copy fails a production check" bash -c "[[ \$(cat '$W/rc') == 1 ]] && grep -q 'placeholder copy' '$W/out'"
 
+echo "== scoped approvals and the video family (1.8)"
+V="$W/vid"; hc_py "$MAKE" "$V" kestrel --video --approve > "$W/out" 2>&1
+check "a fixture with an approved video concept and storyboard builds" test $? -eq 0
+run "$V" "$DIR" status; check "every gate is met, including Gate 3" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'Gate 3 storyboard launch: approved' '$W/out'"
+check "new records carry hashVersion 2" grep -q '"hashVersion": 2' "$V/brand/approvals.json"
+VD="$V/brand/direction.json"; cp "$VD" "$W/vdir.bak"; cp "$V/brand/tokens.json" "$W/vtok.bak"
+gates() { grep -q "Gate 1 direction: approved" "$W/out" && for g in "$@"; do grep -q -- "$g" "$W/out" || return 1; done; }
+jset "$VD" 'd["families"]["illustration"] = {"requested": True, "brief": "spot art for onboarding"}'
+run "$V" "$DIR" status
+check "requesting and briefing another family leaves every approval current" gates "Gate 2 store: approved" "Gate 2 video: approved" "Gate 3 storyboard launch: approved"
+cp "$W/vdir.bak" "$VD"
+jset "$VD" 'd["families"]["video"]["brief"] = "a 20-second teaser for the autumn release"'
+run "$V" "$DIR" status
+check "briefing the video family makes the video concept and storyboard stale, nothing else" bash -c "grep -q 'Gate 1 direction: approved' '$W/out' && grep -q 'Gate 2 store: approved' '$W/out' && grep -q 'Gate 2 icon: approved' '$W/out' && grep -q 'Gate 2 video: NOT MET.*stale' '$W/out' && grep -q 'Gate 3 storyboard launch: NOT MET' '$W/out'"
+cp "$W/vdir.bak" "$VD"
+jset "$VD" 'd["families"]["store"]["brief"] = "lead with the live map"'
+run "$V" "$DIR" status
+check "briefing the store family makes only the store concept stale" gates "Gate 2 store: NOT MET.*stale" "Gate 2 marketing: approved" "Gate 2 video: approved" "Gate 3 storyboard launch: approved"
+cp "$W/vdir.bak" "$VD"
+jset "$V/brand/tokens.json" 'd["motion"]["duration"]["base"]["$value"]["value"] = 333'
+run "$V" "$DIR" status
+check "a motion token change makes the video concept and storyboard stale, not the stills" gates "Gate 2 store: approved" "Gate 2 icon: approved" "Gate 2 video: NOT MET.*value it resolves" "Gate 3 storyboard launch: NOT MET"
+cp "$W/vtok.bak" "$V/brand/tokens.json"
+jset "$V/brand/tokens.json" 'd["color"]["signal"]["400"]["$value"]["components"][0] = 0.5; d["color"]["signal"]["400"]["$value"]["hex"] = "#80590c"'
+run "$V" "$DIR" status
+check "a role colour change makes the direction stale and the concepts that use it" bash -c "grep -q 'Gate 1 direction: NOT MET.*token, font or motif' '$W/out' && grep -q 'store concept approval.*stale' '$W/out' && grep -q 'video concept approval.*stale' '$W/out' && ! grep -q 'icon concept approval.*stale' '$W/out'"
+cp "$W/vtok.bak" "$V/brand/tokens.json"
+mkdir -p "$V/brand/video/promo"; sed 's/"id": "launch"/"id": "promo"/' "$V/brand/video/launch/video.json" > "$V/brand/video/promo/video.json"
+run "$V" "$DIR" approve --gate storyboard --piece promo --by Owner --evidence "promo approved"
+jset "$V/brand/video/promo/video.json" 'd["scenes"][0]["copy"]["head"] = "A different promise"'
+run "$V" "$DIR" status
+check "editing one piece leaves another piece's storyboard current" bash -c "grep -q 'Gate 3 storyboard launch: approved' '$W/out' && grep -q 'Gate 3 storyboard promo: NOT MET.*on-screen content' '$W/out'"
+rm -rf "$V/brand/video/promo"
+run "$V" "$DIR" status; check "the unchanged rerun is current again" rc 0
+run "$V" "$DIR" approve --gate review --run 20261002-120000-0a0b0c --items all --by Owner --evidence "ok"
+check "a review acknowledgement needs an existing run" rc 1
+hc_py -c "
+import sys; sys.path.insert(0, sys.argv[1])
+from harnesslib import schema
+old = {'schemaVersion': 1, 'runId': '20261002-120000-0a0b0c', 'family': 'store', 'mode': 'production', 'tool': 'render_frames.py',
+       'startedAt': 'x', 'finishedAt': 'y', 'engine': {'api': 1}, 'inputs': {'config': '0' * 64}, 'approvals': [], 'fonts': [],
+       'seed': None, 'outputs': [{'path': 'a.png', 'sha256': '0' * 64, 'bytes': 1, 'size': [1, 1]}], 'checks': {}, 'status': 'complete'}
+schema.check(old, 'run-manifest', '1.7 manifest')
+" "$ROOT/harness/lib" > "$W/out" 2>&1
+check "a 1.7 run manifest still validates" test $? -eq 0
+
+LEGACY_REF="${LEGACY_REF:-cd14423}"  # 1.7.0 on main
+if git -C "$ROOT" cat-file -e "$LEGACY_REF^{commit}" 2>/dev/null; then
+  mkdir -p "$W/h17" && git -C "$ROOT" archive "$LEGACY_REF" harness tests/fixtures/media | tar -x -C "$W/h17"
+  O="$W/old17"; hc_py "$W/h17/tests/fixtures/media/make_project.py" "$O" kestrel --approve > "$W/out" 2>&1
+  check "a project approved by the 1.7 harness builds" test $? -eq 0
+  check "its records have no hashVersion" bash -c "! grep -q hashVersion '$O/brand/approvals.json'"
+  run "$O" "$DIR" status
+  check "1.7 approvals stay current under 1.8" rc 0
+  check "status notes the 1.7 hashing" has "1.7 hashing"
+  cp "$O/brand/direction.json" "$W/odir.bak"
+  jset "$O/brand/direction.json" 'd["families"]["video"] = {"requested": True, "brief": "a launch teaser"}'
+  run "$O" "$DIR" status
+  check "requesting video keeps every 1.7 approval current (the adapter)" gates "Gate 2 store: approved" "Gate 2 marketing: approved" "Gate 2 icon: approved" "Gate 2 video: NOT MET"
+  cp "$W/odir.bak" "$O/brand/direction.json"
+  jset "$O/brand/direction.json" 'd["families"]["store"]["brief"] = "lead with the live map"'
+  run "$O" "$DIR" status
+  check "the 1.7 coupling stays for 1.7 records: a store brief makes the direction stale" has "Gate 1 direction: NOT MET"
+  run "$O" "$DIR" approve --gate direction --by Owner --evidence "re-approved under 1.8"
+  for f in store marketing icon; do run "$O" "$DIR" approve --gate concept --family "$f" --concept "brand/concepts/$f/$RUNID/a.json" --by Owner --evidence "re-approved"; done
+  jset "$O/brand/direction.json" 'd["families"]["store"]["brief"] = "lead with the live map, at night"'
+  run "$O" "$DIR" status
+  check "after re-approval the hashes are scoped: only the store concept goes stale" gates "Gate 2 store: NOT MET.*stale" "Gate 2 marketing: approved" "Gate 2 icon: approved"
+elif [[ "${CI:-}" == "true" ]]; then
+  bad "the 1.7 reference commit $LEGACY_REF is missing (CI checks out full history)"
+else
+  echo "  [SKIP] 1.7 adapter cases: commit $LEGACY_REF not in this clone"
+fi
+
 echo "== signals, migrate, same brand"
 run "$W/same" "$DIR" concept check "$STORE"
 check "a kept 1.6-like look still passes its checks" rc 0

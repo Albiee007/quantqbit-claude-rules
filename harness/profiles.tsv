@@ -21,6 +21,7 @@ agents/store-precheck-auditor.md	mobile
 agents/icon-creator.md	mobile
 agents/brand-asset-creator.md	web,mobile
 agents/illustrator.md	web,mobile
+agents/video-creative.md	web,mobile
 skills/mobile-screen-capture/*	mobile
 skills/store-mockups/*	mobile
 skills/store-listing/*	mobile
@@ -28,6 +29,7 @@ skills/store-submission-precheck/*	mobile
 skills/app-icons/*	mobile
 skills/brand-assets/*	web,mobile
 skills/story-art/*	web,mobile
+skills/brand-video/*	web,mobile
 snippets/store.md	mobile
 snippets/art.md	web,mobile
 rules/ansible.md	infra

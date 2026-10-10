@@ -8,10 +8,10 @@ This project vendors the QuantQbit agent harness: shared agent rules, skills, ag
 |---|---|---|
 | `.claude/rules/harness/*` | harness | No. Override in `.claude/rules/project/` |
 | `.claude/skills/{coding-standards,design-patterns,ui-ux,typography,color-science,seo,harness}/` | harness | No. Add your own skills under other names |
-| `.claude/skills/{creative-direction,mobile-screen-capture,store-mockups,store-listing,store-submission-precheck,app-icons,brand-assets,story-art}/` (mobile; `creative-direction`, `brand-assets` and `story-art` also web) | harness | No. Copy templates into your project before editing them |
+| `.claude/skills/{creative-direction,mobile-screen-capture,store-mockups,store-listing,store-submission-precheck,app-icons,brand-assets,story-art,brand-video}/` (mobile; `creative-direction`, `brand-assets`, `story-art` and `brand-video` also web) | harness | No. Copy templates into your project before editing them |
 | `.claude/agents/{explorer,implementor,infra-implementor,reviewer,verifier}.md` | harness | No. Add your own agents under other names |
-| `.claude/agents/{creative-director,screen-capturer,store-creative,listing-copywriter,store-precheck-auditor,icon-creator,brand-asset-creator,illustrator}.md` (mobile; `creative-director`, `brand-asset-creator` and `illustrator` also web) | harness | No |
-| `brand/direction.json`, `brand/concepts/`, `brand/approvals.json`, `brand/runs/` | project | The direction and concepts yes (through the creative-director); approvals only through `direction.py approve` after the owner decides |
+| `.claude/agents/{creative-director,screen-capturer,store-creative,listing-copywriter,store-precheck-auditor,icon-creator,brand-asset-creator,illustrator,video-creative}.md` (mobile; `creative-director`, `brand-asset-creator`, `illustrator` and `video-creative` also web) | harness | No |
+| `brand/direction.json`, `brand/concepts/`, `brand/video/`, `brand/approvals.json`, `brand/runs/` | project | The direction and concepts yes (through the creative-director); approvals only through `direction.py approve` after the owner decides |
 | `.claude/harness/*` (hooks, snippets, bin, lock, this README), `.claude/.gitattributes` | harness | No |
 | `.claude/settings.json` | **generated** | No. Edit `.claude/settings.project.json` instead, then re-sync |
 | `.claude/settings.project.json` | project | Yes: team-shared permissions, env and hooks |

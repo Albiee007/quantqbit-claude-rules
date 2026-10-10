@@ -4,7 +4,8 @@ Supported
 - Groups and tokens, `$type` inherited from the nearest group, `$description`, `$deprecated`,
   `$extensions` (kept verbatim, never interpreted unless documented), the `$root` token name.
 - Curly-brace aliases "{group.token}" as a whole `$value`, and inside typography composites.
-- Types: color, dimension, fontFamily, fontWeight, number, duration, typography.
+- Types: color, dimension, fontFamily, fontWeight, number, duration, cubicBezier, typography.
+  cubicBezier values are [x1, y1, x2, y2] with x1 and x2 in 0..1 (motion easing).
 - color values as 2025.10 objects {colorSpace, components, alpha?, hex?} with colorSpace srgb,
   srgb-linear, oklab or oklch; a plain CSS colour string is read as a legacy form (warning).
 - dimension values {value, unit: px|rem}; "16px" / "1rem" strings are read as a legacy form.
@@ -30,7 +31,7 @@ from . import color as col
 from .fsutil import InputError, dumps_pretty, load_json, write_atomic
 
 MAX_DEPTH = 32
-SUPPORTED = {"color", "dimension", "fontFamily", "fontWeight", "number", "duration", "typography"}
+SUPPORTED = {"color", "dimension", "fontFamily", "fontWeight", "number", "duration", "cubicBezier", "typography"}
 COLOR_SPACES = {"srgb", "srgb-linear", "oklab", "oklch"}
 FONT_WEIGHTS = {"thin": 100, "hairline": 100, "extra-light": 200, "ultra-light": 200, "light": 300,
                 "normal": 400, "regular": 400, "book": 400, "medium": 500, "semi-bold": 600,
@@ -160,6 +161,11 @@ class Tokens:
             if isinstance(raw, dict) and raw.get("unit") in ("ms", "s") and _finite(raw.get("value")):
                 return raw
             raise TokenError(f"{path}: duration must be {{value, unit: ms|s}}")
+        if ttype == "cubicBezier":
+            if (isinstance(raw, list) and len(raw) == 4 and all(_finite(x) for x in raw)
+                    and 0 <= raw[0] <= 1 and 0 <= raw[2] <= 1):
+                return list(raw)
+            raise TokenError(f"{path}: cubicBezier must be [x1, y1, x2, y2] with x1 and x2 in 0..1")
         if ttype == "typography":
             if not isinstance(raw, dict):
                 raise TokenError(f"{path}: typography must be an object")

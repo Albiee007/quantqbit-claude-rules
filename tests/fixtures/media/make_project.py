@@ -6,7 +6,11 @@ the harness's own CLIs (palette.py, type_scale.py, direction.py, render_frames.p
 fixture exercises them. Fonts: a font file found on this machine is copied into brand/fonts/ and
 recorded as a local font (test use only; nothing is committed).
 
-Usage: python make_project.py DIR VARIANT [--approve] [--font PATH]
+Usage: python make_project.py DIR VARIANT [--approve] [--video] [--font PATH]
+--video also writes motion tokens (render_video.py motion-tokens), a video concept and a piece
+brand/video/launch/video.json (and, when the concept allows still scenes, a two-format loop
+brand/video/card/video.json over brand/art/garden.png); with --approve the video concept and the
+launch storyboard are approved too.
 Variants: fernway (garden journal: warm, serif display, gradient, frameless, split layouts)
           kestrel (logistics: slate + orange, mono display, solid, framed, inset/caption-bottom)
           samebrand (keeps 1.6-like Inter + indigo on purpose, listed in direction "keep")
@@ -28,6 +32,7 @@ PALETTE = SK / "color-science" / "scripts" / "palette.py"
 TYPE = SK / "typography" / "scripts" / "type_scale.py"
 DIRECTION = SK / "creative-direction" / "scripts" / "direction.py"
 RENDER = SK / "store-mockups" / "scripts" / "render_frames.py"
+VIDEO = SK / "brand-video" / "scripts" / "render_video.py"
 RUN = "20261002-120000-0a0b0c"
 
 FONT_CANDIDATES = [
@@ -93,6 +98,23 @@ VARIANTS = {
         },
         "icon": {"background": {"recipe": "linear", "stops": ["{color.clay.500}", "{color.clay.700}"], "angle": 160},
                  "glyphScale": 0.52, "glyphOffset": [0, 0.02]},
+        "video": {
+            "backgrounds": {
+                "dawn": {"recipe": "linear", "stops": ["{color.sand.50}", "{color.sand.200}"], "angle": 180, "space": "oklab",
+                         "text": {"head": "{color.moss.950}", "sub": "{color.moss.800}", "accent": "{color.clay.800}"}},
+                "soil": {"recipe": "solid", "color": "{color.moss.900}",
+                         "text": {"head": "{color.sand.50}", "sub": "{color.sand.200}", "accent": "{color.clay.200}"}},
+            },
+            "caption": {"head": {"font": "display", "weight": 700, "lineHeight": 1.05}, "sub": {"font": "text", "weight": 400},
+                        "align": "start", "accent": "underline"},
+            "layouts": ["type-start", "type-lower"], "defaultLayout": "type-start", "defaultBackground": "dawn",
+            "sceneTemplates": ["title", "feature", "stat", "end-card", "still"],
+            "motion": {"transitions": ["cut", "fade", "dip"], "defaultTransition": "fade", "textIn": "fade-up"},
+            "pace": {"readingWpm": 200, "minHold": 1.0, "voWpm": 145},
+            "endCard": {"background": "soil", "logo": False},
+            "voice": {"casting": "a warm, unhurried gardener in their fifties", "pace": "measured"},
+            "music": {"mood": "acoustic, morning light", "bpm": [80, 96], "energy": "arc"},
+        },
         "frames": [("01-home", "home", "Notes that <em>grow</em> with your garden", "Every bed, every season, one journal", "split-left", "dawn"),
                    ("02-activity", "activity", "See what <em>thrived</em>", "Your week at a glance", "caption-bottom", "soil")],
     },
@@ -127,6 +149,18 @@ VARIANTS = {
         },
         "icon": {"background": {"recipe": "solid", "color": "{color.slate.900}"}, "glyphScale": 0.64,
                  "qualityTarget": {"markContrast": 3}},
+        "video": {
+            "backgrounds": {"night": {"recipe": "solid", "color": "{color.slate.950}",
+                                      "text": {"head": "{color.slate.50}", "sub": "{color.slate.200}", "accent": "{color.signal.400}",
+                                               "onAccent": "{color.slate.950}"}}},
+            "caption": {"head": {"font": "display", "weight": 700, "case": "upper"}, "sub": {"font": "text", "weight": 400},
+                        "align": "center", "accent": "highlight"},
+            "layouts": ["type-center"], "defaultLayout": "type-center", "defaultBackground": "night",
+            "motion": {"transitions": ["cut", "push", "wipe"], "defaultTransition": "push", "textIn": "mask-up",
+                       "stagger": {"perItemMs": 60, "maxItems": 4}},
+            "pace": {"readingWpm": 220, "minHold": 0.8, "voWpm": 160},
+            "voice": {"casting": "a crisp, confident dispatcher", "pace": "brisk"},
+        },
         "frames": [("01-home", "home", "Every route, <em>live</em>", "Dispatch from one screen", "inset", "night"),
                    ("02-activity", "activity", "Know what <em>shipped</em>", "A clear log for every driver", "caption-top", "night")],
     },
@@ -161,7 +195,58 @@ SAMEBRAND_TOKENS = {"color": {"brand": {
 }}}
 
 
-def build(root: Path, variant: str, approve: bool, font: Path) -> None:
+MOTION_REFS = {"durations": {"fast": "{motion.duration.fast}", "base": "{motion.duration.base}", "slow": "{motion.duration.slow}"},
+               "easing": {"standard": "{motion.easing.standard}", "enter": "{motion.easing.enter}",
+                          "exit": "{motion.easing.exit}", "emphasis": "{motion.easing.emphasis}"}}
+
+
+def piece(v: dict) -> dict:
+    name, head, sub = v["name"], v["frames"][0][2], v["frames"][0][3]
+    return {"schemaVersion": 1, "id": "launch", "kind": "social", "title": "Launch teaser", "formats": ["social-9x16"], "fps": 30,
+            "scenes": [
+                {"id": "hook", "template": "title", "duration": 4.5, "copy": {"kicker": name, "head": head, "sub": sub},
+                 "vo": f"Meet {name}. {sub}."},
+                {"id": "how", "template": "feature", "duration": 5,
+                 "copy": {"head": "Built for the <em>week</em>", "points": ["Plan in a minute", "See what changed"]},
+                 "vo": "Plan in a minute, and see what changed since yesterday."},
+                {"id": "proof", "template": "stat", "duration": 3.5, "copy": {"value": "3x", "label": "faster each morning"},
+                 "vo": "Three times faster, every morning."},
+                {"id": "end", "template": "end-card", "duration": 3, "copy": {"head": f"Try {name} today", "url": "example.com"},
+                 "vo": f"Try {name} today."}],
+            "voice": {"language": "en", "pronunciations": [{"text": name, "say": name}]},
+            "captions": {"sidecar": ["srt", "vtt"]}}
+
+
+def loop_piece(v: dict) -> dict:
+    """A short loop in two formats: a still scene over a picture, then the name; GIF, WebP, poster."""
+    return {"schemaVersion": 1, "id": "card", "kind": "loop", "title": "Link card loop", "formats": ["og-card", "social-1x1"],
+            "fps": 30,
+            "scenes": [
+                {"id": "art", "template": "still", "duration": 2.5,
+                 "media": {"image": "brand/art/garden.png", "motion": "push-in", "focus": [0.5, 0.4]},
+                 "copy": {"head": "Notes that <em>grow</em>"}},
+                {"id": "name", "template": "title", "duration": 2.4, "copy": {"head": v["name"], "sub": "Your garden journal"},
+                 "byFormat": {"social-1x1": {"layout": "type-lower"}}}],
+            "loop": {"outputs": ["gif", "webp"], "width": 480, "fps": 15},
+            "poster": {"scene": "art"}}
+
+
+def garden_png(path: Path) -> None:
+    """A soft, light picture for the still scene (made here: no third-party image in the fixture)."""
+    from PIL import Image, ImageDraw
+    w, h = 1600, 1000
+    im = Image.new("RGB", (w, h))
+    d = ImageDraw.Draw(im)
+    for y in range(h):
+        t = y / h
+        d.line([(0, y), (w, y)], fill=(round(246 - 18 * t), round(239 - 22 * t), round(222 - 30 * t)))
+    for i, (cx, cy, r) in enumerate([(300, 700, 220), (820, 760, 300), (1350, 690, 240)]):
+        d.ellipse([cx - r, cy - r // 2, cx + r, cy + r // 2], fill=(214 - 6 * i, 222 - 4 * i, 196 - 8 * i))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    im.save(path, optimize=False)
+
+
+def build(root: Path, variant: str, approve: bool, font: Path, video: bool = False) -> None:
     v = VARIANTS[variant]
     root.mkdir(parents=True, exist_ok=True)
     (root / ".git").mkdir(exist_ok=True)  # a project boundary for find_project()
@@ -197,17 +282,24 @@ def build(root: Path, variant: str, approve: bool, font: Path) -> None:
     d["context"]["openQuestions"] = []
     d["mood"] = v["mood"]
     d["keep"] = v.get("keep", [])
-    for fam in ("store", "marketing", "icon"):
+    fams = ("store", "marketing", "icon") + (("video",) if video else ())
+    for fam in fams:
         d["families"][fam] = {"requested": fam in v}
+    if video:
+        d["families"]["video"]["brief"] = "a 15-second vertical launch teaser"
     (brand / "direction.json").write_text(json.dumps(d, indent=2), encoding="utf-8")
-    for fam in ("store", "marketing", "icon"):
+    if video:
+        run(VIDEO, "motion-tokens", "--write", cwd=root)
+    for fam in fams:
         if fam not in v:
             continue
         run(DIRECTION, "concept", "new", "--family", fam, "--id", "a", "--name", f"{v['name']} {fam}", "--run", RUN, cwd=root)
         cpath = brand / "concepts" / fam / RUN / "a.json"
         c = json.loads(cpath.read_text(encoding="utf-8"))
         c["idea"] = f"The {fam} look for {v['name']}, from its direction."
-        c["spec"] = v[fam]
+        c["spec"] = json.loads(json.dumps(v[fam]))
+        if fam == "video":
+            c["spec"]["motion"] = {**MOTION_REFS, **c["spec"]["motion"]}
         cpath.write_text(json.dumps(c, indent=2), encoding="utf-8")
     if "marketing" in v:
         canvas = {"schemaVersion": 1, "assets": [{"id": "og", "size": "og", "copy": {
@@ -230,12 +322,22 @@ def build(root: Path, variant: str, approve: bool, font: Path) -> None:
         cfg["frames"].append(fr)
     cfg["featureGraphic"] = {"screen": "home", "title": v["name"], "tagline": v["frames"][0][2], "sub": v["frames"][0][3]}
     (kit / "frames.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    if video and "video" in v:
+        (brand / "video" / "launch").mkdir(parents=True, exist_ok=True)
+        (brand / "video" / "launch" / "video.json").write_text(json.dumps(piece(v), indent=2), encoding="utf-8")
+        if "still" in v["video"].get("sceneTemplates", []):
+            garden_png(brand / "art" / "garden.png")
+            (brand / "video" / "card").mkdir(parents=True, exist_ok=True)
+            (brand / "video" / "card" / "video.json").write_text(json.dumps(loop_piece(v), indent=2), encoding="utf-8")
     if approve:
         run(DIRECTION, "approve", "--gate", "direction", "--by", "Fixture Owner", "--evidence", "test fixture approval", cwd=root)
-        for fam in ("store", "marketing", "icon"):
+        for fam in fams:
             if fam in v:
                 run(DIRECTION, "approve", "--gate", "concept", "--family", fam, "--concept",
                     f"brand/concepts/{fam}/{RUN}/a.json", "--by", "Fixture Owner", "--evidence", "test fixture approval", cwd=root)
+        if video and "video" in v:
+            run(DIRECTION, "approve", "--gate", "storyboard", "--piece", "launch", "--by", "Fixture Owner",
+                "--evidence", "test fixture approval", cwd=root)
 
 
 def main() -> int:
@@ -243,9 +345,10 @@ def main() -> int:
     ap.add_argument("dir", type=Path)
     ap.add_argument("variant", choices=sorted(VARIANTS))
     ap.add_argument("--approve", action="store_true")
+    ap.add_argument("--video", action="store_true")
     ap.add_argument("--font", type=Path)
     a = ap.parse_args()
-    build(a.dir, a.variant, a.approve, a.font or find_font())
+    build(a.dir, a.variant, a.approve, a.font or find_font(), a.video)
     print(f"built {a.variant} in {a.dir}")
     return 0
 

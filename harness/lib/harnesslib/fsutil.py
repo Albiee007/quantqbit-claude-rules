@@ -228,9 +228,10 @@ class Publisher:
     owned files this publish did not produce. Unowned files are never deleted, only reported.
     """
 
-    def __init__(self, dest: Path, what: str) -> None:
+    def __init__(self, dest: Path, what: str, run: str | None = None) -> None:
         self.dest = Path(dest)
         self.what = what
+        self.run = run  # recorded in the owned-files record when given (video runs)
         self.id = run_id()
         self.stage = self.dest / f".staging-{self.id}"
         self.lock = DirLock(self.dest / ".publish.lock", f"{what} output folder {self.dest}")
@@ -273,7 +274,12 @@ class Publisher:
             for rel in files:
                 target = self.dest / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
-                os.replace(self.stage / rel, target)
+                try:
+                    os.replace(self.stage / rel, target)
+                except OSError as e:
+                    done = ", ".join(self.published) or "nothing"
+                    raise OperationalError(f"could not replace {target} ({e.strerror or e}); already replaced: {done}. "
+                                           "Close any program holding the file (a video player) and run again") from None
                 record[rel] = sha256_file(target)
                 self.published.append(rel)
             if prune:
@@ -285,7 +291,10 @@ class Publisher:
                             p.unlink()
                             self.removed.append(rel)
                         record.pop(rel, None)
-            write_atomic(self.dest / OWNED, dumps_pretty({"what": self.what, "files": record}))
+            doc = {"what": self.what, "files": record}
+            if self.run:
+                doc["run"] = self.run
+            write_atomic(self.dest / OWNED, dumps_pretty(doc))
 
     def report_unowned(self, candidates: list[Path]) -> list[str]:
         owned = self.owned()
