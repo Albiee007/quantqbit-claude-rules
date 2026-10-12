@@ -8,6 +8,42 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.10.0] - 2026-10-12
+
+Hero, cinematic and reference-driven UI motion as a first-class media family. A project could already approve a look and render videos, but recreating a hero animation from a reference recording was prose and guesswork: nothing recorded what was analysed, what the owner approved, or whether the built motion matched. The `motion-ui` skill and the `motion-designer` agent turn a reference into an owner-approved spec, build it in the project's own stack and tokens, and verify it with deterministic captures, real-time behaviour checks and a recording.
+
+### Added
+- **Skill `motion-ui`** and **agent `motion-designer`** (web and mobile profiles), generalised from a reference-motion skill: analysis by presentation timestamp, scenes as data, one clock, dolly-zoom and layer maths, reduced motion and resilience, with nothing project-specific.
+- **`motion.py`** (`init`, `probe`, `frames`, `sheet`, `cuts`, `inspect`, `tokens`, `lint`, `spec`, `capture`, `check`, `record`, `compare`, `verify`, `status`, `clean`):
+  - Reference analysis keeps three records apart: frames **extracted**, frames **presented** on labelled sheets, and ranges a person **reviewed** (`inspect`, the only writer). Variable frame rates use real timestamps and reconcile ffprobe's count with the list.
+  - Cut, hold and loop-length signals; never verdicts.
+  - `motion.json` (schema `motion.schema.json`): scenes, timed rows with confidence and evidence, project-declared viewports (`customViewports` "like" a built-in), an asset plan, reduced motion, a pause/stop/hide control, hidden-tab policy, scroll and interaction input, and the capture block.
+  - `SPEC.md` for the owner's Gate 3 decision.
+- **Two capture lanes.**
+  - Visual (deterministic): the app's dev-only `window.__motion` seek hook, or the new virtual clock `media/clock.js` (frozen `performance.now`, `Date`, animation frames and timers, stepped in fixed increments, every increment painted). Determinism is checked in a fresh browser.
+  - Behaviour (real time): the app's own pause, stop or hide control is pressed and watched; the tab is really hidden; WebGL contexts are lost; errors are collected; the loop is recorded by screencast.
+  - Reduced-motion frames, essential elements, overflow, invisible focus, the loop seam, flashing (labelled WCAG 2.3.1 or the stricter harness rule) and a side-by-side reference comparison.
+- **The motion family** in creative-direction: `motionSpec` concepts (duration and easing tokens, mediums, overlay palette and type roles, reduced-motion default, imagery source), `direction.py resolve motion`, Gate 2 and Gate 3 (`approve --gate storyboard --family motion --piece <id>`), review acknowledgements for motion runs.
+- **Run completeness.** Each capture driver declares the evidence it requires. A run missing any of it (no ffmpeg, no reference file, no frames) is recorded as incomplete with its reasons, is not published and can't be reviewed; under `CI=true` it exits 1. Optional items are listed as omitted.
+- **Process scope:** every browser, ffmpeg and adb process a motion command starts is stopped on success, failure, Ctrl-C, SIGTERM/SIGBREAK and `--timeout`; only those processes.
+- `dev_url=` in the seed `.claude/harness.config` (motion captures; nothing starts servers).
+- Hooks: motion prompts (hero animation, parallax, scroll-driven, reference video, dolly zoom, camera moves) load the motion checklist; reduced-motion, device-motion and slow-motion prompts don't. The first write to `brand/motion/<id>/motion.json` is gated on `motion-ui`, `creative-direction` and `ui-ux`.
+- Library: `harnesslib.motion`, `harnesslib.motioncap`, `ffmpeg.frame_times` / `extract_frames` / passthrough grey frames, CDP device scale and mobile emulation, media features, allowed origins, network-idle tracking, screencast and tab activation, labelled contact sheets, a flash-signal delta, and `fsutil.harness_config`.
+
+### Changed
+- **Three words for motion, three fingerprints.** *Approved* (Gate 3) binds the intent (visual, timing, asset plan, reference); assets are approved as a plan before they exist. *Verified* is a complete run. *Reviewed* binds to the run's review hash: the approved spec, the **build fingerprint** (the content of the motion's code), the target, the capture settings (including browser and ffmpeg versions), asset bytes and every deterministic output. The real-time recording is evidence, outside the hash.
+- `render_video.py motion-tokens` and `motion.py tokens` share one suggester (`harnesslib.motion.suggest_motion`); its output is unchanged.
+- ui-ux `references/motion.md`: cinematic motion's conditions (no blocking, pause/stop/hide over 5 s counting repeats, static reduced motion, the flash rule and how it differs from WCAG 2.3.1).
+- The media checklist routes reference-video motion to motion-ui, not brand-video.
+
+### Upgrade notes
+- **Upgrade every clone together.** `approvals.json` and run manifests may now contain `family: "motion"`; 1.9 clones reject it.
+- No existing approval changes: requesting the motion family leaves direction, concept, storyboard and review approvals current. `--gate storyboard` without `--family` still means video.
+- Motion captures need a running app: set `dev_url=` in `.claude/harness.config` (seeds are written once, so add the line yourself), pass `--base-url`, or point `capture.page` at a project HTML file. Start and stop the server yourself.
+- A motion review goes stale when the motion's code changes, even with an unchanged `motion.json`; run `motion.py verify` again and look again. List the motion's files in `target.files` or `fingerprint.globs`.
+- Native motion (`adb`, `file`, `frames` without a recording) is evidence-only in this release: such runs are incomplete by design.
+- Reference recordings stay in `brand/motion/<id>/reference/`, which git ignores; they are analysis material, never shipped.
+
 ## [1.9.1] - 2026-10-10
 
 Store screenshots and videos in any size, declared by the project. A project had to make App Store Connect's required iPhone 6.3″ set with a throwaway wrapper script, because the renderer and the checker each had a fixed size list, and the checker skipped the folder silently. Now sizes and slots are data the project extends in its own files, and an image folder no slot reads can no longer pass a release.

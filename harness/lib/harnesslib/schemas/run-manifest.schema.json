@@ -8,7 +8,7 @@
   "properties": {
     "schemaVersion": { "const": 1 },
     "runId": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$" },
-    "family": { "enum": ["store", "marketing", "icon", "illustration", "video"] },
+    "family": { "enum": ["store", "marketing", "icon", "illustration", "video", "motion"] },
     "mode": { "enum": ["production", "legacy"] },
     "tool": { "type": "string", "maxLength": 80 },
     "startedAt": { "type": "string" },
@@ -22,7 +22,7 @@
         "harness": { "type": "string", "maxLength": 20 },
         "browser": { "type": "string", "maxLength": 200 },
         "renderer": { "enum": ["ours", "hyperframes"] },
-        "capture": { "enum": ["screenshot", "beginframe"] },
+        "capture": { "enum": ["screenshot", "beginframe", "app-seek", "virtual-clock", "realtime", "adb", "frames", "file"] },
         "ffmpeg": { "type": "string", "maxLength": 200 },
         "hyperframes": { "type": "string", "maxLength": 40 },
         "workers": { "type": "integer", "minimum": 1, "maximum": 16 }
@@ -87,7 +87,10 @@
           "pixFmt": { "type": "string", "maxLength": 40 },
           "audio": { "type": "boolean" },
           "format": { "type": "string", "maxLength": 40 },
-          "loop": { "type": "integer", "minimum": 0, "description": "animated image repeat count (0 = forever)" }
+          "loop": { "type": "integer", "minimum": 0, "description": "animated image repeat count (0 = forever)" },
+          "kind": { "enum": ["evidence"], "description": "motion: a real-time recording; never byte-identical between runs, so reviews do not bind to its bytes" },
+          "viewport": { "type": "string", "maxLength": 40 },
+          "atMs": { "type": "number", "minimum": 0 }
         }
       }
     },
@@ -115,9 +118,48 @@
         "formats": { "type": "array", "items": { "type": "string" } },
         "frames": { "type": "integer", "minimum": 0 },
         "fps": { "type": "number" },
-        "captions": { "enum": ["planned", "segment-aligned", "word-aligned"] }
+        "captions": { "enum": ["planned", "segment-aligned", "word-aligned"] },
+        "viewports": { "type": "array", "items": { "type": "string" } },
+        "platform": { "type": "string", "maxLength": 40 },
+        "driver": { "type": "string", "maxLength": 40 }
       }
     },
+    "build": {
+      "type": "object",
+      "required": ["kind", "sha256", "files"],
+      "additionalProperties": false,
+      "description": "motion: the content of the project files the capture showed (a review binds to it)",
+      "properties": {
+        "kind": { "enum": ["content"] },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "files": { "type": "integer", "minimum": 0 },
+        "globs": { "type": "array", "items": { "type": "string" } },
+        "partial": { "type": "boolean" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["url", "file", "device", "frames", "recording"] },
+        "origin": { "type": "string", "maxLength": 200 },
+        "path": { "type": "string", "maxLength": 300 }
+      }
+    },
+    "captureConfig": { "type": "object", "description": "motion: the effective capture settings (driver, viewports with dpr, times, seek mode, step, flags, tool versions)" },
+    "completeness": { "enum": ["complete", "incomplete"] },
+    "missing": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "reason"], "additionalProperties": false,
+                 "properties": { "id": { "type": "string", "maxLength": 80 }, "reason": { "type": "string", "maxLength": 400 } } }
+    },
+    "omitted": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "reason"], "additionalProperties": false,
+                 "properties": { "id": { "type": "string", "maxLength": 80 }, "reason": { "type": "string", "maxLength": 400 } } }
+    },
+    "evidence": { "type": "object", "description": "motion: signals measured on evidence outputs (cut times, loop length, effective fps); shown, never gating" },
     "reviews": {
       "type": "array",
       "x-uniqueKey": "id",

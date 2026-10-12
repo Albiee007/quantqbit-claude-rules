@@ -23,7 +23,8 @@ All of these are project-owned and committed. The machine-readable schemas ship 
   "motif": { "idea": "pressed-leaf silhouettes", "asset": "brand/motif.svg" },
   "families": { "store": {"requested": true, "brief": "...", "selected": "brand/concepts/store/<run>/<id>.json"},
                 "marketing": {"requested": true}, "icon": {"requested": false}, "illustration": {"requested": false},
-                "video": {"requested": true, "brief": "a 15-second vertical teaser"} },
+                "video": {"requested": true, "brief": "a 15-second vertical teaser"},
+                "motion": {"requested": true, "brief": "the home hero, recreated from the owner's reference"} },
   "exceptions": [{"id": "dark-launch", "text": "..."}]
 }
 ```
@@ -46,6 +47,8 @@ All of these are project-owned and committed. The machine-readable schemas ship 
 | illustration | `style`, `palette` [refs], `lighting`, `background`, `texture`, `shot`, `storyWorld` {setting, era, cast, register}, `negatives`, `ratio` |
 | video | the marketing look (`backgrounds`, `caption`, `logo`, `motif`, `displayWidth`) with `layouts` [type-start, type-center, type-lower]; `motion` {durations {fast, base, slow}: refs to `$type` duration, easing {standard, enter, exit, emphasis?}: refs to `$type` cubicBezier, stagger {perItemMs, maxItems}, transitions [cut, fade, dip, slide, push, scale, wipe], defaultTransition, textIn / textOut [fade-up, mask-up, word-stagger, scale-in, fade, none], motifMotion none\|drift\|pulse}; `pace` {readingWpm, minHold, voWpm}; `subtitles` {style, position, font, weight, ink, plate, maxCharsPerLine, maxLines}; `sceneTemplates` [title, feature, stat, end-card, still] (default: all but still); `endCard` {background, logo}; `music` {mood, bpm, energy}; `voice` {casting, register, pace, accent}; `safeAreas` standard\|strict |
 
+| motion | `motion` {durations {fast, base, slow, any named extra such as scene or camera}: refs to `$type` duration, easing {standard, enter, exit, any named extra}: refs to `$type` cubicBezier}; `mediums` [css, waapi, library, canvas, webgl, video, lottie, rive, reanimated, skia, compose, swiftui]; `palette` [role refs for overlays and scrims]; `type` {display, text?: font roles}; `reducedMotion` static-complete\|crossfade-only\|reduced-travel; `imagery` illustration-concept\|photography\|footage\|none; `character`; `pacing` {minHoldMs, maxSceneMs} |
+
 `displayWidth` is the narrowest width, in CSS px, at which the asset is viewed (store frames default 320, marketing 500, video 360). Text sizes are judged at that width for WCAG large-text rules.
 
 ## `brand/approvals.json`
@@ -54,6 +57,8 @@ Records written only by `direction.py approve`: `{id, gate direction|concept|exc
 - `hashVersion` 2 (1.8): direction content leaves out `families`; a concept's inputs are the direction content, its own family entry and everything it resolves to (colours, type, font files, motion values, motif and logo hashes). A record without `hashVersion` was written by 1.7 and is checked the 1.7 way.
 - `storyboard` (video): subject `brand/video/<id>/video.json`; `parts` holds the visual, timing and script hashes so a stale record says what changed; inputs are the video concept's approval hashes. Audio never enters it.
 - `review` (video): subject the run manifest; `hash` is the run's output set, `items` the REVIEW REQUIRED ids the owner looked at. A byte-identical re-render keeps it.
+- `storyboard` with `family: motion`: subject `brand/motion/<id>/motion.json`; `parts` holds visual, timing, assetPlan and reference hashes (asset bytes, capture settings and analysis notes are not part of it); inputs are the motion concept's approval hashes. `--gate storyboard` without `--family` still means video.
+- `review` (motion): `hash` is the run's review hash: the approved spec, the build fingerprint (the content of the motion's code), the target, the capture settings, asset bytes, every deterministic output and the items. Incomplete runs can't be reviewed. motion-ui `references/motion-spec.md` has the details.
 
 ## Run manifests: `brand/runs/<family>/<run>.json`
-One immutable file per production run: tool, times, engine and browser, input hashes (config, direction, concept, slot assets with licences), approvals in force, fonts with hashes, every output with its sha256 and size, each check as PASS / FAIL / SKIPPED / REVIEW REQUIRED, and a status (`complete`, `review-required`, `failed`). Video runs add `piece` (the storyboard hashes, frames, fps, caption timing) and `reviews` (the items waiting for the owner); the manifest is written before the outputs are published. Commit them: they are the audit record. Images and build folders stay out of git.
+One immutable file per production run: tool, times, engine and browser, input hashes (config, direction, concept, slot assets with licences), approvals in force, fonts with hashes, every output with its sha256 and size, each check as PASS / FAIL / SKIPPED / REVIEW REQUIRED, and a status (`complete`, `review-required`, `failed`). Video runs add `piece` (the storyboard hashes, frames, fps, caption timing) and `reviews` (the items waiting for the owner); the manifest is written before the outputs are published. Motion runs add `build`, `target`, `captureConfig`, `completeness` with `missing` and `omitted`, and `evidence` (signals from the real-time recording); an incomplete motion run is recorded but not published. Commit them: they are the audit record. Images and build folders stay out of git.

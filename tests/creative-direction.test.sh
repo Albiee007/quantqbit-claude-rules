@@ -211,6 +211,50 @@ schema.check(old, 'run-manifest', '1.7 manifest')
 " "$ROOT/harness/lib" > "$W/out" 2>&1
 check "a 1.7 run manifest still validates" test $? -eq 0
 
+echo "== the motion family (1.10)"
+jset "$VD" 'd["families"]["motion"] = {"requested": True, "brief": "the home hero, from the reference the owner supplied"}'
+run "$V" "$DIR" status
+check "requesting the motion family leaves every earlier approval current" gates "Gate 2 store: approved" "Gate 2 marketing: approved" "Gate 2 video: approved" "Gate 3 storyboard launch: approved" "Gate 2 motion: NOT MET"
+cp "$W/vdir.bak" "$VD"
+MO="$W/mot"; hc_py "$MAKE" "$MO" kestrel --video --motion --approve > "$W/out" 2>&1
+check "a fixture with video and motion concepts approved builds" test $? -eq 0
+run "$MO" "$DIR" status
+check "Gate 2 motion is approved and Gate 3 waits for the owner" bash -c "grep -q 'Gate 2 motion: approved' '$W/out' && grep -q 'Gate 3 motion spec hero: NOT MET.*no owner approval' '$W/out'"
+run "$MO" "$DIR" resolve motion
+check "resolve motion gives durations in ms and easing as cubic-bezier" bash -c "grep -q '\"ms\":' '$W/out' && grep -q 'cubic-bezier(' '$W/out' && grep -q '\"status\": \"approved\"' '$W/out'"
+MD="$MO/brand/direction.json"; cp "$MD" "$W/mdir.bak"; cp "$MO/brand/tokens.json" "$W/mtok.bak"
+jset "$MD" 'd["families"]["motion"]["brief"] = "a slower hero"'
+run "$MO" "$DIR" status
+check "briefing the motion family makes only the motion concept stale" gates "Gate 2 store: approved" "Gate 2 video: approved" "Gate 3 storyboard launch: approved" "Gate 2 motion: NOT MET.*stale"
+cp "$W/mdir.bak" "$MD"
+jset "$MO/brand/tokens.json" 'd["motion"]["easing"]["enter"]["$value"] = [0.1, 0.8, 0.2, 1]'
+run "$MO" "$DIR" status
+check "an easing token change makes the motion and video concepts stale, not the stills" gates "Gate 2 store: approved" "Gate 2 icon: approved" "Gate 2 video: NOT MET.*value it resolves" "Gate 2 motion: NOT MET.*value it resolves"
+cp "$W/mtok.bak" "$MO/brand/tokens.json"
+run "$MO" "$DIR" concept new --family motion --id b --name "Kestrel motion b" --run 20261012-120000-0d0e0f
+check "concept new writes a motion concept skeleton" bash -c "[[ \$(cat '$W/rc') == 0 && -f '$MO/brand/concepts/motion/20261012-120000-0d0e0f/b.json' ]]"
+run "$MO" "$DIR" validate
+check "validate checks the motion concepts" bash -c "grep -q 'motion: Kestrel motion b' '$W/out'"
+jset "$MO/brand/concepts/motion/20261012-120000-0d0e0f/b.json" 'd["spec"]["type"]["display"] = "headline"'
+run "$MO" "$DIR" concept check "$MO/brand/concepts/motion/20261012-120000-0d0e0f/b.json"
+check "a motion concept naming an unknown font role is refused" bash -c "[[ \$(cat '$W/rc') == 1 ]] && grep -q 'not a direction font role' '$W/out'"
+
+PREV_REF="${PREV_REF:-v1.9.0}"
+if git -C "$ROOT" cat-file -e "$PREV_REF^{commit}" 2>/dev/null; then
+  mkdir -p "$W/h19" && git -C "$ROOT" archive "$PREV_REF" harness tests/fixtures/media | tar -x -C "$W/h19"
+  O19="$W/old19"; hc_py "$W/h19/tests/fixtures/media/make_project.py" "$O19" kestrel --video --approve > "$W/out" 2>&1
+  check "a project approved by the $PREV_REF harness builds" test $? -eq 0
+  run "$O19" "$DIR" status
+  check "its approvals stay current under 1.10" rc 0
+  jset "$O19/brand/direction.json" 'd["families"]["motion"] = {"requested": True, "brief": "a hero"}'
+  run "$O19" "$DIR" status
+  check "requesting motion keeps every $PREV_REF approval current" gates "Gate 2 store: approved" "Gate 2 video: approved" "Gate 3 storyboard launch: approved" "Gate 2 motion: NOT MET"
+elif [[ "${CI:-}" == "true" ]]; then
+  bad "the reference tag $PREV_REF is missing (CI checks out full history)"
+else
+  echo "  [SKIP] $PREV_REF cases: tag not in this clone"
+fi
+
 LEGACY_REF="${LEGACY_REF:-cd14423}"  # 1.7.0 on main
 if git -C "$ROOT" cat-file -e "$LEGACY_REF^{commit}" 2>/dev/null; then
   mkdir -p "$W/h17" && git -C "$ROOT" archive "$LEGACY_REF" harness tests/fixtures/media | tar -x -C "$W/h17"

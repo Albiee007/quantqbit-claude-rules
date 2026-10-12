@@ -13,7 +13,7 @@ so edit nothing here; projects change behaviour through `brand/` files instead.
 | `harnesslib.color` | sRGB transfer, OKLab/OKLCH, CSS Color 4 gamut mapping, WCAG luminance and full-precision contrast, compositing, gradient sampling, `display_ratio()` (truncates) |
 | `harnesslib.dtcg` | DTCG 2025.10 subset (including `duration` and `cubicBezier` for motion): load, resolve aliases, validate types, non-destructive merge, atomic write with a `.bak` recovery copy |
 | `harnesslib.typescale` | modular scales, rem and `clamp()` (with a rem term), sp/pt/RN adapters, raster media sizes |
-| `harnesslib.schema` + `schemas/` | strict JSON Schema subset; direction, concept, approvals, canvas, kit, video and run-manifest schemas |
+| `harnesslib.schema` + `schemas/` | strict JSON Schema subset; direction, concept, approvals, canvas, kit, video, motion and run-manifest schemas |
 | `harnesslib.fsutil` | strict JSON (no duplicate keys, no NaN), safe relative paths, atomic writes, locks, staged publishing |
 | `harnesslib.direction` | `brand/direction.json`, concepts, scoped hashes (version 2, with the 1.7 adapter), approval records, gates, family resolution, run manifests |
 | `harnesslib.contrast` | contrast findings: computed PASS/FAIL, sampled FAIL/REVIEW REQUIRED |
@@ -22,11 +22,14 @@ so edit nothing here; projects change behaviour through `brand/` files instead.
 | `harnesslib.cdp` | a persistent headless browser over the DevTools protocol (stdlib WebSocket): init scripts, blocked network, evaluate, screenshots |
 | `harnesslib.video` | video pieces: whole-frame plan, storyboard and review approvals, voice-over script, voice prompt, planned captions, composition build |
 | `harnesslib.ffmpeg` | ffmpeg/ffprobe: locate (with install advice), output profiles, encoder, probe and profile checks |
+| `harnesslib.motion` | motion pieces: lint (timing, mediums, WCAG 2.2.2 controls, assets), intent hashes and Gate 3, build fingerprints, run review hashes and acknowledgements, cut/hold/loop signals, the process scope that stops every child process |
+| `harnesslib.motioncap` | motion capture lanes: the visual lane (app seek hook or virtual clock, deterministic screenshots) and the behaviour lane (real-time control, hidden-tab and WebGL-loss checks, screencast recording) |
 | `harnesslib.framecheck` | signals from decoded frames (flashing heuristic) and pixel hashes |
 | `harnesslib.imaging` | Pillow only: backdrop sampling, similarity diagnostics, sheets |
 | `media/artdir.js` | browser runtime shared by the store frame and the marketing canvas |
 | `media/canvas.html` | the marketing canvas page (social, Open Graph, email header, banners) |
 | `media/timeline.js` | the seek runtime (`window.__hf.seek`, HyperFrames protocol) injected into video compositions |
+| `media/clock.js` | the virtual clock (`window.__motionClock`) injected into live apps for motion captures |
 | `media/motion.js`, `media/video.html` | video scene templates and transitions (paused Web Animations), the composition page |
 
 Everything is stdlib Python 3.9+ except `harnesslib.imaging` (Pillow), rendering (a browser) and

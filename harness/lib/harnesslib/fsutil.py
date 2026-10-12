@@ -165,6 +165,25 @@ def self_ignoring_dir(path: Path, note: str) -> Path:
     return path
 
 
+def harness_config(root: Path) -> dict[str, str]:
+    """KEY=VALUE lines of .claude/harness.config (comments and blank lines skipped, CRLF safe,
+    surrounding quotes removed). Missing file: {}."""
+    f = Path(root) / ".claude" / "harness.config"
+    out: dict[str, str] = {}
+    if not f.is_file():
+        return out
+    for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        v = v.strip()
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
+            v = v[1:-1]
+        out[k.strip()] = v
+    return out
+
+
 # ------------------------------------------------------------------ locks
 
 class DirLock:

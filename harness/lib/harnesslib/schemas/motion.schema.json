@@ -1,0 +1,359 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harnesslib/motion.schema.json",
+  "title": "Motion piece (brand/motion/<id>/motion.json), schema version 1",
+  "description": "What a hero, cinematic or reference-driven motion shows and when: scenes, timed rows per track, viewports, the asset plan, reduced-motion and control behaviour, and how to capture it. Its look (colours, type, easing tokens, allowed mediums) comes from the selected motion concept, so it never sets a colour, a font or CSS. The owner approves the intent (Gate 3); capture, target and analysis are working data and are not part of that approval. motion-ui references/motion-spec.md documents every field.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "platform", "fidelity", "viewports", "loop", "scenes", "rows", "reducedMotion", "motionControl", "resilience", "capture"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+    "title": { "type": "string", "maxLength": 120 },
+    "platform": { "enum": ["web", "react-native", "android-compose", "ios"] },
+    "concept": { "type": "string", "format": "relpath", "description": "drafts only: the concept to preview with before Gate 2 (production uses the selected one)" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "route": { "type": "string", "maxLength": 300 },
+        "files": { "type": "array", "maxItems": 40, "items": { "type": "string", "format": "relpath" } }
+      }
+    },
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "which project files make up the build a review binds to (default: the folders of target.files plus the package manifests)",
+      "properties": {
+        "globs": { "type": "array", "minItems": 1, "maxItems": 40, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+      }
+    },
+    "reference": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["path", "source", "license"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "format": "relpath" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "source": { "type": "string", "minLength": 3, "maxLength": 300 },
+            "license": { "type": "string", "minLength": 3, "maxLength": 200 },
+            "crop": { "$ref": "#/$defs/rect" },
+            "designedViewport": { "$ref": "#/$defs/name" },
+            "offsetMs": { "type": "number", "minimum": 0, "maximum": 600000 },
+            "durationS": { "type": "number", "minimum": 0 },
+            "fps": { "type": "string", "maxLength": 20 },
+            "frames": { "type": "integer", "minimum": 0 },
+            "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+            "vfr": { "type": "boolean" },
+            "rotation": { "type": "integer" }
+          }
+        }
+      ]
+    },
+    "fidelity": {
+      "type": "object",
+      "required": ["targets", "medium", "claim"],
+      "additionalProperties": false,
+      "properties": {
+        "targets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["composition", "motion", "interaction", "pacing"] } },
+        "medium": { "$ref": "#/$defs/medium" },
+        "claim": { "enum": ["original-footage", "generated-footage", "reconstructed-layers", "code-only"] },
+        "limits": { "type": "array", "maxItems": 12, "items": { "type": "string", "minLength": 3, "maxLength": 300 } }
+      }
+    },
+    "viewports": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "customViewports": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["size", "like"],
+        "additionalProperties": false,
+        "properties": {
+          "size": { "type": "string", "pattern": "^[1-9][0-9]{2,3}x[1-9][0-9]{2,3}$" },
+          "like": { "$ref": "#/$defs/name" },
+          "dpr": { "type": "number", "minimum": 1, "maximum": 4 },
+          "label": { "type": "string", "maxLength": 80 }
+        }
+      }
+    },
+    "loop": {
+      "type": "object",
+      "required": ["mode", "lengthMs"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["time-loop", "once", "scroll", "interaction"] },
+        "lengthMs": { "type": "integer", "minimum": 100, "maximum": 600000 },
+        "repeat": { "anyOf": [{ "const": "infinite" }, { "type": "integer", "minimum": 1, "maximum": 1000 }] },
+        "autoplay": { "type": "boolean" }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "x-uniqueKey": "id",
+      "items": {
+        "type": "object",
+        "required": ["id", "durationMs"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/name" },
+          "label": { "type": "string", "maxLength": 120 },
+          "durationMs": { "type": "integer", "minimum": 1, "maximum": 600000 },
+          "holdMs": { "type": "integer", "minimum": 0, "maximum": 600000 },
+          "layout": { "type": "object", "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/name" } },
+          "media": { "type": "array", "maxItems": 12, "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+          "transitionIn": {
+            "type": "object",
+            "required": ["kind"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": { "enum": ["cut", "crossfade", "dip", "push", "wipe", "mask", "camera"] },
+              "durationMs": { "type": "integer", "minimum": 0, "maximum": 60000 }
+            }
+          }
+        }
+      }
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 400,
+      "items": {
+        "type": "object",
+        "required": ["startMs", "endMs", "track", "action", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "startMs": { "type": "number", "minimum": 0 },
+          "endMs": { "type": "number", "minimum": 0 },
+          "scene": { "$ref": "#/$defs/name" },
+          "track": { "enum": ["camera", "background", "foreground", "layers", "typography", "navigation", "panels", "transition", "scroll", "interaction", "media"] },
+          "action": { "type": "string", "minLength": 2, "maxLength": 300 },
+          "easing": { "type": "string", "maxLength": 80, "description": "a cubicBezier token reference like {motion.easing.camera}, or linear, hold, cut, step, smootherstep, spring" },
+          "values": { "type": "object" },
+          "confidence": { "enum": ["measured", "estimated", "assumed"] },
+          "evidence": { "type": "string", "maxLength": 300 }
+        }
+      }
+    },
+    "tracks": { "type": "object", "description": "optional numeric keyframes per track or scene (implementation detail, hashed with timing)" },
+    "assets": {
+      "type": "array",
+      "maxItems": 60,
+      "x-uniqueKey": "id",
+      "items": {
+        "type": "object",
+        "required": ["id", "role", "origin"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/name" },
+          "role": { "enum": ["backdrop", "layer", "foreground", "footage", "poster", "lottie", "rive", "texture", "audio"] },
+          "origin": { "enum": ["project", "generated", "licensed", "footage"] },
+          "plan": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "what the owner approves at Gate 3 before the file exists",
+            "properties": {
+              "brief": { "type": "string", "maxLength": 600 },
+              "prompt": { "type": "string", "maxLength": 2000 },
+              "license": { "type": "string", "maxLength": 200 },
+              "source": { "type": "string", "maxLength": 300 },
+              "continuity": { "type": "string", "maxLength": 300 }
+            }
+          },
+          "path": { "type": "string", "format": "relpath" },
+          "license": { "type": "string", "maxLength": 200 },
+          "provenance": { "type": "string", "format": "relpath" }
+        }
+      }
+    },
+    "reducedMotion": {
+      "type": "object",
+      "required": ["strategy"],
+      "additionalProperties": false,
+      "properties": {
+        "strategy": { "enum": ["static-complete", "crossfade-only", "reduced-travel"] },
+        "staticAt": {
+          "type": "object",
+          "required": ["scene"],
+          "additionalProperties": false,
+          "properties": { "scene": { "$ref": "#/$defs/name" }, "ms": { "type": "number", "minimum": 0 } }
+        }
+      }
+    },
+    "motionControl": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "description": "how a person pauses, stops or hides motion that starts by itself and lasts more than 5 s (WCAG 2.2.2)",
+      "properties": {
+        "kind": { "enum": ["pause", "stop", "hide", "none"] },
+        "selector": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "essentialJustification": { "type": "string", "minLength": 10, "maxLength": 400 }
+      }
+    },
+    "resilience": {
+      "type": "object",
+      "required": ["hiddenTab"],
+      "additionalProperties": false,
+      "properties": {
+        "hiddenTab": { "enum": ["pause", "continue"] },
+        "fallback": { "$ref": "#/$defs/name" },
+        "contextLoss": { "enum": ["recover", "retain-fallback", "n/a"] }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "scroll and interaction modes: what the capture does instead of waiting",
+      "properties": {
+        "scroll": {
+          "type": "object",
+          "required": ["fromPx", "toPx", "progressMap"],
+          "additionalProperties": false,
+          "properties": {
+            "container": { "type": "string", "maxLength": 300 },
+            "axis": { "enum": ["y", "x"] },
+            "fromPx": { "type": "number", "minimum": 0 },
+            "toPx": { "type": "number", "minimum": 0 },
+            "progressMap": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 200,
+              "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0 } },
+              "description": "[[scrollPx, ms], ...]: which spec time a scroll position shows"
+            }
+          }
+        },
+        "sequence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "required": ["action", "atMs"],
+            "additionalProperties": false,
+            "properties": {
+              "action": { "enum": ["click", "hover", "focus", "key", "scroll"] },
+              "target": { "type": "string", "maxLength": 300 },
+              "value": { "type": "string", "maxLength": 100 },
+              "atMs": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "required": ["driver"],
+      "additionalProperties": false,
+      "properties": {
+        "driver": { "enum": ["web", "expo-web", "adb", "frames", "file"] },
+        "path": { "type": "string", "maxLength": 300, "description": "route and query appended to the base URL (dev_url, --base-url or $MOTION_BASE_URL)" },
+        "page": { "type": "string", "format": "relpath", "description": "a project HTML file opened as file:// when no base URL is set" },
+        "ready": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "selector": { "type": "string", "maxLength": 300 },
+            "expression": { "type": "string", "maxLength": 600 },
+            "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 300000 }
+          }
+        },
+        "seekMode": { "enum": ["auto", "app-seek", "virtual-clock"] },
+        "stepMs": { "type": "number", "minimum": 4, "maximum": 100 },
+        "times": { "type": "array", "maxItems": 120, "items": { "type": "number", "minimum": 0 } },
+        "allowOrigins": { "type": "array", "maxItems": 20, "items": { "type": "string", "pattern": "^https?://[^/]+$" } },
+        "essential": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+        "webgl": { "type": "boolean" },
+        "colorScheme": { "enum": ["light", "dark"] },
+        "seed": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "settleMs": { "type": "integer", "minimum": 0, "maximum": 30000 },
+        "recordViewport": { "$ref": "#/$defs/name" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "working notes; not part of any approval",
+      "properties": {
+        "extracted": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/range" } },
+        "presented": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/range" } },
+        "reviewed": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "required": ["fromMs", "toMs", "mode", "by", "at"],
+            "additionalProperties": false,
+            "properties": {
+              "fromMs": { "type": "number", "minimum": 0 },
+              "toMs": { "type": "number", "minimum": 0 },
+              "mode": { "enum": ["every-frame", "sampled"] },
+              "note": { "type": "string", "maxLength": 400 },
+              "by": { "type": "string", "minLength": 1, "maxLength": 80 },
+              "at": { "type": "string" }
+            }
+          }
+        },
+        "observations": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "required": ["ms", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "ms": { "type": "number", "minimum": 0 },
+              "track": { "type": "string", "maxLength": 40 },
+              "text": { "type": "string", "minLength": 2, "maxLength": 400 }
+            }
+          }
+        },
+        "hypotheses": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "required": ["text", "basis"],
+            "additionalProperties": false,
+            "properties": { "text": { "type": "string", "maxLength": 400 }, "basis": { "type": "string", "maxLength": 400 } }
+          }
+        },
+        "referenceTraits": { "type": "array", "maxItems": 40, "items": { "type": "string", "maxLength": 300 } },
+        "projectConstraints": { "type": "array", "maxItems": 40, "items": { "type": "string", "maxLength": 300 } }
+      }
+    }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+    "medium": { "enum": ["css", "waapi", "library", "canvas", "webgl", "video", "lottie", "rive", "reanimated", "skia", "compose", "swiftui"] },
+    "rect": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 16 },
+        "h": { "type": "integer", "minimum": 16 }
+      }
+    },
+    "range": {
+      "type": "object",
+      "required": ["fromMs", "toMs"],
+      "additionalProperties": false,
+      "properties": {
+        "fromMs": { "type": "number", "minimum": 0 },
+        "toMs": { "type": "number", "minimum": 0 },
+        "frames": { "type": "integer", "minimum": 0 },
+        "mode": { "enum": ["all", "every", "at"] },
+        "at": { "type": "string", "maxLength": 40 }
+      }
+    }
+  }
+}

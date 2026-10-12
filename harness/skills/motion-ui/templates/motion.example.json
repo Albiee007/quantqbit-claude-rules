@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "home-hero",
+  "title": "Home hero: travel through the aperture",
+  "platform": "web",
+  "target": { "route": "/", "files": ["src/components/hero/Hero.tsx", "src/components/hero/heroMotion.ts"] },
+  "fingerprint": { "globs": ["src/components/hero/**", "public/hero/**", "package.json"] },
+  "reference": {
+    "path": "brand/motion/home-hero/reference/reference.mp4",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "source": "screen recording supplied by the product owner (example)",
+    "license": "owner permission to analyse; not shipped",
+    "crop": { "x": 0, "y": 140, "w": 1080, "h": 1640 },
+    "designedViewport": "mobile",
+    "offsetMs": 0
+  },
+  "fidelity": {
+    "targets": ["composition", "motion", "pacing"],
+    "medium": "webgl",
+    "claim": "reconstructed-layers",
+    "limits": ["still planes: no moving water or light", "the far scene is generated, not the reference's location"]
+  },
+  "viewports": ["desktop", "mobile", "kiosk"],
+  "customViewports": { "kiosk": { "size": "1080x1920", "like": "tablet", "dpr": 1, "label": "lobby screen" } },
+  "loop": { "mode": "time-loop", "lengthMs": 14500, "repeat": "infinite", "autoplay": true },
+  "scenes": [
+    { "id": "arrive", "label": "interior, aperture ahead", "durationMs": 6500, "holdMs": 1100,
+      "layout": { "desktop": "title-left", "mobile": "title-lower" }, "media": ["interior", "far-1", "leaves"] },
+    { "id": "ridge", "label": "the first far scene", "durationMs": 4000, "holdMs": 800,
+      "layout": { "desktop": "title-left", "mobile": "title-lower" }, "media": ["far-2"],
+      "transitionIn": { "kind": "cut", "durationMs": 0 } },
+    { "id": "lake", "label": "the second far scene", "durationMs": 4000, "holdMs": 800,
+      "layout": { "desktop": "title-right", "mobile": "title-lower" }, "media": ["far-3"],
+      "transitionIn": { "kind": "crossfade", "durationMs": 500 } }
+  ],
+  "rows": [
+    { "startMs": 0, "endMs": 1100, "scene": "arrive", "track": "foreground", "action": "leaves sweep left across the frame",
+      "easing": "{motion.easing.exit}", "values": { "fromX": 0.0, "toX": -0.26 }, "confidence": "measured", "evidence": "frames 0-33" },
+    { "startMs": 1100, "endMs": 5400, "scene": "arrive", "track": "camera", "action": "dolly through the aperture; far landmarks keep their size",
+      "easing": "{motion.easing.standard}", "values": { "dolly": 0.9, "focusPlane": "far" }, "confidence": "estimated", "evidence": "frames 33-162" },
+    { "startMs": 2000, "endMs": 2600, "scene": "arrive", "track": "typography", "action": "title rises in, two lines staggered",
+      "easing": "{motion.easing.enter}", "confidence": "measured", "evidence": "frames 60-78" },
+    { "startMs": 6500, "endMs": 6500, "scene": "ridge", "track": "transition", "action": "hard cut; horizon kept at the same height",
+      "easing": "cut", "confidence": "measured", "evidence": "frame 195" },
+    { "startMs": 10500, "endMs": 11000, "scene": "lake", "track": "transition", "action": "crossfade with landmarks aligned",
+      "easing": "{motion.easing.standard}", "confidence": "estimated" }
+  ],
+  "assets": [
+    { "id": "interior", "role": "layer", "origin": "generated",
+      "plan": { "brief": "a calm interior wall with a round aperture, transparent beyond the rim, warm daylight",
+                "continuity": "horizon at 46 % height, light from the left" } },
+    { "id": "far-1", "role": "backdrop", "origin": "generated", "plan": { "brief": "the scene seen through the aperture, wide enough for 20 % overscan" } },
+    { "id": "far-2", "role": "backdrop", "origin": "generated", "plan": { "brief": "a ridge at dawn, same grade as far-1" } },
+    { "id": "far-3", "role": "backdrop", "origin": "generated", "plan": { "brief": "a still lake, same horizon as far-2" } },
+    { "id": "leaves", "role": "foreground", "origin": "generated", "plan": { "brief": "foliage on a truly transparent canvas, left third" } },
+    { "id": "poster", "role": "poster", "origin": "project", "path": "public/hero/poster.webp" }
+  ],
+  "reducedMotion": { "strategy": "static-complete", "staticAt": { "scene": "arrive", "ms": 5600 } },
+  "motionControl": { "kind": "pause", "selector": "button[aria-label='Pause motion']" },
+  "resilience": { "hiddenTab": "pause", "fallback": "poster", "contextLoss": "retain-fallback" },
+  "capture": {
+    "driver": "web",
+    "path": "/",
+    "ready": { "selector": "[data-motion-ready]", "timeoutMs": 60000 },
+    "seekMode": "auto",
+    "essential": ["h1", "a[href='/explore']", "button[aria-label='Pause motion']"],
+    "webgl": true,
+    "recordViewport": "mobile"
+  },
+  "analysis": {
+    "extracted": [], "presented": [], "reviewed": [],
+    "observations": [{ "ms": 5400, "track": "camera", "text": "the far landmarks stop growing while the rim leaves the frame" }],
+    "hypotheses": [{ "text": "focal length falls as the camera moves forward (dolly zoom)", "basis": "far landmark width constant within 2 % over frames 40-160" }],
+    "referenceTraits": ["three scenes, the first entered through an aperture", "titles arrive after the camera settles"],
+    "projectConstraints": ["keep the project's palette and type", "navigation stays fixed"]
+  }
+}

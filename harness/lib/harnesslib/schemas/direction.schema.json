@@ -83,7 +83,8 @@
         "marketing": { "$ref": "#/$defs/family" },
         "icon": { "$ref": "#/$defs/family" },
         "illustration": { "$ref": "#/$defs/family" },
-        "video": { "$ref": "#/$defs/family" }
+        "video": { "$ref": "#/$defs/family" },
+        "motion": { "$ref": "#/$defs/family" }
       }
     },
     "exceptions": {

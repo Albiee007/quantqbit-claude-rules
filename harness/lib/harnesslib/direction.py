@@ -14,7 +14,8 @@ Hashes (version 2, written since 1.8):
                       family entry (requested, brief) and everything the concept resolves to for a
                       renderer (colours, type, font file hashes, motion values, the motif's hash).
   So a change reaches only what depends on it: briefing the video family leaves store approvals
-  current, and a role colour invalidates the concepts that use it.
+  current, and a role colour invalidates the concepts that use it. The motion family (1.10) adds
+  nothing to the direction hash, so requesting it leaves every earlier approval current.
 Version 1 (1.7) records carry no hashVersion. They are checked with the 1.7 algorithm on a copy of
 the direction without the families 1.7 did not know (video), which reproduces what was approved;
 their coarser coupling (any family's brief invalidates every concept) stays until re-approved.
@@ -40,7 +41,7 @@ DIRECTION = "brand/direction.json"
 APPROVALS = "brand/approvals.json"
 CONCEPTS = "brand/concepts"
 RUNS = "brand/runs"
-FAMILIES = ("store", "marketing", "icon", "illustration", "video")
+FAMILIES = ("store", "marketing", "icon", "illustration", "video", "motion")
 V1_FAMILIES = ("store", "marketing", "icon", "illustration")  # the families 1.7 hashed
 HASH_VERSION = 2
 GENERIC_FONTS = {"serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif",
@@ -314,6 +315,8 @@ def spec_problems(p: Project, family: str, spec: dict) -> list[str]:
             errs.append("motif.use is true but the direction has no motif.asset")
     if family == "video":
         errs += _video_spec_problems(p, spec)
+    if family == "motion":
+        errs += _motion_spec_problems(p, spec)
     if family == "icon":
         b = spec["background"]
         if b["recipe"] == "solid" and "color" not in b:
@@ -346,6 +349,26 @@ def _video_spec_problems(p: Project, spec: dict) -> list[str]:
             resolve_inside(p.root, spec["logo"], "logo", must_exist=True)
         except InputError as e:
             errs.append(str(e))
+    return errs
+
+
+def _motion_spec_problems(p: Project, spec: dict) -> list[str]:
+    errs: list[str] = []
+    for group, want in (("durations", "duration"), ("easing", "cubicBezier")):
+        for name, ref in spec["motion"][group].items():
+            try:
+                resolve_ref(p, ref, want)
+            except (InputError, TokenError) as e:
+                errs.append(f"motion.{group}.{name}: {e}")
+    for ref in spec["palette"]:
+        try:
+            resolve_ref(p, ref, "color")
+        except (InputError, TokenError) as e:
+            errs.append(f"palette: {e}")
+    fonts = p.direction["tokens"]["fonts"]
+    for part, role in spec["type"].items():
+        if role not in fonts:
+            errs.append(f"type.{part} {role!r} is not a direction font role ({', '.join(sorted(fonts))})")
     return errs
 
 
@@ -501,7 +524,7 @@ def approve(p: Project, gate_name: str, by: str, evidence: str, recorded_by: str
         subject = DIRECTION
     else:
         raise InputError(f"unknown gate {gate_name!r} (storyboard, mix and review approvals are recorded "
-                         "through harnesslib.video)")
+                         "through harnesslib.video and harnesslib.motion)")
     return record_approval(p, gate_name, subject, h, by, evidence, recorded_by,
                            family=family if gate_name != "direction" else None, scope=scope)
 
@@ -545,6 +568,8 @@ def resolve_family(p: Project, family: str, concept: dict) -> dict:
                 "texture": spec.get("texture"), "shot": spec.get("shot"), "storyWorld": spec["storyWorld"],
                 "ratio": spec["ratio"], "negatives": spec.get("negatives", []),
                 "palette": [{"ref": r, "hex": resolve_ref(p, r, "color")["hex"]} for r in spec["palette"]]}
+    if family == "motion":
+        return _resolve_motion(p, spec)
     if family == "icon":
         b = spec["background"]
         bg = {"recipe": b["recipe"], "space": b.get("space", "oklab"), "angle": b.get("angle", 180)}
@@ -650,6 +675,26 @@ def _resolve_video(p: Project, spec: dict, roles: dict) -> dict:
                             "plate": color_css(p, sub["plate"]) if "plate" in sub else roles["canvas"],
                             "maxCharsPerLine": sub.get("maxCharsPerLine", 32), "maxLines": sub.get("maxLines", 2)}
     return out
+
+
+def _resolve_motion(p: Project, spec: dict) -> dict:
+    """The motion language of a motion concept, ready for an implementation: durations in ms, easing
+    as CSS cubic-bezier() and as control points, palette roles as hex, type roles as stacks."""
+    m = spec["motion"]
+    easing = {}
+    for k, v in m["easing"].items():
+        pts = [float(x) for x in resolve_ref(p, v, "cubicBezier")]
+        easing[k] = {"ref": v, "css": "cubic-bezier({})".format(", ".join(f"{x:g}" for x in pts)), "points": pts}
+    type_roles = {}
+    for part, role in spec["type"].items():
+        f = font_role(p, role)
+        type_roles[part] = {"role": role, "family": f["family"], "stack": f["stack"], "source": f["source"]}
+    return {"family": "motion",
+            "motion": {"durations": {k: {"ref": v, "ms": _ms(p, v)} for k, v in m["durations"].items()}, "easing": easing},
+            "mediums": list(spec["mediums"]),
+            "palette": [{"ref": r, "hex": resolve_ref(p, r, "color")["hex"]} for r in spec["palette"]],
+            "type": type_roles, "reducedMotion": spec["reducedMotion"], "imagery": spec["imagery"],
+            "character": spec.get("character"), "pacing": spec.get("pacing") or {}}
 
 
 def _dedupe_faces(faces: list[dict]) -> list[dict]:

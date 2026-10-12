@@ -18,7 +18,7 @@
         "properties": {
           "id": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$" },
           "gate": { "enum": ["direction", "concept", "exception", "storyboard", "mix", "review"] },
-          "family": { "enum": ["store", "marketing", "icon", "illustration", "video"] },
+          "family": { "enum": ["store", "marketing", "icon", "illustration", "video", "motion"] },
           "subject": { "type": "string", "format": "relpath" },
           "scope": { "type": "string", "maxLength": 200 },
           "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
@@ -30,13 +30,15 @@
           "hashVersion": { "type": "integer", "minimum": 1, "maximum": 2, "description": "missing = 1 (the 1.7 hashing); see harnesslib/direction.py" },
           "parts": {
             "type": "object",
-            "description": "storyboard: hashes of the piece's parts, so a stale record can say what changed",
+            "description": "storyboard: hashes of the piece's parts (video or motion), so a stale record can say what changed",
             "additionalProperties": false,
             "properties": {
               "visual": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
               "timing": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
               "script": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-              "media": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "the bytes of the images the scenes show" }
+              "media": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "the bytes of the images the scenes show" },
+              "assetPlan": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "motion: the planned assets (ids, roles, origins, briefs), not their bytes" },
+              "reference": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "motion: the recorded reference (hash, crop, source, licence)" }
             }
           },
           "run": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$", "description": "review: the run whose outputs the owner looked at" },

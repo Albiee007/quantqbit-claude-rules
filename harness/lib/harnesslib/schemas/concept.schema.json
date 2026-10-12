@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": { "const": 1 },
-    "family": { "enum": ["store", "marketing", "icon", "illustration", "video"] },
+    "family": { "enum": ["store", "marketing", "icon", "illustration", "video", "motion"] },
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
     "run": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$" },
     "author": { "type": "string", "maxLength": 80 },
@@ -296,6 +296,60 @@
           }
         },
         "safeAreas": { "enum": ["standard", "strict"] }
+      }
+    },
+    "motionSpec": {
+      "type": "object",
+      "description": "The motion language of a project's hero, cinematic and reference-driven UI motion: duration and easing tokens, the mediums it may use, the palette and type roles its overlays draw on, its reduced-motion default and where its imagery comes from.",
+      "required": ["motion", "mediums", "palette", "type", "reducedMotion", "imagery"],
+      "additionalProperties": false,
+      "properties": {
+        "motion": {
+          "type": "object",
+          "required": ["durations", "easing"],
+          "additionalProperties": false,
+          "properties": {
+            "durations": {
+              "type": "object",
+              "required": ["fast", "base", "slow"],
+              "propertyNames": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,31}$" },
+              "additionalProperties": { "$ref": "#/$defs/colorRef" }
+            },
+            "easing": {
+              "type": "object",
+              "required": ["standard", "enter", "exit"],
+              "propertyNames": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,31}$" },
+              "additionalProperties": { "$ref": "#/$defs/colorRef" }
+            }
+          }
+        },
+        "mediums": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["css", "waapi", "library", "canvas", "webgl", "video", "lottie", "rive", "reanimated", "skia", "compose", "swiftui"] }
+        },
+        "palette": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/colorRef" } },
+        "type": {
+          "type": "object",
+          "required": ["display"],
+          "additionalProperties": false,
+          "properties": {
+            "display": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,31}$" },
+            "text": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,31}$" }
+          }
+        },
+        "reducedMotion": { "enum": ["static-complete", "crossfade-only", "reduced-travel"] },
+        "imagery": { "enum": ["illustration-concept", "photography", "footage", "none"] },
+        "character": { "type": "string", "minLength": 3, "maxLength": 300 },
+        "pacing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minHoldMs": { "type": "integer", "minimum": 0, "maximum": 20000 },
+            "maxSceneMs": { "type": "integer", "minimum": 500, "maximum": 120000 }
+          }
+        }
       }
     },
     "illustrationSpec": {

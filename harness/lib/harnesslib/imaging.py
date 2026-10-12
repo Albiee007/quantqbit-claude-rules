@@ -106,7 +106,11 @@ def compare(a: Path, b: Path) -> dict:
 
 
 def sheet(paths: list[Path], dest: Path, cols: int = 4, width: int = 300, gutter: int = 16,
-          bg: tuple[int, int, int] = (24, 24, 28)) -> Path:
+          bg: tuple[int, int, int] = (24, 24, 28), labels: list[str] | None = None) -> Path:
+    """A contact sheet; with labels, each thumbnail gets its caption underneath (frame, time)."""
+    from PIL import ImageDraw, ImageFont
+    font = ImageFont.load_default()
+    label_h = 18 if labels else 0
     thumbs = []
     for p in paths:
         im = open_rgb(p, bg)
@@ -115,16 +119,20 @@ def sheet(paths: list[Path], dest: Path, cols: int = 4, width: int = 300, gutter
     if not thumbs:
         raise ValueError("no images for the sheet")
     rows = [thumbs[i:i + cols] for i in range(0, len(thumbs), cols)]
-    row_h = [max(t.height for t in r) for r in rows]
+    row_h = [max(t.height for t in r) + label_h for r in rows]
     W = gutter + cols * (width + gutter)
     H = gutter + sum(h + gutter for h in row_h)
     out = Image.new("RGB", (W, H), bg)
-    y = gutter
+    draw = ImageDraw.Draw(out)
+    y, k = gutter, 0
     for r, h in zip(rows, row_h):
         x = gutter
         for t in r:
             out.paste(t, (x, y))
+            if labels and k < len(labels):
+                draw.text((x + 2, y + t.height + 3), labels[k][:60], fill=(235, 235, 235), font=font)
             x += width + gutter
+            k += 1
         y += h + gutter
     Path(dest).parent.mkdir(parents=True, exist_ok=True)
     out.save(dest, optimize=True)

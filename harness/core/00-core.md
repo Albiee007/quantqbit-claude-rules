@@ -26,6 +26,7 @@ Detail lives in skills and path-scoped rules. This file stays short on purpose.
 | After every change | `verifier` (lint, typecheck, tests, syntax checks) |
 | Before calling a non-trivial change done | `reviewer` with the right lens: `code`, `patterns`, `ux`, `seo`, `security` or `all` |
 | Any media asset: store screenshots or panorama, feature graphic, social/OG/email/banner image, logo, app icon, story art (web, mobile) | `creative-director` (direction; owner approves once) → only the creators the request needs, in concept mode, in parallel → `creative-director` (critique) → owner picks → production → `creative-director` (review). Unchanged approved work skips the concept round |
+| Hero, cinematic or reference-driven UI motion (web, mobile) | `creative-director` (motion concept; owner picks) → `motion-designer` (spec mode: reference analysis, motion.json, SPEC.md) → owner approves the spec → `motion-designer` (build, then verify) → owner acknowledges the run's review items |
 | Story or scenario art for a site, store listing or campaign (web, mobile) | `illustrator`, from the approved illustration concept (owner approves every image before it ships) |
 | Mobile store release (mobile profile) | `screen-capturer` (device captures) → `store-creative` (screenshots, feature graphic) ∥ `listing-copywriter` (listing text) ∥ `icon-creator` (app icons) ∥ `brand-asset-creator` (logo, splash, social) → `store-precheck-auditor` (release gate, never edits); visuals follow the media row |
 
@@ -48,6 +49,7 @@ Load the skill **before** starting the matching work. This is required, not opti
 | Store screenshots, listing copy, app icons, logos, or a store submission (mobile projects) | `store-mockups`, `store-listing`, `app-icons`, `brand-assets`; `store-submission-precheck` before submitting |
 | Illustrations, hero or feature-row artwork, story or scene art (web and mobile projects) | `story-art` |
 | Videos: social promos, reels, app previews, explainers, voice-over scripts (web and mobile projects) | `brand-video` |
+| Hero, cinematic or reference-driven UI motion: recreating an animation from a reference, parallax, camera moves, scroll- or scene-driven motion (web and mobile projects) | `motion-ui` + `ui-ux` + `typography` + `color-science`, and `creative-direction` for its motion concept |
 
 Hooks inject a short checklist when a prompt or file matches one of these. That checklist does not replace the skill.
 The first UI or SEO file write in each agent context is denied once: read every named `.claude/skills/<skill>/SKILL.md` (UI names `ui-ux`, `typography`, `color-science` in one deny), apply them, then retry the same write.
