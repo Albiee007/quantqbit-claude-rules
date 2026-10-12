@@ -22,6 +22,7 @@ agents/icon-creator.md	mobile
 agents/brand-asset-creator.md	web,mobile
 agents/illustrator.md	web,mobile
 agents/video-creative.md	web,mobile
+agents/motion-designer.md	web,mobile
 skills/mobile-screen-capture/*	mobile
 skills/store-mockups/*	mobile
 skills/store-listing/*	mobile
@@ -30,8 +31,10 @@ skills/app-icons/*	mobile
 skills/brand-assets/*	web,mobile
 skills/story-art/*	web,mobile
 skills/brand-video/*	web,mobile
+skills/motion-ui/*	web,mobile
 snippets/store.md	mobile
 snippets/art.md	web,mobile
+snippets/motion.md	web,mobile
 rules/ansible.md	infra
 rules/terraform.md	infra
 rules/compose.md	backend,infra

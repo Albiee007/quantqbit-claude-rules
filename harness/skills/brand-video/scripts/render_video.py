@@ -57,6 +57,7 @@ try:
     from harnesslib import direction as dl
     from harnesslib import dtcg
     from harnesslib import ffmpeg as ffm
+    from harnesslib import motion as mo
     from harnesslib import video as vd
     from harnesslib.dtcg import TokenError
     from harnesslib.fsutil import (DirLock, InputError, OperationalError, Publisher, UsageError, canonical,
@@ -121,20 +122,7 @@ def init(a: argparse.Namespace) -> int:
     return 0
 
 
-def suggest_motion(direction: dict) -> dict:
-    """Motion tokens from the mood axes, anchored to ui-ux references/motion.md. A starting point
-    for the concept round, not a rule: the creative-director adjusts them."""
-    axes = direction.get("mood", {}).get("axes", {})
-    energy = axes.get("calm-energetic", 0.0)
-    playful = -min(0.0, axes.get("playful-serious", 0.0))
-    base = round(400 - 140 * energy)
-    durs = {"fast": round(base * 0.55), "base": base, "slow": round(base * 1.6)}
-    easing = {"standard": [0.2, 0, 0, 1], "enter": [0.05, 0.7, 0.1, 1], "exit": [0.3, 0, 0.8, 0.15],
-              "emphasis": [0.34, 1.56, 0.64, 1] if playful > 0.3 else [0.2, 0, 0, 1]}
-    return {"motion": {
-        "$description": "Motion for video and UI, suggested by render_video.py motion-tokens from the direction's mood",
-        "duration": {k: {"$type": "duration", "$value": {"value": v, "unit": "ms"}} for k, v in durs.items()},
-        "easing": {k: {"$type": "cubicBezier", "$value": v} for k, v in easing.items()}}}
+suggest_motion = mo.suggest_motion  # shared with motion-ui (harnesslib.motion)
 
 
 def motion_tokens(a: argparse.Namespace) -> int:

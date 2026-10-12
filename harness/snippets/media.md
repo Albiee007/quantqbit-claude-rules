@@ -8,4 +8,5 @@ Media checklist (store screenshots and panoramas, feature graphic, social/OG/ema
 - Contrast: computed PASS/FAIL where the backdrop is known; sampled results are REVIEW REQUIRED or FAIL.
 - Production refuses without current approvals; previews are drafts. Each production run writes brand/runs/<family>/<run>.json.
 - Video (brand-video): the piece's storyboard (video.json) is a third approval; the default is silent video plus a voice-over script and voice prompt. Render REVIEW REQUIRED items need the owner's acknowledgement before use.
+- UI motion recreated from a reference video (hero, parallax, camera moves) is motion-ui, not brand-video: its spec (motion.json) is the third approval.
 Load skills: creative-direction, typography, color-science, ui-ux, plus the family skill.

@@ -34,6 +34,13 @@ Motion explains change (where something came from or went, what changed, what re
 - No auto-playing motion longer than 5 s without pause, stop, or hide (WCAG 2.2.2). Nothing flashes more than 3 times per second (2.3.1). Avoid sustained oscillation (Apple HIG notes about 0.2 Hz is especially uncomfortable).
 - Parallax, zoom, large-scale scaling, spinning, and panning of large areas are vestibular triggers. Avoid them, or remove them under reduced motion.
 
+## Cinematic and reference-driven motion
+Hero scenes, parallax, camera moves, dolly zooms and motion recreated from a reference video belong to the `motion-ui` skill (motion spec, owner approval, deterministic captures). Its storytelling motion may run longer than the 100-500 ms UI range only when it:
+- never blocks input and keeps text and controls in the semantic tree;
+- has a pause, stop or hide control when it starts by itself and runs more than 5 s in total, counting repeats (a 4 s loop that repeats forever counts) (WCAG 2.2.2), unless the owner accepts it as essential;
+- resolves to a complete static scene under reduced motion;
+- never flashes more than 3 times per second. WCAG 2.3.1 also allows flashes below the general and red flash thresholds; this harness does not.
+
 ## Micro-interactions
 For surface examples and card semantics, see [surfaces-and-cards](surfaces-and-cards.md). These are optional fallback defaults when project tokens are absent; define them in token sources, never as component literals.
 - Entrance stagger: 30–50 ms per item, at most six animated items and at most 300 ms maximum start delay. Remaining items appear without delay; staggering never gates input.

@@ -72,6 +72,7 @@ check "CLAUDE.md NOT created" test ! -e "$R2/CLAUDE.md"
 check "backend profile skips ui-ux skill" test ! -e "$R2/.claude/skills/ui-ux"
 check "backend skips surfaces-and-cards reference" test ! -e "$R2/.claude/skills/ui-ux/references/surfaces-and-cards.md"
 check "backend profile skips store agents" test ! -e "$R2/.claude/agents/store-creative.md"
+check "backend profile skips motion-ui and its agent" test ! -e "$R2/.claude/skills/motion-ui" -a ! -e "$R2/.claude/agents/motion-designer.md"
 check "backend profile skips store skills" test ! -e "$R2/.claude/skills/store-mockups"
 check "backend profile skips creative direction and the media library" test ! -e "$R2/.claude/agents/creative-director.md" -a ! -e "$R2/.claude/skills/creative-direction" -a ! -e "$R2/.claude/harness/lib"
 
@@ -337,10 +338,10 @@ echo "29. mobile profile installs the store and brand agents and skills"
 R21="$(new_repo mobile)"
 run "$R21" --profiles mobile; check "mobile install exits 0" test $? -eq 0
 check "mobile gets surfaces-and-cards reference" test -f "$R21/.claude/skills/ui-ux/references/surfaces-and-cards.md"
-for a in creative-director screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator video-creative; do
+for a in creative-director screen-capturer store-creative listing-copywriter store-precheck-auditor icon-creator brand-asset-creator illustrator video-creative motion-designer; do
   check "agent $a installed" test -f "$R21/.claude/agents/$a.md"
 done
-for s in creative-direction mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets story-art brand-video; do
+for s in creative-direction mobile-screen-capture store-mockups store-listing store-submission-precheck app-icons brand-assets story-art brand-video motion-ui; do
   check "skill $s installed" test -f "$R21/.claude/skills/$s/SKILL.md"
 done
 check "store snippet installed" test -f "$R21/.claude/harness/snippets/store.md"
@@ -359,6 +360,9 @@ check "web gets no store agents" test ! -e "$R22/.claude/agents/store-creative.m
 check "web gets story-art" test -f "$R22/.claude/skills/story-art/scripts/export_art.py"
 check "web gets illustrator" test -f "$R22/.claude/agents/illustrator.md"
 check "web gets brand-video and the video-creative" test -f "$R22/.claude/skills/brand-video/scripts/render_video.py" -a -f "$R22/.claude/agents/video-creative.md"
+check "web gets motion-ui and the motion-designer" test -f "$R22/.claude/skills/motion-ui/scripts/motion.py" -a -f "$R22/.claude/agents/motion-designer.md"
+check "web gets the motion library and the virtual clock" test -f "$R22/.claude/harness/lib/harnesslib/motioncap.py" -a -f "$R22/.claude/harness/lib/media/clock.js" -a -f "$R22/.claude/harness/lib/harnesslib/schemas/motion.schema.json"
+check "web gets the motion snippet" test -f "$R22/.claude/harness/snippets/motion.md"
 check "web gets the video runtime" test -f "$R22/.claude/harness/lib/media/timeline.js" -a -f "$R22/.claude/harness/lib/harnesslib/cdp.py"
 check "web skips store-mockups" test ! -e "$R22/.claude/skills/store-mockups"
 check "web gets the art snippet" test -f "$R22/.claude/harness/snippets/art.md"
@@ -407,6 +411,7 @@ git -C "$R27" add -A; git -C "$R27" commit -qm own
 run "$R27" --profiles web; check "own creative-director agent blocks (exit 1)" test $? -eq 1
 check "the reserved list names creative-direction" grep -q 'creative-direction' "$WORK/out.log"
 check "the reserved list names brand-video and video-creative" bash -c "grep -q 'brand-video' '$WORK/out.log' && grep -q 'video-creative' '$WORK/out.log'"
+check "the reserved list names motion-ui and motion-designer" bash -c "grep -q 'motion-ui' '$WORK/out.log' && grep -q 'motion-designer' '$WORK/out.log'"
 
 echo
 echo "sync tests: $pass passed, $fail failed"

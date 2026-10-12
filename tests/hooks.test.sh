@@ -11,7 +11,7 @@ export TMPDIR="$P/tmp"; mkdir -p "$TMPDIR"
 trap 'rm -rf "$P"' EXIT
 mkdir -p "$P/.claude/harness/snippets"
 cp "$SRC"/harness/snippets/*.md "$P/.claude/harness/snippets/"
-for s in ui-ux typography color-science seo creative-direction; do mkdir -p "$P/.claude/skills/$s"; : > "$P/.claude/skills/$s/SKILL.md"; done
+for s in ui-ux typography color-science seo creative-direction motion-ui; do mkdir -p "$P/.claude/skills/$s"; : > "$P/.claude/skills/$s/SKILL.md"; done
 export CLAUDE_PROJECT_DIR="$P"
 pass=0; fail=0
 
@@ -122,6 +122,20 @@ for p in "fix the VoiceOver label on the save button" "split Main.storyboard int
   out="$(run prompt-router.sh "{\"session_id\":\"m12-${#p}\",\"prompt\":\"$p\"}")"
   grep -q 'Media checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] UI prompt routed to media: $p"; } || { pass=$((pass+1)); echo "  [OK] UI prompt is not media: $p"; }
 done
+echo "motion routing"
+expect "reference video prompt → motion checklist" prompt-router.sh '{"session_id":"mo1","prompt":"recreate the hero animation from this reference video"}' 'Motion checklist'
+out="$(run prompt-router.sh '{"session_id":"mo2","prompt":"recreate the hero animation from this reference video"}')"
+grep -q 'Media checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] a reference video for UI motion routed to brand-video's media checklist"; } || { pass=$((pass+1)); echo "  [OK] a reference video for UI motion is not the media checklist"; }
+k=0
+for p in "add a parallax hero to the landing page" "match this scroll-driven animation" "the dolly zoom looks wrong" "make the camera movement smoother" "a cinematic intro for the home page" "slow ken burns on the header image"; do
+  k=$((k + 1)); out="$(run prompt-router.sh "{\"session_id\":\"mo3-$k\",\"prompt\":\"$p\"}")"
+  grep -q 'Motion checklist' <<<"$out" && { pass=$((pass+1)); echo "  [OK] motion prompt: $p"; } || { fail=$((fail+1)); echo "  [FAIL] motion prompt not routed: $p"; }
+done
+for p in "add a reduced motion toggle in settings" "respect prefers-reduced-motion in the carousel" "read device motion for the compass" "slow motion replay of the match" "users report motion sickness on scroll"; do
+  k=$((k + 1)); out="$(run prompt-router.sh "{\"session_id\":\"mo4-$k\",\"prompt\":\"$p\"}")"
+  grep -q 'Motion checklist' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] not a motion prompt, routed anyway: $p"; } || { pass=$((pass+1)); echo "  [OK] not a motion prompt: $p"; }
+done
+expect "a promo video still goes to the media checklist" prompt-router.sh '{"session_id":"mo5","prompt":"make a 15 second promo video for instagram reels"}' 'Media checklist'
 expect "plain prompt → nothing"        prompt-router.sh '{"session_id":"a6","prompt":"what does this function return?"}' ''
 expect "valid JSON escaping"           prompt-router.sh '{"session_id":"a7","prompt":"fix \"auth\" token\nflow"}' '"additionalContext":"Harness'
 
@@ -172,6 +186,12 @@ else fail=$((fail+1)); echo "  [FAIL] media gate — got: ${out:0:200}"; fi
 expect "retry of the direction write allowed (drafting needs no approval)" file-context.sh '{"session_id":"d1","tool_name":"Write","tool_input":{"file_path":"/p/brand/direction.json"}}' ''
 expect "a kit frames.json falls under the media gate" file-context.sh '{"session_id":"d2","tool_name":"Edit","tool_input":{"file_path":"C:\\p\\store-assets\\mockup-kit\\frames.json"}}' 'creative-direction'
 expect "a video piece falls under the media gate" file-context.sh '{"session_id":"d6","tool_name":"Write","tool_input":{"file_path":"/p/brand/video/launch/video.json"}}' 'creative-direction'
+out="$(run file-context.sh '{"session_id":"d8","tool_name":"Write","tool_input":{"file_path":"/p/brand/motion/hero/motion.json"}}')"
+if grep -q '"permissionDecision":"deny"' <<<"$out" && grep -q 'motion-ui/SKILL.md' <<<"$out" && grep -q 'creative-direction/SKILL.md' <<<"$out"; then
+  pass=$((pass+1)); echo "  [OK] the first motion spec write is denied once, naming motion-ui and creative-direction"
+else fail=$((fail+1)); echo "  [FAIL] motion gate — got: ${out:0:200}"; fi
+expect "retry of the motion spec write allowed" file-context.sh '{"session_id":"d8","tool_name":"Write","tool_input":{"file_path":"/p/brand/motion/hero/motion.json"}}' ''
+expect "motion run manifests are never hand-edited" file-context.sh '{"session_id":"d9","tool_name":"Edit","tool_input":{"file_path":"/p/brand/runs/motion/20261012-120000-0a0b0c.json"}}' 'immutable run manifests'
 expect "run manifests are never hand-edited" file-context.sh '{"session_id":"d7","tool_name":"Edit","tool_input":{"file_path":"/p/brand/runs/video/20261002-120000-0a0b0c.json"}}' 'immutable run manifests'
 expect "approvals are never hand-edited" file-context.sh '{"session_id":"d3","tool_name":"Edit","tool_input":{"file_path":"/p/brand/approvals.json"}}' 'written only by direction.py approve'
 expect "approvals stay denied on retry" file-context.sh '{"session_id":"d3","tool_name":"Edit","tool_input":{"file_path":"/p/brand/approvals.json"}}' '"permissionDecision":"deny"'
@@ -206,7 +226,8 @@ expect "store roster starts with the creative-director" session-start.sh '{"sess
 out="$(run session-start.sh '{"session_id":"c7"}')"
 [[ "$(grep -o 'illustrator' <<<"$out" | wc -l | tr -d ' ')" -eq 1 ]] && { pass=$((pass+1)); echo "  [OK] mobile: one roster line, not two"; } || { fail=$((fail+1)); echo "  [FAIL] mobile roster repeats the illustrator"; }
 rm -f "$P/.claude/agents/store-creative.md"
-expect "web roster when only the art agents are installed" session-start.sh '{"session_id":"c8"}' 'Brand, art and video agents: creative-director (direction, concept critique) → brand-asset-creator / illustrator / video-creative'
+expect "web roster when only the art agents are installed" session-start.sh '{"session_id":"c8"}' 'Brand, art, video and motion agents: creative-director (direction, concept critique) → brand-asset-creator / illustrator / video-creative / motion-designer'
+expect "web roster names the motion skill" session-start.sh '{"session_id":"c8b"}' 'brand-video, motion-ui)'
 rm -f "$P/.claude/agents/illustrator.md"
 
 echo "post-edit-lint"

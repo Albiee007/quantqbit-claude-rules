@@ -247,16 +247,65 @@ def rgb_frames(ff: str, master: Path, step: int, size: tuple[int, int]) -> list[
     return [r.stdout[i:i + n] for i in range(0, len(r.stdout) - n + 1, n)]
 
 
-def gray_frames(ff: str, path: Path, width: int = 64) -> tuple[list[bytes], int, int]:
-    """Every decoded frame as 8-bit luma at a small width (for the flash and freeze signals)."""
-    r = _run([ff, "-v", "error", "-i", str(path), "-vf", f"scale={width}:-2:flags=area,format=gray",
+def gray_frames(ff: str, path: Path, width: int = 64, passthrough: bool = False,
+                crop: dict | None = None) -> tuple[list[bytes], int, int]:
+    """Every decoded frame as 8-bit luma at a small width (for the flash and freeze signals).
+    passthrough keeps every decoded frame of a variable-frame-rate file (one per timestamp in
+    frame_times) instead of letting ffmpeg resample to the average rate; crop applies first."""
+    vf = (_crop(crop) + "," if crop else "") + f"scale={width}:-2:flags=area,format=gray"
+    r = _run([ff, "-v", "error", "-i", str(path), "-vf", vf, *(["-fps_mode", "passthrough"] if passthrough else []),
               "-f", "rawvideo", "-"], f"decode {Path(path).name}")
     data = r.stdout
     # height follows the aspect ratio; recover it from the byte count and the frame count
-    pr = _run([ff, "-v", "error", "-i", str(path), "-vf", f"scale={width}:-2:flags=area", "-frames:v", "1",
-               "-f", "rawvideo", "-pix_fmt", "gray", "-"], f"decode {Path(path).name}").stdout
+    pr = _run([ff, "-v", "error", "-i", str(path), "-vf", (_crop(crop) + "," if crop else "") + f"scale={width}:-2:flags=area",
+               "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"], f"decode {Path(path).name}").stdout
     info_h = len(pr) // width if pr else 0
     if not info_h:
         return [], width, 0
     size = width * info_h
     return [data[i:i + size] for i in range(0, len(data) - size + 1, size)], width, info_h
+
+
+# ------------------------------------------------------------------ reference analysis (motion-ui)
+
+def _crop(c: dict) -> str:
+    return f"crop={int(c['w'])}:{int(c['h'])}:{int(c['x'])}:{int(c['y'])}"
+
+
+def frame_times(fp: str, path: Path) -> list[float]:
+    """Presentation time (seconds) of every decoded video frame, in decode order. For a variable
+    frame rate, frame index / average fps is only approximate; these are the real times."""
+    r = _run([fp, "-v", "error", "-select_streams", "v:0", "-show_entries",
+              "frame=best_effort_timestamp_time,pts_time,pkt_dts_time", "-of", "json", str(path)],
+             f"ffprobe frames {Path(path).name}")
+    out = []
+    for f in json.loads(r.stdout.decode("utf-8", errors="replace")).get("frames", []):
+        t = f.get("best_effort_timestamp_time", f.get("pts_time", f.get("pkt_dts_time")))
+        try:
+            out.append(float(t))
+        except (TypeError, ValueError):
+            out.append(out[-1] if out else 0.0)
+    return out
+
+
+def extract_frames(ff: str, path: Path, dest: Path, indices: list[int] | None = None, crop: dict | None = None,
+                   scale: int | None = None) -> list[Path]:
+    """Decoded frames as PNG files dest/000001.png... (decode order, every frame kept). indices
+    (0-based, sorted) keeps only those frames; files are numbered in the order kept."""
+    dest = Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    filters = []
+    if indices is not None:
+        if not indices:
+            return []
+        filters.append("select='" + "+".join(f"eq(n,{i})" for i in indices) + "'")  # quoted: commas need no escape
+    if crop:
+        filters.append(_crop(crop))
+    if scale:
+        filters.append(f"scale={int(scale)}:-2:flags=lanczos")
+    argv = [ff, "-v", "error", "-y", "-i", str(path)]
+    if filters:
+        argv += ["-vf", ",".join(filters)]
+    argv += ["-fps_mode", "passthrough", str(dest / "%06d.png")]
+    _run(argv, f"extract frames {Path(path).name}")
+    return sorted(dest.glob("*.png"))

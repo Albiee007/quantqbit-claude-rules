@@ -82,6 +82,8 @@ jobs:
           ffmpeg -hide_banner -version | head -1
       - name: Video tests (seek contract, gates, render, encode, reviews)
         run: bash tests/video.test.sh
+      - name: Motion UI tests (reference analysis, capture lanes, gates, verify, reviews)
+        run: bash tests/motion-ui.test.sh
       - name: Sync scenario tests
         run: bash tests/sync.test.sh
       - name: macOS stock bash 3.2 compatibility (hooks + sync + scaffold)

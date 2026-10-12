@@ -4,7 +4,8 @@
   init      write a draft brand/direction.json (refuses if one exists) and its DIRECTION.md summary
   validate  the direction and every concept: schema, token references, font records and licences,
             and each concept's declared caption/background pairs (computed contrast)
-  status    which gates are met: the direction (Gate 1) and each requested family's concept (Gate 2)
+  status    which gates are met: the direction (Gate 1), each requested family's concept (Gate 2) and
+            each video storyboard and motion spec (Gate 3)
   approve   record an owner decision bound to the current content and resolved inputs. Run only by
             the main session after the owner has decided; --by and --evidence are required
   summary   regenerate brand/DIRECTION.md from brand/direction.json (never edit the .md by hand)
@@ -25,7 +26,8 @@ Usage:
   python direction.py approve --gate concept --family store --concept brand/concepts/store/<run>/b.json --by ... --evidence ...
   python direction.py approve --gate exception --scope "store:frame:05-brand:layout=inset" --by ... --evidence ...
   python direction.py approve --gate storyboard --piece launch-teaser --by ... --evidence ...
-  python direction.py approve --gate review --run <run id> --items all --by ... --evidence ...
+  python direction.py approve --gate storyboard --family motion --piece hero --by ... --evidence ...
+  python direction.py approve --gate review --run <run id> --items all --by ... --evidence ...   (video or motion run)
   python direction.py concept new --family store --id b --name "Field notes" [--run <run id>]
   python direction.py concept check brand/concepts/store/<run>/b.json
   python direction.py resolve store [--concept <file>]
@@ -282,6 +284,19 @@ def status(a: argparse.Namespace) -> int:
     if g.legacy:
         print(f"note: the direction approval {', '.join(g.legacy)} uses the 1.7 hashing; re-approving switches it to "
               "scoped hashes (requesting or briefing a family then leaves it current)")
+    if (p.direction["families"].get("motion") or {}).get("requested"):
+        from harnesslib import motion as mo
+        motion_problems = dl.gate(p, "motion").problems
+        for pid in mo.list_pieces(p.root):
+            try:
+                pg = mo.gate_piece(p, pid)
+            except (InputError, TokenError) as e:
+                print(f"Gate 3 motion spec {pid}: NOT MET: {str(e).splitlines()[0]}")
+                ok = False
+                continue
+            own = [x for x in pg.problems if x not in motion_problems] or pg.problems
+            print(f"Gate 3 motion spec {pid}: {'approved' if pg.ok else 'NOT MET: ' + '; '.join(own)}")
+            ok = ok and pg.ok
     if (p.direction["families"].get("video") or {}).get("requested"):
         from harnesslib import video as vd
         video_problems = dl.gate(p, "video").problems
@@ -302,16 +317,28 @@ def approve(a: argparse.Namespace) -> int:
     root = root_of(a)
     p = dl.load_project(root)
     if a.gate in ("storyboard", "review"):
+        from harnesslib import motion as mo
         from harnesslib import video as vd
         if a.gate == "storyboard":
             if not a.piece:
-                raise UsageError("a storyboard approval needs --piece <id> (brand/video/<id>/video.json)")
-            rec = vd.approve_storyboard(p, a.piece, a.by, a.evidence, a.recorded_by)
+                raise UsageError("a storyboard approval needs --piece <id> (brand/video/<id>/video.json, or with "
+                                 "--family motion brand/motion/<id>/motion.json)")
+            if a.family == "motion":
+                rec = mo.approve_storyboard(p, a.piece, a.by, a.evidence, a.recorded_by)
+            elif a.family not in (None, "video"):
+                raise UsageError(f"--gate storyboard takes --family video (the default) or motion, not {a.family}")
+            else:
+                if not (root / vd.piece_rel(a.piece)).is_file() and (root / mo.piece_rel(a.piece)).is_file():
+                    raise UsageError(f"no video piece {a.piece}, but there is a motion piece: add --family motion")
+                rec = vd.approve_storyboard(p, a.piece, a.by, a.evidence, a.recorded_by)
         else:
             if not a.run or not a.items:
                 raise UsageError("a review acknowledgement needs --run <run id> and --items <id,id,...|all>")
-            rec = vd.approve_review(p, a.run, [x.strip() for x in a.items.split(",") if x.strip()], a.by, a.evidence,
-                                    a.recorded_by)
+            items = [x.strip() for x in a.items.split(",") if x.strip()]
+            if (mo.runs_dir(root) / f"{a.run}.json").is_file():
+                rec = mo.approve_review(p, a.run, items, a.by, a.evidence, a.recorded_by)
+            else:
+                rec = vd.approve_review(p, a.run, items, a.by, a.evidence, a.recorded_by)
     else:
         rec = dl.approve(p, a.gate, a.by, a.evidence, a.recorded_by, a.family, a.concept, a.scope)
     print(f"recorded {rec['gate']} approval {rec['id']} for {rec['subject']} by {rec['by']}")
@@ -342,6 +369,13 @@ SPEC_SKELETONS = {
                                     "exit": "{motion.easing.exit}"},
                          "transitions": ["cut", "fade"], "defaultTransition": "fade", "textIn": "fade-up"},
               "pace": {"readingWpm": 200, "minHold": 1.0, "voWpm": 150}},
+    "motion": {"motion": {"durations": {"fast": "{motion.duration.fast}", "base": "{motion.duration.base}",
+                                        "slow": "{motion.duration.slow}"},
+                          "easing": {"standard": "{motion.easing.standard}", "enter": "{motion.easing.enter}",
+                                     "exit": "{motion.easing.exit}"}},
+               "mediums": ["css", "waapi"], "palette": ["{roles.canvas}", "{roles.accent}"],
+               "type": {"display": "display", "text": "text"}, "reducedMotion": "static-complete", "imagery": "none",
+               "character": "DRAFT: how this motion language moves (pace, travel, what arrives when)"},
     "illustration": {"style": "DRAFT: one render style from story-art references/style-vocabulary.md",
                      "palette": ["{roles.canvas}", "{roles.accent}"], "lighting": "DRAFT", "background": "DRAFT",
                      "storyWorld": {"setting": "DRAFT", "register": "DRAFT"}, "ratio": "4:3"},
@@ -524,8 +558,8 @@ def main() -> int:
     ap_.add_argument("--family", choices=dl.FAMILIES)
     ap_.add_argument("--concept")
     ap_.add_argument("--scope")
-    ap_.add_argument("--piece", help="storyboard: the video piece id")
-    ap_.add_argument("--run", help="review: the video run id")
+    ap_.add_argument("--piece", help="storyboard: the video piece id (or motion piece id with --family motion)")
+    ap_.add_argument("--run", help="review: the video or motion run id")
     ap_.add_argument("--items", help="review: comma-separated review item ids, or 'all'")
     ap_.add_argument("--by", required=True)
     ap_.add_argument("--evidence", required=True)

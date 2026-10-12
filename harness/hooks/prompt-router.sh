@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # === harness prompt router (UserPromptSubmit) ===
 # Keyword-routes the user's prompt to the mandatory skill checklists
-# (ui, seo, patterns, security, store, art, media, infra). Each checklist is injected at most
+# (ui, seo, patterns, security, store, art, media, motion, infra). Each checklist is injected at most
 # once per session. Pure bash; no subprocesses on the hot path.
 set -uo pipefail
 # shellcheck source=_lib.sh
@@ -48,11 +48,20 @@ media_text="${prompt//-/ }"
 # A video player, call or <video> element is UI work too; a promo video, reel or explainer is media.
 for neg in "cookie banner" "consent banner" "error banner" "alert banner" "banner component" "icon button" "icon font" \
            "video player" "video call" "video chat" "video conferenc" "video element" "video component" "video tag" \
-           "<video" "video upload" "video stream" "video playback" "video autoplay" "video thumbnail"; do
+           "<video" "video upload" "video stream" "video playback" "video autoplay" "video thumbnail"            "reference video" "video reference" "reference recording" "screen recording"; do
   media_text="${media_text//$neg/ }"
 done
 if [[ "$media_text" =~ $B(banners?|panoram(a|as|ic)|og[[:space:]-]?images?|open[[:space:]]graph[[:space:]]images?|social[[:space:]](images?|cards?|previews?|posts?)|share[[:space:]]images?|feature[[:space:]]graphics?|store[[:space:]](screenshots?|visuals?|assets?)|app[[:space:]]screenshots?|mockups?|app[[:space:]]icons?|launcher[[:space:]]icons?|logos?|illustrations?|story[[:space:]]art|hero[[:space:]](image|art|illustration)s?|creative[[:space:]]direction|art[[:space:]]direction|mood[[:space:]]?boards?|visual[[:space:]]identity|brand[[:space:]](assets?|identity|kit|look)|promo[[:space:]](images?|graphics?)|posters?|email[[:space:]]headers?|marketing[[:space:]](images?|visuals?|assets?)|videos?|promo[[:space:]]clips?|app[[:space:]]previews?|explainers?|animated[[:space:]](og|gifs?|banners?|logos?|loops?)|reels?|shorts|tiktoks?|motion[[:space:]]graphics?|voice[[:space:]]?over[[:space:]](scripts?|lines?|artists?|recordings?|takes?)|voice[[:space:]]prompts?|video[[:space:]]storyboards?)$E ]]; then
   hh_add_snippet media
+fi
+# Hero, cinematic and reference-driven motion (web and mobile; a no-op elsewhere). Reduced-motion
+# settings, device motion and slow motion are other topics.
+motion_text="${prompt//-/ }"
+for neg in "reduced motion" "motion sensor" "device motion" "devicemotion" "motion detection" "slow motion"            "motion sickness"; do
+  motion_text="${motion_text//$neg/ }"
+done
+if [[ "$motion_text" =~ $B(hero[[:space:]](animations?|motion|scenes?)|parallax|scroll[[:space:]]?(driven|linked|triggered)?[[:space:]]animations?|scrollytelling|motion[[:space:]](references?|specs?)|reference[[:space:]](videos?|animations?|recordings?|clips?)|(recreate|replicate|match|copy)[[:space:]](this|the|that)[[:space:]]([a-z]+[[:space:]])?(animations?|motion|effects?|transitions?)|dolly([[:space:]]zoom)?|camera[[:space:]](moves?|movements?|travel)|cinematic[[:space:]](hero|intro|scenes?|motion|animations?)|ken[[:space:]]burns)$E ]]; then
+  hh_add_snippet motion
 fi
 if [[ "$prompt" =~ $B(docker|compose|dockerfile|ansible|playbook|terraform|deploy(ment)?|ci/cd|ci[[:space:]](pipeline|workflow|job)|pipeline|github[[:space:]]actions|bash|shell[[:space:]]script|powershell|ps1|nginx|traefik|kubernetes|k8s|helm|infra(structure)?)$E ]]; then
   hh_add_snippet infra

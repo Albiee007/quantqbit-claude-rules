@@ -107,7 +107,7 @@ Full list with examples: [laws-of-ux](references/laws-of-ux.md). Heuristics: [ni
 - [typography-color](references/typography-color.md): compatibility overview (contrast floor, quick defaults) linking to the `typography` and `color-science` skills
 - [responsive-layout](references/responsive-layout.md): breakpoints, grids, spacing, container queries, safe areas
 - [forms-and-states](references/forms-and-states.md): forms, validation, and every UI state
-- [motion](references/motion.md): durations, easing, reduced motion
+- [motion](references/motion.md): durations, easing, reduced motion; hero, cinematic and reference-driven motion goes to the `motion-ui` skill
 - [surfaces-and-cards](references/surfaces-and-cards.md): polish pass, surface treatments, nested radii, card semantics, media, and micro-interactions
 - [navigation-and-ia](references/navigation-and-ia.md): IA, navigation patterns, breadcrumbs, search, wayfinding
 - [content-microcopy](references/content-microcopy.md): labels, buttons, the error formula, i18n and RTL

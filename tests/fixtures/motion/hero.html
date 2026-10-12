@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Motion fixture</title>
+<!--
+  A small hero for tests/motion-ui.test.sh. It uses the clock sources real apps use: a rAF loop
+  that adds up frame deltas clamped to 100 ms, a CSS transition started from setTimeout, a CSS
+  @keyframes animation, a Web Animation, setInterval text and Date text. Query flags:
+    ?broken-pause   the pause button changes its label but the loop keeps running
+    ?moved          scene 2's disc travels further (an implementation change between capture times)
+    ?no-seek        no window.__motion hook (virtual-clock capture only)
+    ?remote         asks for one remote image (blocked and reported by the capture)
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #101418; color: #f4f1ea; font: 16px/1.4 sans-serif; }
+  .hero { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  .far { position: absolute; inset: 0; background: linear-gradient(#2a3d4f, #101418); }
+  .disc { position: absolute; left: 50%; top: 45%; width: 30vmin; height: 30vmin; margin: -15vmin 0 0 -15vmin;
+          border-radius: 50%; background: #d9a441; transform: translateX(var(--x, 0px)) scale(var(--s, 1)); }
+  .near { position: absolute; left: 6%; bottom: 0; width: 18vmin; height: 40vmin; background: #3c6e47;
+          transform: translateX(var(--nx, 0px)); }
+  h1 { position: absolute; left: 8%; top: 10%; margin: 0; font-size: 9vmin; opacity: var(--o, 1); }
+  .panel { position: absolute; right: 6%; bottom: 12%; width: 34vmin; padding: 2vmin; background: #f4f1ea; color: #101418;
+           opacity: 0; transform: translateY(20px); transition: opacity 400ms linear, transform 400ms linear; }
+  .panel.on { opacity: 1; transform: none; }
+  .bar { position: absolute; left: 0; bottom: 0; height: 6px; background: #d9a441; animation: grow 2400ms linear infinite; }
+  @keyframes grow { from { width: 0; } to { width: 100%; } }
+  .dot { position: absolute; right: 4%; top: 4%; width: 3vmin; height: 3vmin; border-radius: 50%; background: #f4f1ea; }
+  .meta { position: absolute; left: 8%; bottom: 4%; font: 12px monospace; }
+  .ghost { position: absolute; left: 8%; top: 40%; opacity: 0; color: inherit; }
+  button { position: absolute; right: 4%; bottom: 4%; font: inherit; }
+</style></head>
+<body>
+<header class="hero" id="hero" data-scene="s1">
+  <div class="far"></div>
+  <div class="disc" id="disc"></div>
+  <div class="near" id="near"></div>
+  <h1 id="title">First light</h1>
+  <div class="panel" id="panel">A panel that arrives by CSS transition.</div>
+  <div class="bar"></div>
+  <div class="dot" id="dot"></div>
+  <p class="meta"><span id="ticks">0</span> ticks, <span id="date">-</span></p>
+  <a class="ghost" href="#hidden">An invisible link</a>
+  <button type="button" id="pause" aria-label="Pause motion">Pause</button>
+</header>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const scenes = [{ id: 's1', ms: 1200, title: 'First light' }, { id: 's2', ms: 1200, title: 'Far shore' }];
+  const loopMs = scenes.reduce((n, s) => n + s.ms, 0);
+  const hero = document.getElementById('hero'), panel = document.getElementById('panel');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let elapsed = 0, last = null, playing = true, held = false, heldMs = 0, current = -1, panelTimer = 0;
+
+  function sceneAt(ms) {
+    let t = ((ms % loopMs) + loopMs) % loopMs;
+    for (let i = 0; i < scenes.length; i++) { if (t < scenes[i].ms) return [i, t / scenes[i].ms]; t -= scenes[i].ms; }
+    return [scenes.length - 1, 1];
+  }
+  function paint(ms) {
+    const [i, p] = sceneAt(ms);
+    const travel = q.has('moved') && i === 1 ? 160 : 60;
+    hero.style.setProperty('--s', String(1 + 0.5 * p));
+    hero.style.setProperty('--x', `${(i === 1 ? -1 : 1) * travel * p}px`);
+    hero.style.setProperty('--nx', `${200 * p}px`);
+    hero.style.setProperty('--o', String(Math.min(1, p * 4)));
+    if (i !== current) {
+      current = i;
+      hero.dataset.scene = scenes[i].id;
+      document.getElementById('title').textContent = scenes[i].title;
+      panel.classList.remove('on');
+      clearTimeout(panelTimer);
+      if (!held) panelTimer = setTimeout(() => panel.classList.add('on'), 200);
+    }
+  }
+  function tick(now) {
+    if (playing && !held && document.visibilityState === 'visible') {
+      if (last !== null) elapsed += Math.min(now - last, 100);
+      last = now;
+      paint(elapsed);
+    } else {
+      last = null; // resume without a jump
+    }
+    requestAnimationFrame(tick);
+  }
+  const dot = document.getElementById('dot').animate([{ opacity: 1 }, { opacity: 0.2 }, { opacity: 1 }],
+                                                     { duration: 800, iterations: Infinity });
+  let ticks = 0;
+  // a counter that follows the loop (it restarts with it) and stands still with reduced motion
+  setInterval(() => { if (!held && playing) document.getElementById('ticks').textContent = String(++ticks % (loopMs / 600)); }, 600);
+  document.getElementById('date').textContent = new Date().toISOString().slice(0, 10);
+  document.getElementById('pause').addEventListener('click', (e) => {
+    const b = e.currentTarget;
+    const nowPlaying = b.textContent !== 'Pause';
+    b.textContent = nowPlaying ? 'Pause' : 'Play';
+    b.setAttribute('aria-label', nowPlaying ? 'Pause motion' : 'Play motion');
+    if (!q.has('broken-pause')) {
+      playing = nowPlaying;
+      document.getAnimations().forEach((a) => (playing ? a.play() : a.pause()));
+    }
+  });
+  if (q.has('remote')) { const im = new Image(); im.src = 'https://example.com/remote.png'; document.body.appendChild(im); }
+  if (reduce) {
+    playing = false;
+    paint(900);
+    panel.classList.add('on');
+    document.getAnimations().forEach((a) => { a.pause(); a.currentTime = 0; });
+  } else {
+    requestAnimationFrame(tick);
+  }
+  if (!q.has('no-seek')) {
+    // The seek contract (motion-ui references/capture-contract.md): hold the scene at ms, cancel
+    // pending work, position every animation, resolve after the change is applied.
+    window.__motion = {
+      version: 1,
+      ready: () => document.fonts.ready.then(() => true),
+      seek(ms) {
+        held = true;
+        heldMs = ms;
+        clearTimeout(panelTimer);
+        current = -1;
+        paint(ms);
+        const [i, p] = sceneAt(ms);
+        const intoScene = p * scenes[i].ms;
+        const on = Math.max(0, Math.min(1, (intoScene - 200) / 400));
+        document.getElementById('ticks').textContent = String(Math.floor((ms % loopMs) / 600));
+        panel.style.transition = 'none';
+        panel.style.opacity = String(on);
+        panel.style.transform = `translateY(${20 * (1 - on)}px)`;
+        document.getAnimations().forEach((a) => {
+          if (typeof CSSTransition !== 'undefined' && a instanceof CSSTransition) { a.cancel(); return; }
+          a.pause();
+          const d = a.effect.getComputedTiming().duration;
+          a.currentTime = Number.isFinite(d) ? ms % d : ms;
+        });
+        return new Promise((r) => requestAnimationFrame(() => r(ms)));
+      },
+      state: () => ({ sceneId: hero.dataset.scene, ms: held ? heldMs : elapsed, paused: !playing, reducedMotion: reduce }),
+    };
+  }
+})();
+</script>
+</body></html>

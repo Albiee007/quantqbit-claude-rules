@@ -6,11 +6,14 @@ the harness's own CLIs (palette.py, type_scale.py, direction.py, render_frames.p
 fixture exercises them. Fonts: a font file found on this machine is copied into brand/fonts/ and
 recorded as a local font (test use only; nothing is committed).
 
-Usage: python make_project.py DIR VARIANT [--approve] [--video] [--font PATH]
+Usage: python make_project.py DIR VARIANT [--approve] [--video] [--motion] [--font PATH]
 --video also writes motion tokens (render_video.py motion-tokens), a video concept and a piece
 brand/video/launch/video.json (and, when the concept allows still scenes, a two-format loop
 brand/video/card/video.json over brand/art/garden.png); with --approve the video concept and the
 launch storyboard are approved too.
+--motion requests the motion family, writes a motion concept and brand/motion/hero/motion.json that
+captures web/hero.html (a copy of tests/fixtures/motion/hero.html); with --approve the motion concept
+is approved (Gate 2), never the motion spec: the tests drive Gate 3 themselves.
 Variants: fernway (garden journal: warm, serif display, gradient, frameless, split layouts)
           kestrel (logistics: slate + orange, mono display, solid, framed, inset/caption-bottom)
           samebrand (keeps 1.6-like Inter + indigo on purpose, listed in direction "keep")
@@ -33,6 +36,8 @@ TYPE = SK / "typography" / "scripts" / "type_scale.py"
 DIRECTION = SK / "creative-direction" / "scripts" / "direction.py"
 RENDER = SK / "store-mockups" / "scripts" / "render_frames.py"
 VIDEO = SK / "brand-video" / "scripts" / "render_video.py"
+MOTION = SK / "motion-ui" / "scripts" / "motion.py"
+HERO = HERE.parent / "motion" / "hero.html"
 RUN = "20261002-120000-0a0b0c"
 
 FONT_CANDIDATES = [
@@ -200,6 +205,41 @@ MOTION_REFS = {"durations": {"fast": "{motion.duration.fast}", "base": "{motion.
                           "exit": "{motion.easing.exit}", "emphasis": "{motion.easing.emphasis}"}}
 
 
+MOTION_SPEC = {"motion": {"durations": {"fast": "{motion.duration.fast}", "base": "{motion.duration.base}",
+                                         "slow": "{motion.duration.slow}"},
+                           "easing": {"standard": "{motion.easing.standard}", "enter": "{motion.easing.enter}",
+                                      "exit": "{motion.easing.exit}"}},
+               "mediums": ["css", "waapi", "canvas"], "palette": ["{roles.canvas}", "{roles.accent}"],
+               "type": {"display": "display", "text": "text"}, "reducedMotion": "static-complete", "imagery": "none",
+               "character": "slow, grounded camera travel; titles arrive after the scene settles"}
+
+
+def motion_piece() -> dict:
+    return {
+        "schemaVersion": 1, "id": "hero", "title": "Home hero", "platform": "web",
+        "target": {"route": "/", "files": ["web/hero.html"]},
+        "reference": None,
+        "fidelity": {"targets": ["composition", "motion"], "medium": "css", "claim": "code-only", "limits": []},
+        "viewports": ["desktop", "mobile"],
+        "loop": {"mode": "time-loop", "lengthMs": 2400, "repeat": "infinite", "autoplay": True},
+        "scenes": [{"id": "s1", "label": "first light", "durationMs": 1200, "holdMs": 200},
+                   {"id": "s2", "label": "far shore", "durationMs": 1200, "holdMs": 200, "transitionIn": {"kind": "cut"}}],
+        "rows": [{"startMs": 0, "endMs": 1200, "scene": "s1", "track": "camera", "action": "push in on the disc",
+                  "easing": "linear", "confidence": "measured"},
+                 {"startMs": 200, "endMs": 600, "scene": "s1", "track": "panels", "action": "panel rises in",
+                  "easing": "{motion.easing.enter}", "confidence": "measured"},
+                 {"startMs": 1200, "endMs": 2400, "scene": "s2", "track": "camera", "action": "drift left",
+                  "easing": "linear", "confidence": "estimated"}],
+        "assets": [],
+        "reducedMotion": {"strategy": "static-complete", "staticAt": {"scene": "s1", "ms": 900}},
+        "motionControl": {"kind": "pause", "selector": "#pause"},
+        "resilience": {"hiddenTab": "pause", "contextLoss": "n/a"},
+        "capture": {"driver": "web", "page": "web/hero.html", "seekMode": "auto", "essential": ["h1", "#pause"],
+                    "ready": {"selector": "#hero", "timeoutMs": 30000}},
+        "analysis": {"extracted": [], "presented": [], "reviewed": [], "observations": [], "hypotheses": []},
+    }
+
+
 def piece(v: dict) -> dict:
     name, head, sub = v["name"], v["frames"][0][2], v["frames"][0][3]
     return {"schemaVersion": 1, "id": "launch", "kind": "social", "title": "Launch teaser", "formats": ["social-9x16"], "fps": 30,
@@ -246,7 +286,7 @@ def garden_png(path: Path) -> None:
     im.save(path, optimize=False)
 
 
-def build(root: Path, variant: str, approve: bool, font: Path, video: bool = False) -> None:
+def build(root: Path, variant: str, approve: bool, font: Path, video: bool = False, motion: bool = False) -> None:
     v = VARIANTS[variant]
     root.mkdir(parents=True, exist_ok=True)
     (root / ".git").mkdir(exist_ok=True)  # a project boundary for find_project()
@@ -287,9 +327,24 @@ def build(root: Path, variant: str, approve: bool, font: Path, video: bool = Fal
         d["families"][fam] = {"requested": fam in v}
     if video:
         d["families"]["video"]["brief"] = "a 15-second vertical launch teaser"
+    if motion:
+        d["families"]["motion"] = {"requested": True, "brief": "a looping hero for the home page"}
     (brand / "direction.json").write_text(json.dumps(d, indent=2), encoding="utf-8")
     if video:
         run(VIDEO, "motion-tokens", "--write", cwd=root)
+    elif motion:
+        run(MOTION, "tokens", "--write", cwd=root)
+    if motion:
+        run(DIRECTION, "concept", "new", "--family", "motion", "--id", "a", "--name", f"{v['name']} motion", "--run", RUN, cwd=root)
+        cpath = brand / "concepts" / "motion" / RUN / "a.json"
+        c = json.loads(cpath.read_text(encoding="utf-8"))
+        c["idea"] = f"The motion language for {v['name']}, from its direction."
+        c["spec"] = json.loads(json.dumps(MOTION_SPEC))
+        cpath.write_text(json.dumps(c, indent=2), encoding="utf-8")
+        (root / "web").mkdir(exist_ok=True)
+        shutil.copyfile(HERO, root / "web" / "hero.html")
+        (brand / "motion" / "hero").mkdir(parents=True, exist_ok=True)
+        (brand / "motion" / "hero" / "motion.json").write_text(json.dumps(motion_piece(), indent=2), encoding="utf-8")
     for fam in fams:
         if fam not in v:
             continue
@@ -338,6 +393,9 @@ def build(root: Path, variant: str, approve: bool, font: Path, video: bool = Fal
         if video and "video" in v:
             run(DIRECTION, "approve", "--gate", "storyboard", "--piece", "launch", "--by", "Fixture Owner",
                 "--evidence", "test fixture approval", cwd=root)
+        if motion:
+            run(DIRECTION, "approve", "--gate", "concept", "--family", "motion", "--concept",
+                f"brand/concepts/motion/{RUN}/a.json", "--by", "Fixture Owner", "--evidence", "test fixture approval", cwd=root)
 
 
 def main() -> int:
@@ -346,9 +404,10 @@ def main() -> int:
     ap.add_argument("variant", choices=sorted(VARIANTS))
     ap.add_argument("--approve", action="store_true")
     ap.add_argument("--video", action="store_true")
+    ap.add_argument("--motion", action="store_true")
     ap.add_argument("--font", type=Path)
     a = ap.parse_args()
-    build(a.dir, a.variant, a.approve, a.font or find_font(), a.video)
+    build(a.dir, a.variant, a.approve, a.font or find_font(), a.video, a.motion)
     print(f"built {a.variant} in {a.dir}")
     return 0
 

@@ -14,12 +14,12 @@ import hashlib
 _LIN = [((v / 255) / 12.92) if v / 255 <= 0.04045 else (((v / 255) + 0.055) / 1.055) ** 2.4 for v in range(256)]
 
 
-def _transition(a: bytes, b: bytes, area: float) -> int:
+def _transition(a: bytes, b: bytes, area: float, delta: float = 0.10) -> int:
     """+1 (brighter), -1 (darker) or 0 for the change from frame a to frame b."""
     up = down = 0
     for x, y in zip(a, b):
         la, lb = _LIN[x], _LIN[y]
-        if abs(lb - la) >= 0.10 and min(la, lb) < 0.80:
+        if abs(lb - la) >= delta and min(la, lb) < 0.80:
             if lb > la:
                 up += 1
             else:
@@ -32,11 +32,13 @@ def _transition(a: bytes, b: bytes, area: float) -> int:
     return 0
 
 
-def flash_signal(frames: list[bytes], fps: int, area: float = 0.25) -> list[float]:
-    """Start times (seconds) of one-second windows holding more than three flashes."""
+def flash_signal(frames: list[bytes], fps: int, area: float = 0.25, delta: float = 0.10) -> list[float]:
+    """Start times (seconds) of one-second windows holding more than three flashes. The defaults
+    approximate the WCAG 2.3.1 general flash threshold; a smaller area and delta find flashes that
+    are below it (a stricter project policy: nothing flashes more than three times a second)."""
     events: list[tuple[int, int]] = []
     for i in range(1, len(frames)):
-        t = _transition(frames[i - 1], frames[i], area)
+        t = _transition(frames[i - 1], frames[i], area, delta)
         if t:
             events.append((i, t))
     # count opposing pairs inside sliding one-second windows

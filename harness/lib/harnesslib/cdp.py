@@ -218,7 +218,13 @@ class Page:
     def __init__(self, conn: Connection, session: str, target: str) -> None:
         self.conn, self.session, self.target = conn, session, target
         self.errors: list[str] = []
+        self.exceptions: list[str] = []  # uncaught page exceptions (errors also holds console.error)
+        self.console_errors: list[str] = []
         self._blocked: list[str] = []
+        self._allow: tuple[str, ...] = ()
+        self._inflight: set[str] = set()
+        self._last_net = time.monotonic()
+        self._frames: list[tuple[float, bytes]] | None = None
         conn.handlers.append(self._on_event)
 
     def _on_event(self, msg: dict) -> bool:
@@ -227,7 +233,8 @@ class Page:
         m, p = msg.get("method"), msg.get("params", {})
         if m == "Fetch.requestPaused":
             url = p["request"]["url"]
-            if url.split(":", 1)[0].lower() in ("file", "data", "blob", "about"):
+            allowed = any(url == o or url.startswith(o + "/") for o in self._allow)
+            if allowed or url.split(":", 1)[0].lower() in ("file", "data", "blob", "about"):
                 self.conn.notify("Fetch.continueRequest", {"requestId": p["requestId"]}, self.session)
             else:
                 self._blocked.append(url)
@@ -236,10 +243,30 @@ class Page:
             return True
         if m == "Runtime.exceptionThrown":
             d = p.get("exceptionDetails", {})
-            self.errors.append((d.get("exception") or {}).get("description") or d.get("text", "exception"))
+            text = (d.get("exception") or {}).get("description") or d.get("text", "exception")
+            self.errors.append(text)
+            self.exceptions.append(text)
             return True
         if m == "Runtime.consoleAPICalled" and p.get("type") in ("error", "assert"):
-            self.errors.append(" ".join(str(a.get("value", a.get("description", ""))) for a in p.get("args", [])))
+            text = " ".join(str(a.get("value", a.get("description", ""))) for a in p.get("args", []))
+            self.errors.append(text)
+            self.console_errors.append(text)
+            return True
+        if m == "Network.requestWillBeSent":
+            self._inflight.add(p["requestId"])
+            self._last_net = time.monotonic()
+            return True
+        if m in ("Network.loadingFinished", "Network.loadingFailed"):
+            self._inflight.discard(p["requestId"])
+            self._last_net = time.monotonic()
+            return True
+        if m == "Page.screencastFrame":
+            self.conn.notify("Page.screencastFrameAck", {"sessionId": p["sessionId"]}, self.session)
+            if self._frames is not None:
+                ts = (p.get("metadata") or {}).get("timestamp") or time.time()
+                self._frames.append((float(ts), base64.b64decode(p["data"])))
+            return True
+        if m.startswith("Network.") or m.startswith("Page.lifecycle") or m == "Page.frameStoppedLoading":
             return True
         return m in ("Runtime.consoleAPICalled", "Runtime.executionContextCreated",
                      "Runtime.executionContextsCleared", "Runtime.executionContextDestroyed")
@@ -252,20 +279,74 @@ class Page:
         """URLs refused by block_network(), in request order."""
         return list(self._blocked)
 
-    def set_viewport(self, size: tuple[int, int]) -> None:
+    def set_viewport(self, size: tuple[int, int], dpr: float = 1, mobile: bool = False) -> None:
         self.send("Emulation.setDeviceMetricsOverride",
-                  {"width": size[0], "height": size[1], "deviceScaleFactor": 1, "mobile": False})
+                  {"width": size[0], "height": size[1], "deviceScaleFactor": dpr, "mobile": mobile})
+        if mobile:
+            self.send("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
+
+    def emulate_media(self, features: dict[str, str]) -> None:
+        """Media features such as {"prefers-reduced-motion": "reduce", "prefers-color-scheme": "dark"}."""
+        self.send("Emulation.setEmulatedMedia", {"features": [{"name": k, "value": v} for k, v in features.items()]})
+
+    def track_network(self) -> None:
+        """Count requests in flight (network_idle() waits for none)."""
+        self.send("Network.enable")
+
+    def network_idle(self, quiet_s: float = 0.3, timeout: float = 30.0) -> bool:
+        """True once no request has been in flight for quiet_s seconds (False on timeout)."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if not self._inflight and time.monotonic() - self._last_net >= quiet_s:
+                return True
+            try:
+                self.conn.wait_event("Harness.never", self.session, 0.05)
+            except WebSocketClosed:
+                raise
+            except OperationalError:
+                pass
+        return False
+
+    def start_screencast(self, max_size: tuple[int, int] | None = None, quality: int = 85) -> None:
+        """Collect real-time frames (timestamp seconds, JPEG bytes) until stop_screencast()."""
+        self._frames = []
+        params: dict[str, Any] = {"format": "jpeg", "quality": quality, "everyNthFrame": 1}
+        if max_size:
+            params.update(maxWidth=max_size[0], maxHeight=max_size[1])
+        self.send("Page.startScreencast", params)
+
+    def pump(self, seconds: float) -> None:
+        """Process protocol events (screencast frames, network) for seconds of real time."""
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            try:
+                self.conn.wait_event("Harness.never", self.session, max(0.01, min(0.05, deadline - time.monotonic())))
+            except WebSocketClosed:
+                raise
+            except OperationalError:
+                pass
+
+    def stop_screencast(self) -> list[tuple[float, bytes]]:
+        self.send("Page.stopScreencast")
+        frames, self._frames = self._frames or [], None
+        return frames
 
     def transparent(self) -> None:
         self.send("Emulation.setDefaultBackgroundColorOverride", {"color": {"r": 0, "g": 0, "b": 0, "a": 0}})
 
-    def block_network(self) -> None:
-        """Refuse every request that is not file:, data:, blob: or about: (no network at render time)."""
+    def block_network(self, allow_origins: tuple[str, ...] | list[str] = ()) -> None:
+        """Refuse every request that is not file:, data:, blob: or about: (no network at render time),
+        except to the given origins (a capture's own dev server)."""
+        self._allow = tuple(o.rstrip("/") for o in allow_origins)
         self.send("Fetch.enable", {"patterns": [{"urlPattern": "*"}]})
 
     def add_init_script(self, source: str) -> None:
         """Runs before any page script in every document this page loads."""
         self.send("Page.addScriptToEvaluateOnNewDocument", {"source": source})
+
+    def activate(self) -> None:
+        """Bring this tab to the front (another tab in front makes it hidden: visibilityState)."""
+        self.conn.send("Target.activateTarget", {"targetId": self.target})
 
     def navigate(self, url: str, timeout: float = CALL_TIMEOUT_S) -> None:
         res = self.send("Page.navigate", {"url": url}, timeout)

@@ -12,6 +12,7 @@ Only the families the request needs, and only families the direction requests:
 | icon | `icon-creator` | app-icons (mobile projects) |
 | illustration | `illustrator` | story-art |
 | video (motion, pace, transitions, voice direction) | `video-creative` | brand-video |
+| motion (hero and reference-driven UI motion: tokens, mediums, reduced motion) | `motion-designer` | motion-ui |
 
 A web-only project never needs `store-creative` or `icon-creator`. Independent families run in parallel.
 
@@ -21,7 +22,7 @@ If the family's approved concept is still current (`direction.py status` shows i
 ## Brief for a creator (from the main session)
 ```
 MODE: concept
-Family: store | marketing | icon | illustration | video
+Family: store | marketing | icon | illustration | video | motion
 Direction: brand/direction.json (status from `direction.py status`)
 Scope: <frames / assets / placements this concerns>
 Previews: on | off
