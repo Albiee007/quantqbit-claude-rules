@@ -19,7 +19,7 @@ Search works in three stages: **crawl** (discover URLs via links and sitemaps, f
 Check: `Disallow: /` left over from staging (Critical); blocking `/_next/`, `/static/`, `/assets/` (High); wildcard rules blocking parameterised canonical URLs.
 
 ### Meta robots and X-Robots-Tag
-- `<meta name="robots" content="noindex, nofollow">` in HTML; `X-Robots-Tag: noindex` HTTP header for non-HTML (PDFs, images) or edge-level control.
+- `<meta name="robots" content="noindex, nofollow">` in HTML; `X-Robots-Tag: noindex` HTTP header for non-HTML (PDFs, images) or edge-level control. Google also processes a robots meta tag placed outside `<head>`, so a stray one in the body still applies.
 - Useful directives: `noindex`, `nofollow`, `nosnippet`, `max-snippet:N`, `max-image-preview:large`, `unavailable_after:<date>`. `data-nosnippet` attribute hides specific elements from snippets.
 - Conflicting directives: the most restrictive wins.
 - Bot-specific: `<meta name="googlebot" content="…">`.
@@ -78,7 +78,7 @@ Google renders pages with a recent headless Chromium, but rendering is queued af
 - **Prefer SSR, SSG, ISR, or prerendering** for all indexable content, links, and metadata. Client-side rendering only for app-like, non-indexable surfaces (dashboards behind login).
 - Title, meta description, canonical, meta robots, hreflang, and JSON-LD must be in the **initial HTML**. If a canonical is set by JS, it must equal the one in raw HTML (or be absent from raw HTML).
 - Do not ship `noindex` in raw HTML expecting JS to remove it — Google may skip rendering on seeing `noindex`.
-- Return correct HTTP status from the server; do not rely on JS-injected content on error pages.
+- Return correct HTTP status from the server; do not rely on JS-injected content on error pages. Pages that return a non-200 status may not be sent to rendering at all, so anything you want indexed must return 200.
 - Use the History API for routes (real paths), never `#` fragments for distinct content.
 - Links as `<a href>`; lazy-loaded content must load without user interaction (scroll events are not triggered by Googlebot) — use IntersectionObserver or native lazy loading.
 - Do not block rendering resources in robots.txt; keep bundle URLs stable enough for caching (content hashing is fine).

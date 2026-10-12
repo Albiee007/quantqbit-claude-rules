@@ -1,7 +1,7 @@
 ---
 name: seo
 description: Mandatory SEO standards and audit workflow for public web pages — technical SEO, on-page, content quality (E-E-A-T), structured data, Core Web Vitals, images, international, local, and AI/generative search (GEO). Use when building or changing public pages, routes, metadata, head tags, sitemaps, robots, structured data, content, or when asked for an SEO audit/plan.
-argument-hint: "[audit|page|plan|schema|content] [url-or-path]"
+argument-hint: "[audit|page|launch|plan|schema|content] [url-or-path]"
 ---
 
 # SEO
@@ -36,10 +36,11 @@ Guiding principle (Google Search Essentials): make pages for people, make them c
 | Product/category pages, facets, stock, merchant listings | [references/ecommerce.md](references/ecommerce.md) |
 | Pages generated at scale from data | [references/programmatic.md](references/programmatic.md) |
 | Strategy: 90-day sprint, keyword → cluster → brief → refresh, link earning | [references/content-playbooks.md](references/content-playbooks.md) |
+| Go-live readiness for a website or webapp: indexing, sitemaps, CWV, accessibility, security, privacy, monitoring, PWA, launch roadmap | [references/web-launch-checklist.md](references/web-launch-checklist.md) |
 | Writing the audit deliverable | [references/audit-report-template.md](references/audit-report-template.md) |
 | Quick header/meta check of a live URL | [scripts/check-url.sh](scripts/check-url.sh) `<url>` |
 
-Argument shortcuts: `audit <url>` → audit workflow; `page <url|path>` → build-time checklist + single-page audit; `plan` → content-playbooks; `schema` → schema refs; `content` → content-eeat.
+Argument shortcuts: `audit <url>` → audit workflow; `page <url|path>` → build-time checklist + single-page audit; `launch [url]` → web-launch-checklist, graded per surface (public site, app); `plan` → content-playbooks; `schema` → schema refs; `content` → content-eeat.
 
 ## Build-time checklist (every indexable page)
 
@@ -149,6 +150,7 @@ Health score: <NN>/100 (<band>)  [Tech NN · Content NN · On-page NN · Schema 
 - [geo-ai-search.md](references/geo-ai-search.md) — AI Overviews/AI Mode, answer engines, crawler tokens, llms.txt stance.
 - [international-hreflang.md](references/international-hreflang.md), [local.md](references/local.md), [images.md](references/images.md), [sitemaps.md](references/sitemaps.md), [ecommerce.md](references/ecommerce.md), [programmatic.md](references/programmatic.md).
 - [content-playbooks.md](references/content-playbooks.md) — 90-day sprint, research → cluster → brief → write → link → refresh, ethical link earning.
+- [web-launch-checklist.md](references/web-launch-checklist.md) — go-live and recurring checklist for websites and webapps (SEO, CWV, WCAG 2.2/EAA, security headers, consent, monitoring, PWA), P0/P1/P2 with launch gates.
 - [audit-report-template.md](references/audit-report-template.md) — full deliverable template.
 
 Credits: category weights, quality gates, and several checklists adapted from claude-seo v1.9.9 by AgriciDaniel (MIT); playbooks and the approval/untrusted-data rules adapted from the Distribb SEO agent skill; facts re-verified against Google Search Central, web.dev, and crawler operators' docs (September 2026).

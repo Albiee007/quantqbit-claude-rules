@@ -8,6 +8,33 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.12.1] - 2026-10-12
+
+A go-live checklist for websites and webapps, and SEO references brought up to date with Google's 2025–2026 documentation changes.
+
+### Added
+- **`seo` skill: `references/web-launch-checklist.md`.** One checklist for launches, migrations and redesigns. Every item is tagged Site, App or Both and P0 (blocks launch), P1 or P2, and says how to verify it. It covers:
+  - hosting and HTTPS
+  - crawling and indexing, XML sitemaps, canonicals and redirects
+  - rendering, metadata, structured data (with the retired rich results), content and trust pages
+  - AI search, images and video
+  - Core Web Vitals
+  - WCAG 2.2 AA and the European Accessibility Act
+  - security headers and OWASP Top 10:2025
+  - privacy and consent (CMP, Consent Mode v2, GPC, India's DPDP Rules 2025)
+  - analytics and monitoring
+  - webapp specifics: keeping the public site separate from the app, the manifest and the service worker
+  - launch gates (T-14 to T+30) and a monthly, quarterly and yearly cadence.
+
+  Items link to the existing deep references instead of repeating them. Run it with `seo launch [url]`. The `seo` snippet now points to it before go-live.
+
+### Changed
+- `technical.md`: Google may not render pages that return non-200, and it processes robots meta tags placed outside `<head>`.
+- `geo-ai-search.md`: Search Central now states that llms.txt is not used by Google Search (June 2026).
+
+### Upgrade notes
+- None. Run harness sync to get the new reference.
+
 ## [1.12.0] - 2026-10-12
 
 The last planned slice of branded video: scenes of the project's own, animated with Web Animations or a project-supplied GSAP or Lottie library and still seeked frame by frame; generated voice, word alignment and b-roll through the project's own provider commands, recorded in provenance and flagged for AI disclosure; and HyperFrames as an optional second frame renderer, checked against ours.

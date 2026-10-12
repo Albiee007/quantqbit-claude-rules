@@ -91,8 +91,8 @@ Notes:
 
 ## llms.txt stance
 
-`/llms.txt` is a community proposal (a Markdown index of key pages for LLMs). Status as of Sept 2026:
-- Google has said it does not use it (compared it to the keywords meta tag); no major AI provider has committed to using it for search/answers.
+`/llms.txt` is a community proposal (a Markdown index of key pages for LLMs). Status as of Oct 2026:
+- Google Search does not use it and it does not affect rankings: stated in Search Central docs (June 2026) after earlier remarks comparing it to the keywords meta tag. No major AI provider has committed to using it for search/answers.
 - Public log studies show AI crawlers rarely request it.
 - Genuine use: developer documentation consumed by coding assistants and agents.
 
