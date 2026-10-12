@@ -12,6 +12,8 @@
 #      commands (ls, stat, test, git status/check-ignore/ls-files) are allowed.
 #   4. A sub-agent running `direction.py approve`: owner approvals are recorded by
 #      the main session after the owner decides (skill creative-direction).
+#   5. A sub-agent running `render_video.py generate`: a generation provider (voice,
+#      alignment, b-roll) runs only from the main session, when the owner asked for it.
 # It cannot see indirect reads (grep -r ., find -exec cat …): keep .env* files
 # gitignored. Any parsing miss simply allows the call.
 set -uo pipefail
@@ -68,6 +70,11 @@ case "$tool" in
     if [[ "$cmd" =~ $approve_re ]]; then
       hh_get agent_id
       [[ -n "$HH_V" ]] && hh_deny "Harness: only the main session records owner approvals (direction.py approve), after the owner has decided. Return the decision you need to your parent instead."
+    fi
+    generate_re="render_video\\.py[^|;&]*[[:space:]][\"']?generate[\"']?([[:space:]]|\$)"
+    if [[ "$cmd" =~ $generate_re ]]; then
+      hh_get agent_id
+      [[ -n "$HH_V" ]] && hh_deny "Harness: only the main session runs a generation provider (render_video.py generate: voice, alignment, b-roll), after the owner has asked for it; it may cost money and sends the script or prompt to the provider. Return the request to your parent instead."
     fi
     cmd="${cmd//\\//}"
     # Read-only metadata commands (ls, stat, test, git status/check-ignore/ls-files,

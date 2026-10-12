@@ -182,3 +182,26 @@ jobs:
           SCAFFOLD_BUILD: '1'
           SCAFFOLD_PLATFORM: android
         run: bash tests/scaffold.test.sh
+
+  # brand-video's optional HyperFrames engine: the pinned CLI (npx) draws the frames, our encoder
+  # and checks do the rest, and a parity signal compares its frames with ours. It downloads
+  # HyperFrames and its browser, so a failure here is reported without failing the build.
+  video-hyperframes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: pip install pillow && sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Git identity for test repos
+        run: git config --global user.email ci@example.com && git config --global user.name CI
+      - name: HyperFrames engine (render, parity, manifest)
+        env:
+          HYPERFRAMES_NO_TELEMETRY: '1'
+        run: bash tests/video-hyperframes.test.sh

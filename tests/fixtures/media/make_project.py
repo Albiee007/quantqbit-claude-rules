@@ -113,7 +113,7 @@ VARIANTS = {
             "caption": {"head": {"font": "display", "weight": 700, "lineHeight": 1.05}, "sub": {"font": "text", "weight": 400},
                         "align": "start", "accent": "underline"},
             "layouts": ["type-start", "type-lower"], "defaultLayout": "type-start", "defaultBackground": "dawn",
-            "sceneTemplates": ["title", "feature", "stat", "end-card", "still", "recording"],
+            "sceneTemplates": ["title", "feature", "stat", "end-card", "still", "recording", "custom"],
             "motion": {"transitions": ["cut", "fade", "dip"], "defaultTransition": "fade", "textIn": "fade-up"},
             "pace": {"readingWpm": 200, "minHold": 1.0, "voWpm": 145},
             "endCard": {"background": "soil", "logo": False},

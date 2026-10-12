@@ -131,6 +131,37 @@
         "$ref": "#/$defs/scene"
       }
     },
+    "libraries": {
+      "type": "array",
+      "maxItems": 8,
+      "description": "animation libraries the project supplies for custom scenes (GSAP, lottie-web...): local files with their licence, loaded before the scenes; never fetched, never vendored by the harness",
+      "items": {
+        "type": "object",
+        "required": [
+          "file",
+          "name",
+          "license"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "relpath",
+            "pattern": "\\.m?js$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "license": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300
+          }
+        }
+      }
+    },
     "loop": {
       "type": "object",
       "additionalProperties": false,
@@ -356,7 +387,8 @@
             "stat",
             "end-card",
             "still",
-            "recording"
+            "recording",
+            "custom"
           ]
         },
         "duration": {
@@ -464,6 +496,38 @@
               "minLength": 3,
               "maxLength": 300,
               "description": "where the picture comes from and why the project may use it (required in spirit for anything not made for the project)"
+            },
+            "prompt": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 1000,
+              "description": "b-roll: what render_video.py generate --what broll asks the project's provider for; it writes the file named by video or image"
+            }
+          }
+        },
+        "custom": {
+          "type": "object",
+          "required": [
+            "script"
+          ],
+          "additionalProperties": false,
+          "description": "a scene of the project's own: an HTML fragment and a script that registers window.VideoScenes[<scene id>] = (el, ctx) => player; Web Animations or a returned library player (a paused GSAP timeline, a Lottie animation) are seeked frame by frame",
+          "properties": {
+            "html": {
+              "type": "string",
+              "format": "relpath",
+              "pattern": "\\.html?$"
+            },
+            "script": {
+              "type": "string",
+              "format": "relpath",
+              "pattern": "\\.m?js$"
+            },
+            "lottie": {
+              "type": "string",
+              "format": "relpath",
+              "pattern": "\\.json$",
+              "description": "Lottie animation data, passed to the script as ctx.lottie"
             }
           }
         },

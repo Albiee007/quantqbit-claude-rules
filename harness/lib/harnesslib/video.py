@@ -229,28 +229,99 @@ def _media_rel(sc: dict) -> tuple[str | None, str]:
     return (md.get("video"), "recording") if md.get("video") else (md.get("image"), "image")
 
 
-def media_files(root: Path | None, piece: dict) -> tuple[dict[str, str], list[str]]:
-    """{project-relative path: sha256} of the pictures and screen recordings the scenes show, and
-    the problems finding them. The bytes are part of the storyboard approval: a changed picture or
-    recording needs a new look."""
-    out: dict[str, str] = {}
-    errors: list[str] = []
+KIND_SUFFIXES = {"recording": VIDEO_SUFFIXES, "image": IMAGE_SUFFIXES, "html": (".html", ".htm"), "script": (".js", ".mjs"),
+                 "lottie": (".json",), "library": (".js", ".mjs")}
+
+
+def media_refs(piece: dict) -> list[tuple[str, str, str]]:
+    """(path, kind, owner) of every file the piece shows or runs: scene pictures and recordings,
+    custom scenes' HTML, script and Lottie data, and the project's animation libraries."""
+    out = []
     for sc in piece["scenes"]:
         rel, kind = _media_rel(sc)
-        if not rel or rel in out:
+        if rel:
+            out.append((rel, kind, f"scene {sc['id']}"))
+        for key in ("html", "script", "lottie"):
+            if (sc.get("custom") or {}).get(key):
+                out.append((sc["custom"][key], key, f"scene {sc['id']}"))
+    for i, lib in enumerate(piece.get("libraries") or []):
+        out.append((lib["file"], "library", f"libraries[{i}] ({lib.get('name', '')})"))
+    return out
+
+
+def media_files(root: Path | None, piece: dict) -> tuple[dict[str, str], list[str]]:
+    """{project-relative path: sha256} of the pictures, screen recordings, custom scene files and
+    animation libraries a piece uses, and the problems finding them. The bytes are part of the
+    storyboard approval: a changed picture, recording or scene script needs a new look."""
+    out: dict[str, str] = {}
+    errors: list[str] = []
+    for rel, kind, owner in media_refs(piece):
+        if rel in out:
             continue
-        suffixes = VIDEO_SUFFIXES if kind == "recording" else IMAGE_SUFFIXES
+        suffixes = KIND_SUFFIXES[kind]
         if not rel.lower().endswith(suffixes):
-            errors.append(f"scene {sc['id']}: {rel} is not a{' video' if kind == 'recording' else 'n image'} "
-                          f"({', '.join(suffixes)})")
+            errors.append(f"{owner}: {rel} is not a {kind} file ({', '.join(suffixes)})")
             continue
         if root is None:
             continue
         try:
-            out[rel] = sha256_file(resolve_inside(root, rel, f"scene {sc['id']} {kind}", must_exist=True))
+            out[rel] = sha256_file(resolve_inside(root, rel, f"{owner} {kind}", must_exist=True))
         except InputError as e:
             errors.append(str(e))
     return out, errors
+
+
+# Composition code must not depend on playback history (references/composition-contract.md): no
+# clocks, timers, frame loops, randomness, CSS transitions or network. Libraries are exempt (a
+# paused timeline does not tick); the scene's own HTML and script are not.
+BANNED_CODE = [
+    (re.compile(r"\bsetTimeout\b|\bsetInterval\b|\brequestAnimationFrame\b|\brequestIdleCallback\b"),
+     "a timer or frame loop (animation must be seekable: Web Animations or a registered timeline)"),
+    (re.compile(r"\bDate\b|\bperformance\s*\.\s*now\b"), "a clock read (time comes from the seek, not the clock)"),
+    (re.compile(r"\bMath\s*\.\s*random\b|\bcrypto\s*\.\s*getRandomValues\b"), "randomness (use ctx.rand(key))"),
+    (re.compile(r"(?<![-\w])transition(-[a-z-]+)?\s*:|\.\s*transition[A-Za-z]*\s*=(?!=)"), "a CSS transition (it runs on the clock; use a keyframe animation)"),
+    (re.compile(r"\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\b|\bimport\s*\(|https?://(?!www\.w3\.org/)|[\"'(=]\s*//[\w.-]"),
+     "the network (compositions render offline; put the file in the project)"),
+    (re.compile(r"\.\s*play\s*\(\s*\)|\bautoplay\s*:\s*true\b|\bloop\s*:\s*true\b|<(video|audio)\b[^>]*\b(autoplay|loop)\b"),
+     "playback (players stay paused; the seek positions them)"),
+]
+
+
+def _html_code(html: str) -> str:
+    """An HTML fragment's markup, scripts and styles, without the visible text between tags (line
+    numbers kept)."""
+    keep: list[str] = []
+    pos = 0
+    for m in re.finditer(r"<(script|style)\b[^>]*>.*?</\1\s*>", html, flags=re.S | re.I):
+        keep.append(re.sub(r">[^<]*<", lambda t: ">" + "\n" * t.group(0).count("\n") + "<", html[pos:m.start()]))
+        keep.append(m.group(0))
+        pos = m.end()
+    keep.append(re.sub(r">[^<]*<", lambda t: ">" + "\n" * t.group(0).count("\n") + "<", html[pos:]))
+    return "".join(keep)
+
+
+def custom_code_problems(root: Path, sc: dict) -> list[str]:
+    out = []
+    for key in ("html", "script"):
+        rel = (sc.get("custom") or {}).get(key)
+        if not rel:
+            continue
+        try:
+            text = resolve_inside(root, rel, f"scene {sc['id']} {key}", must_exist=True).read_text(encoding="utf-8")
+        except (InputError, OSError, UnicodeDecodeError):
+            continue  # media_files reports a missing or unreadable file
+        # comments go (a // comment starts a line or follows a space or ; { } ) so URLs and "//" in
+        # strings stay); in HTML, the text between tags goes too ("Release Date" is not a clock read)
+        text = re.sub(r"/\*.*?\*/|<!--.*?-->", " ", text, flags=re.S)
+        text = re.sub(r"(^|[\s;{})])//[^\n]*", r"\1", text, flags=re.M)
+        if key == "html":
+            text = _html_code(text)
+        for pattern, why in BANNED_CODE:
+            m = pattern.search(text)
+            if m:
+                line = text.count("\n", 0, m.start()) + 1
+                out.append(f"{rel}:{line}: {m.group(0).strip()!r} is {why}")
+    return out
 
 
 # ------------------------------------------------------------------ audio (voice-over takes, music)
@@ -327,6 +398,7 @@ class ScenePlan:
     vo: str
     read_seconds: float
     media: dict | None = None
+    custom: dict | None = None
 
     def page(self) -> dict:
         out = {"id": self.id, "template": self.template, "start": self.start, "frames": self.frames,
@@ -334,6 +406,8 @@ class ScenePlan:
                "layout": self.layout, "background": self.background, "copy": self.copy}
         if self.media:
             out["media"] = self.media
+        if self.custom:
+            out["custom"] = dict(self.custom)
         return out
 
 
@@ -373,7 +447,7 @@ def _drawn(template: str, copy: dict, ad: dict) -> tuple[list[str], int]:
         logo = bool(ad.get("logo")) and ad["endCard"]["logo"]
         texts = [kicker, copy.get("head"), tail]
         n = int(logo) + bool(kicker) + head_parts(copy.get("head")) + bool(tail)
-    elif template in ("still", "recording"):  # the picture arrives with the scene; only its caption animates in
+    elif template in ("still", "recording", "custom"):  # the scene draws itself; only its caption animates in
         texts = [kicker, copy.get("head"), copy.get("sub")]
         n = bool(kicker) + head_parts(copy.get("head")) + bool(copy.get("sub"))
     else:
@@ -445,13 +519,21 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
             out.errors.append(f"scene {sid}: background {bgname!r} is not in the concept ({', '.join(ad['backgrounds'])})")
         copy = sc.get("copy") or {}
         need = {"title": ("head",), "feature": ("head",), "stat": ("value",), "end-card": ("head",), "still": (),
-                "recording": ()}[sc["template"]]
+                "recording": (), "custom": ()}[sc["template"]]
         for k in need:
             if not copy.get(k):
                 out.errors.append(f"scene {sid}: a {sc['template']} scene needs copy.{k}" +
                                   (f" (hidden in {fmt} by byFormat)" if k in (authored.get("copy") or {}) else ""))
         if sc["template"] == "still" and not (sc.get("media") or {}).get("image"):
             out.errors.append(f"scene {sid}: a still scene needs media.image (a picture inside the project)")
+        if sc["template"] == "custom":
+            if not (sc.get("custom") or {}).get("script"):
+                out.errors.append(f"scene {sid}: a custom scene needs custom.script (it registers window.VideoScenes[\"{sid}\"])")
+            if p is not None:
+                for problem in custom_code_problems(p.root, sc):
+                    (out.errors if production else out.warnings).append(f"scene {sid}: {problem}")
+        elif sc.get("custom"):
+            out.warnings.append(f"scene {sid}: custom is only used by custom scenes; it is ignored here")
         if sc["template"] == "recording" and not (sc.get("media") or {}).get("video"):
             out.errors.append(f"scene {sid}: a recording scene needs media.video (a screen recording inside the project)")
         if sc["template"] == "still" and (sc.get("media") or {}).get("video"):
@@ -506,7 +588,8 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
             media = {"video": md.get("video"), "fit": md.get("fit", "cover"), "from": md.get("from", 0),
                      "focus": md.get("focus", [0.5, 0.5])}
         out.scenes.append(ScenePlan(sid, sc["template"], start, n, overlap, tr, enter, hold_start, hold_end,
-                                    probe, layout, bgname, copy, sc.get("vo", ""), read, media))
+                                    probe, layout, bgname, copy, sc.get("vo", ""), read, media,
+                                    sc.get("custom") if sc["template"] == "custom" else None))
     out.frames = (out.scenes[-1].start + out.scenes[-1].frames) if out.scenes else 0
     f = format_spec(piece, fmt)
     if not f["min"] <= out.seconds <= f["max"]:
@@ -560,10 +643,10 @@ def _parts(piece: dict, media: dict[str, str] | None = None) -> dict:
     so an approval of a piece without them stays valid."""
     def scene_visual(s: dict) -> dict:
         out = {k: s.get(k) for k in ("id", "template", "layout", "background", "copy")}
-        out.update({k: s[k] for k in ("byFormat", "media") if k in s})
+        out.update({k: s[k] for k in ("byFormat", "media", "custom") if k in s})
         return out
     visual = {"kind": piece["kind"], "formats": piece["formats"], "scenes": [scene_visual(s) for s in piece["scenes"]]}
-    visual.update({k: piece[k] for k in ("loop", "poster", "customFormats", "transparent", "alpha") if k in piece})
+    visual.update({k: piece[k] for k in ("loop", "poster", "customFormats", "transparent", "alpha", "libraries") if k in piece})
     timing = {"fps": piece["fps"], "scenes": [{k: s.get(k) for k in ("id", "duration", "hold", "transitionIn")}
                                               for s in piece["scenes"]]}
     script = {"scenes": [{"id": s["id"], "vo": s.get("vo")} for s in piece["scenes"]], "voice": piece.get("voice")}
@@ -576,8 +659,7 @@ def _parts(piece: dict, media: dict[str, str] | None = None) -> dict:
 def piece_media(p: dl.Project, piece: dict) -> dict[str, str]:
     """media_files for hashing: a missing or unreadable image hashes as missing (the plan reports it)."""
     found, _ = media_files(p.root, piece)
-    rels = [_media_rel(sc)[0] for sc in piece["scenes"]]
-    return {r: found.get(r, "missing") for r in rels if r}
+    return {r: found.get(r, "missing") for r, _, _ in media_refs(piece)}
 
 
 def piece_hashes(p: dl.Project, rel: str, piece: dict, g: dl.Gate) -> tuple[tuple[str, str], dict]:
@@ -799,11 +881,15 @@ def piece_status(p: dl.Project, pid: str, current: tuple[str, str] | None = None
 
 # ------------------------------------------------------------------ voice-over script, prompt, captions
 
-def cues(pl: Plan, piece: dict, ad: dict, spans: dict[str, float] | None = None) -> tuple[list[dict], list[str], list[dict]]:
+def cues(pl: Plan, piece: dict, ad: dict, spans: dict[str, float] | None = None,
+         aligned: dict[str, list[dict]] | None = None, leads: dict[str, float] | None = None
+         ) -> tuple[list[dict], list[str], list[dict]]:
     """Voice-over windows and subtitle cues. Without recordings the timing is an estimate (words at
     the concept's voice pace), labelled "planned" everywhere. spans {scene: seconds of speech in
     its take} makes a scene's line "segment-aligned": it starts where the take is placed and lasts
-    as long as the speech, and its captions are spread over that (not word by word)."""
+    as long as the speech, and its captions are spread over that (not word by word). aligned {scene:
+    [{word, start, end}] seconds into the take} with leads {scene: seconds of room tone before the
+    speech} makes it "word-aligned": each caption starts at its first word and ends at its last."""
     fps = pl.fps
     wpm = ad["pace"]["voWpm"]
     max_chars = (piece.get("captions") or {}).get("maxCharsPerLine") or (ad.get("subtitles") or {}).get("maxCharsPerLine", 32)
@@ -835,16 +921,47 @@ def cues(pl: Plan, piece: dict, ad: dict, spans: dict[str, float] | None = None)
                           + ("trim the take or lengthen the scenes" if measured is not None else
                              "shorten the lines or lengthen the scenes"))
         prev_end = end
+        ws = (aligned or {}).get(sc.id)
+        if ws and measured is not None:
+            offset = start - (leads or {}).get(sc.id, 0.0)  # where the take's first sample plays
+            subs = _word_cues(ws, offset, max_chars, lines_per_cue)
+            timing = "word-aligned"
+        else:
+            subs = _subtitle_cues(sc.vo.strip(), start, end, max_chars, lines_per_cue)
+            timing = "segment-aligned" if measured is not None else "planned"
         out.append({"scene": sc.id, "start": round(start, 3), "end": round(end, 3), "words": n, "text": sc.vo.strip(),
-                    "fits": fits, "timing": "segment-aligned" if measured is not None else "planned",
-                    "subtitles": _subtitle_cues(sc.vo.strip(), start, end, max_chars, lines_per_cue)})
+                    "fits": fits, "timing": timing, "subtitles": subs})
     return out, errors, reviews
 
 
 def caption_timing(cue_list: list[dict]) -> str:
-    """planned (no takes), segment-aligned (every line has its take) or mixed."""
-    kinds = {c.get("timing", "planned") for c in cue_list}
-    return "segment-aligned" if kinds == {"segment-aligned"} else "planned" if kinds <= {"planned"} else "mixed"
+    """planned (no takes), segment-aligned (every line follows its take), word-aligned (every line
+    follows an alignment of its take), or mixed."""
+    kinds = {c.get("timing", "planned") for c in cue_list} or {"planned"}
+    if len(kinds) == 1:
+        return kinds.pop()
+    # every line follows its take, some word by word: segment-aligned at least
+    return "segment-aligned" if "planned" not in kinds else "mixed"
+
+
+def _word_cues(ws: list[dict], offset: float, width: int, per_cue: int) -> list[dict]:
+    """Caption cues from aligned words: lines filled up to width characters, per_cue lines a cue,
+    each cue from its first word's start to its last word's end."""
+    lines: list[list[dict]] = [[]]
+    for w in ws:
+        cur = lines[-1]
+        if cur and len(" ".join(x["word"] for x in cur)) + 1 + len(w["word"]) > width:
+            lines.append([w])
+        else:
+            cur.append(w)
+    out = []
+    for i in range(0, len(lines), per_cue):
+        group = [ln for ln in lines[i:i + per_cue] if ln]
+        if not group:
+            continue
+        out.append({"start": round(offset + group[0][0]["start"], 3), "end": round(offset + group[-1][-1]["end"], 3),
+                    "lines": [" ".join(x["word"] for x in ln) for ln in group]})
+    return out
 
 
 def _wrap(text: str, width: int) -> list[str]:
@@ -892,7 +1009,9 @@ def srt(cue_list: list[dict]) -> str:
 VTT_NOTES = {"planned": "NOTE planned timing: estimated from the script, not aligned to a recording.",
              "segment-aligned": "NOTE segment-aligned timing: each line spans its recorded take's speech; "
                                 "the words inside a line are spread evenly, not aligned one by one.",
-             "mixed": "NOTE mixed timing: lines with a recorded take are segment-aligned, the others planned."}
+             "word-aligned": "NOTE word-aligned timing: each caption starts at its first word and ends at its last, "
+                             "from an alignment of the recorded take.",
+             "mixed": "NOTE mixed timing: some lines follow their recorded take (by segment or by word), the others are planned."}
 
 
 def vtt(cue_list: list[dict]) -> str:
@@ -912,6 +1031,7 @@ def script_md(pid: str, piece: dict, pl: Plan, cue_list: list[dict], ad: dict) -
              f"{ad['pace']['voWpm']:g} words a minute. " + {
                  "planned": "Timings are planned estimates until a recording exists.",
                  "segment-aligned": "Timings follow the recorded takes (segment-aligned).",
+                 "word-aligned": "Timings follow the recorded takes, word by word (aligned).",
                  "mixed": "Lines with a recorded take follow it; the others are planned estimates."}[caption_timing(cue_list)],
              "",
              "| # | Scene | Time | On screen | Voice-over | Words | Fits |", "|---|---|---|---|---|---|---|"]
@@ -990,8 +1110,19 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
     root = (f'<div id="root" data-composition-id="{pid}" data-width="{w}" data-height="{h}" '
             f'data-duration="{pl.frames / pl.fps:.6f}" data-fps="{pl.fps}" data-no-timeline></div>')
     html = (MEDIA / "video.html").read_text(encoding="utf-8").replace('<div id="root"></div>', root, 1)
-    (dest / "video.html").write_text(html, encoding="utf-8")
     assets: list[dict] = []
+    # the project's animation libraries, then the custom scenes' scripts, run before motion.js builds
+    tags = []
+    for i, lib in enumerate(piece.get("libraries") or []):
+        name = f"lib/{i + 1}-{Path(lib['file']).name}"
+        tags.append(_copy_checked(p, lib["file"], dest / name, media, assets, "library"))
+    for sc in pl.scenes:
+        rel = ((sc.page().get("custom") or {}).get("script"))
+        if rel:
+            tags.append(_copy_checked(p, rel, dest / f"scenes/{sc.id}.js", media, assets, "scene script"))
+    scripts = "".join(f'<script src="{t}"></script>\n' for t in tags)
+    html = html.replace('<script src="motion.js"></script>', scripts + '<script src="motion.js"></script>', 1)
+    (dest / "video.html").write_text(html, encoding="utf-8")
     css = ["/* generated by render_video.py from the video concept */"]
     for face in ad["faces"]:
         if face.get("source") == "system":
@@ -1019,6 +1150,20 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
     if "motif" in files:
         page_ad["motif"] = dict(ad["motif"], src=files["motif"])
     scenes = [s.page() for s in pl.scenes]
+    for sc in scenes:
+        cu = sc.get("custom")
+        if not cu:
+            continue
+        data: dict = {}
+        if cu.get("html"):
+            src = dest / f"scenes/{sc['id']}.html"
+            _copy_checked(p, cu["html"], src, media, assets, "scene html")
+            data["html"] = src.read_text(encoding="utf-8")
+        if cu.get("lottie"):
+            src = dest / f"scenes/{sc['id']}.lottie.json"
+            _copy_checked(p, cu["lottie"], src, media, assets, "lottie")
+            data["lottie"] = load_json(src)
+        sc["custom"] = data
     copied: dict[str, str] = {}
     notes: list[str] = []
     for sc in scenes:
@@ -1063,24 +1208,37 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
     return Build(dest / "video.html", assets, notes)
 
 
+def _copy_checked(p: dl.Project, rel: str, target: Path, media: dict[str, str] | None, assets: list, role: str) -> str:
+    """Copy a project file into the build and check it is the approved bytes. Returns its page path."""
+    src = resolve_inside(p.root, rel, role, must_exist=True)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, target)
+    sha = sha256_file(target)
+    if media is not None and media.get(rel) != sha:
+        raise InputError(f"{rel} changed since the piece was checked; run it again")
+    assets.append({"path": rel, "sha256": sha, "role": role})
+    return target.relative_to(target.parents[1]).as_posix()
+
+
 def ffmpeg_recording_frames(*a, **k) -> int:
     from . import ffmpeg
     return ffmpeg.recording_frames(*a, **k)
 
 
 def write_text_outputs(write, pid: str, piece: dict, pl: Plan, ad: dict, mood: dict,
-                       spans: dict[str, float] | None = None) -> tuple[list[dict], list[str], list[dict]]:
+                       spans: dict[str, float] | None = None, aligned: dict[str, list[dict]] | None = None,
+                       leads: dict[str, float] | None = None) -> tuple[list[dict], list[str], list[dict]]:
     """script.md, voice-prompt.md, cues.json and the caption sidecars, through write(rel, text).
     Sidecars are named for their timing: captions.planned.* without takes, captions.* when every
     line follows its recorded take."""
-    cue_list, errors, reviews = cues(pl, piece, ad, spans)
+    cue_list, errors, reviews = cues(pl, piece, ad, spans, aligned, leads)
     timing = caption_timing(cue_list)
     write("voice/script.md", script_md(pid, piece, pl, cue_list, ad))
     write("voice/voice-prompt.md", voice_prompt_md(pid, piece, pl, cue_list, ad, mood))
     write("voice/cues.json", dumps_pretty({"piece": pid, "timing": timing, "fps": pl.fps, "frames": pl.frames,
                                            "cues": cue_list}))
     side = (piece.get("captions") or {}).get("sidecar", ["srt", "vtt"])
-    name = "captions" if timing == "segment-aligned" else "captions.planned"
+    name = "captions" if timing in ("segment-aligned", "word-aligned") else "captions.planned"
     if cue_list:
         if "srt" in side:
             write(f"voice/{name}.srt", srt(cue_list))

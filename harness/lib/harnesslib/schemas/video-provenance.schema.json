@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harnesslib/video-provenance.schema.json",
+  "title": "Generated media (brand/video/<id>/media/provenance.json), schema version 1",
+  "description": "Written by render_video.py generate: which files a provider made, from what input. Not hand-edited.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "files"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "kind",
+          "provider",
+          "at",
+          "sha256",
+          "input",
+          "aiGenerated"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "tts",
+              "align",
+              "broll"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "at": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "input": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "aiGenerated": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

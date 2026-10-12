@@ -242,6 +242,31 @@
       if (!c.head && !c.sub && !c.kicker) return [];
       return capParts(placeCaption(el, c, sc.background, sc.layout, headPx()));
     },
+    /* A scene of the project's own: an HTML fragment and a script that registered a builder in
+       window.VideoScenes[id] = (el, ctx) => player?. The builder draws into el and may create Web
+       Animations (positioned like ours) or return a library player (a paused GSAP timeline, a
+       Lottie animation built from ctx.lottie) that __hf.register seeks. It must not read the clock,
+       schedule timers or use Math.random (lint refuses them); ctx.rand(key) is deterministic. */
+    custom(el, sc) {
+      el.insertAdjacentHTML('beforeend', sc.custom.html || '');
+      const build = (window.VideoScenes || {})[sc.id];
+      if (!build) throw new Error(`custom scene ${sc.id}: its script did not register window.VideoScenes["${sc.id}"]`);
+      const ctx = {
+        width: W, height: H, fps: V.fps, frames: sc.frames, seconds: sc.frames / V.fps, safe: S, AD,
+        lottie: sc.custom.lottie || null, headPx: headPx(), ms,
+        rand: (key) => window.__hf ? window.__hf.rand(sc.id + ':' + key) : 0.5,
+        start: ms(sc.start), // Web Animations created here use composition time: delay from ctx.start
+      };
+      const out = build(el, ctx);
+      const register = (player) => { if (player && window.__hf && window.__hf.register) window.__hf.register(el, player); };
+      if (out && typeof out.then === 'function') {
+        const done = out.then(register);
+        if (window.__hf && window.__hf.waitFor) window.__hf.waitFor(done, `custom scene ${sc.id}`);
+      } else register(out);
+      const c = sc.copy || {};
+      if (!c.head && !c.sub && !c.kicker) return [];
+      return capParts(placeCaption(el, c, sc.background, sc.layout, headPx()));
+    },
     /* A screen recording, pre-extracted to numbered frames: timeline.js shows frame n - start of
        the scene (and holds the last one), so the browser never plays video. */
     recording(el, sc) {
@@ -303,5 +328,5 @@
   }
 
   window.__composition = ArtDir.loadFaces(AD.faces, [], 15000).then(build);
-  if (window.__hf) window.__hf.waitFor(window.__composition, 'scene build');
+  if (window.__hf && window.__hf.waitFor) window.__hf.waitFor(window.__composition, 'scene build');
 })();
