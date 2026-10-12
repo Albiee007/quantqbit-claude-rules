@@ -242,12 +242,30 @@
       if (!c.head && !c.sub && !c.kicker) return [];
       return capParts(placeCaption(el, c, sc.background, sc.layout, headPx()));
     },
+    /* A screen recording, pre-extracted to numbered frames: timeline.js shows frame n - start of
+       the scene (and holds the last one), so the browser never plays video. */
+    recording(el, sc) {
+      const m = sc.media;
+      const [fx, fy] = m.focus || [0.5, 0.5];
+      const img = document.createElement('img');
+      img.className = 'recording';
+      img.alt = '';
+      img.src = m.src + '00000.jpg';
+      Object.assign(img.dataset, { seqSrc: m.src, seqStart: String(sc.start), seqFrames: String(sc.frames), seqCount: String(m.count) });
+      img.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${H}px;object-fit:${m.fit};` +
+        `object-position:${fx * 100}% ${fy * 100}%;`;
+      el.appendChild(img);
+      const c = sc.copy || {};
+      if (!c.head && !c.sub && !c.kicker) return [];
+      return capParts(placeCaption(el, c, sc.background, sc.layout, headPx()));
+    },
   };
 
   /* ---------------- build */
   function build() {
     const root = document.getElementById('root');
-    Object.assign(root.style, { width: W + 'px', height: H + 'px', background: AD.roles.canvas });
+    const clear = !!V.transparent; // an overlay: no canvas, scene backgrounds or motif under the type
+    Object.assign(root.style, { width: W + 'px', height: H + 'px', background: clear ? 'transparent' : AD.roles.canvas });
     const els = [];
     V.scenes.forEach((sc, i) => {
       const el = document.createElement('section');
@@ -258,9 +276,9 @@
       el.dataset.trackIndex = String(i % 2);
       el.dataset.template = sc.template;
       el.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${H}px;overflow:hidden;z-index:${i + 1};` +
-        `background:${ArtDir.background(ArtDir.bg(sc.background))};`;
+        `background:${clear ? 'transparent' : ArtDir.background(ArtDir.bg(sc.background))};`;
       root.appendChild(el);
-      if (AD.motif) {
+      if (AD.motif && !clear) {
         const m = ArtDir.motif(el, W, H);
         if (m && M.motifMotion === 'drift') anim(m, [{ transform: 'translate(0, 0)' }, { transform: `translate(${-W * 0.04}px, ${-H * 0.02}px)` }], ms(sc.start), ms(sc.frames), 'linear');
         if (m && M.motifMotion === 'pulse') anim(m, [{ opacity: AD.motif.opacity }, { opacity: AD.motif.opacity * 1.6 }, { opacity: AD.motif.opacity }], ms(sc.start), ms(sc.frames), M.easing.standard);

@@ -62,7 +62,21 @@ FORMATS: dict[str, dict] = {
                 "label": "1.91:1 link card and short loop (Open Graph, email, chat)",
                 "safe": {"standard": {"top": 48, "right": 64, "bottom": 48, "left": 64},
                          "strict": {"top": 64, "right": 80, "bottom": 64, "left": 80}}},
+    # App Store app previews (App Store Connect, 2026): 15-30 s at 30 fps, footage of the app itself.
+    "app-preview-iphone": {"size": (886, 1920), "min": 15.0, "max": 30.0, "profile": "app-preview", "typeScale": 1.0,
+                           "label": "App Store preview, iPhone 6.9\" and 6.5\" (886x1920)",
+                           "safe": {"standard": {"top": 120, "right": 60, "bottom": 160, "left": 60},
+                                    "strict": {"top": 160, "right": 80, "bottom": 220, "left": 80}}},
+    "app-preview-ipad": {"size": (1200, 1600), "min": 15.0, "max": 30.0, "profile": "app-preview", "typeScale": 1.0,
+                         "label": "App Store preview, iPad 13\" (1200x1600)",
+                         "safe": {"standard": {"top": 100, "right": 80, "bottom": 140, "left": 80},
+                                  "strict": {"top": 130, "right": 100, "bottom": 180, "left": 100}}},
 }
+PRODUCTION_PROFILES = ("h264-web", "app-preview")
+ALPHA = {"webm": "alpha-webm", "prores": "alpha-prores"}
+VIDEO_SUFFIXES = (".mp4", ".mov", ".m4v", ".webm")
+AUDIO_SUFFIXES = (".wav", ".flac", ".m4a", ".aac", ".mp3", ".ogg")
+LUFS = {"web": -16.0, "broadcast": -23.0}  # integrated loudness targets (true peak -2 dBTP in the mix)
 CUSTOM_SIDE = (128, 3840)  # a custom format's sides: even, at most 4K's long side
 CUSTOM_SIZE = re.compile(r"^([1-9][0-9]{2,3})x([1-9][0-9]{2,3})$")
 INSETS = ("top", "right", "bottom", "left")
@@ -142,9 +156,17 @@ def format_spec(piece: dict, fmt: str) -> dict:
             raise InputError(f"{where}.{k}: {v!r} must be a positive number")
     if spec["min"] >= spec["max"]:
         raise InputError(f"{where}: min {spec['min']:g} s must be shorter than max {spec['max']:g} s")
-    if spec["profile"] != base["profile"] and spec["profile"] not in ("h264-web",):
-        raise InputError(f"{where}.profile: {spec['profile']!r} is not a production encoding profile (h264-web)")
+    if spec["profile"] != base["profile"] and spec["profile"] not in PRODUCTION_PROFILES:
+        raise InputError(f"{where}.profile: {spec['profile']!r} is not a production encoding profile "
+                         f"({', '.join(PRODUCTION_PROFILES)})")
     return spec
+
+
+def output_profile(piece: dict, spec: dict) -> str:
+    """The encoding of one format: its own profile, or an alpha profile for a transparent piece."""
+    if piece.get("transparent"):
+        return ALPHA[piece.get("alpha", "webm")]
+    return spec["profile"]
 
 
 def check_formats(piece: dict, where: str) -> None:
@@ -202,25 +224,87 @@ def loop_spec(piece: dict) -> dict | None:
     return {**LOOP_DEFAULT, "fps": rate, **(piece.get("loop") or {})}
 
 
+def _media_rel(sc: dict) -> tuple[str | None, str]:
+    md = sc.get("media") or {}
+    return (md.get("video"), "recording") if md.get("video") else (md.get("image"), "image")
+
+
 def media_files(root: Path | None, piece: dict) -> tuple[dict[str, str], list[str]]:
-    """{project-relative path: sha256} of the images the scenes show, and the problems finding them.
-    The bytes are part of the storyboard approval: a changed image needs a new look."""
+    """{project-relative path: sha256} of the pictures and screen recordings the scenes show, and
+    the problems finding them. The bytes are part of the storyboard approval: a changed picture or
+    recording needs a new look."""
     out: dict[str, str] = {}
     errors: list[str] = []
     for sc in piece["scenes"]:
-        rel = (sc.get("media") or {}).get("image")
+        rel, kind = _media_rel(sc)
         if not rel or rel in out:
             continue
-        if not rel.lower().endswith(IMAGE_SUFFIXES):
-            errors.append(f"scene {sc['id']}: {rel} is not an image ({', '.join(IMAGE_SUFFIXES)})")
+        suffixes = VIDEO_SUFFIXES if kind == "recording" else IMAGE_SUFFIXES
+        if not rel.lower().endswith(suffixes):
+            errors.append(f"scene {sc['id']}: {rel} is not a{' video' if kind == 'recording' else 'n image'} "
+                          f"({', '.join(suffixes)})")
             continue
         if root is None:
             continue
         try:
-            out[rel] = sha256_file(resolve_inside(root, rel, f"scene {sc['id']} image", must_exist=True))
+            out[rel] = sha256_file(resolve_inside(root, rel, f"scene {sc['id']} {kind}", must_exist=True))
         except InputError as e:
             errors.append(str(e))
     return out, errors
+
+
+# ------------------------------------------------------------------ audio (voice-over takes, music)
+
+def vo_dir(pid: str) -> str:
+    return f"{PIECES}/{pid}/media/vo"
+
+
+def audio_files(root: Path, pid: str, piece: dict, need_all: bool) -> tuple[dict, list[str], list[str]]:
+    """The audio a piece mixes: {"voice": {scene: rel}, "music": rel | None, "sha": {rel: sha256}},
+    with errors and warnings. Voice takes are brand/video/<id>/media/vo/<scene>.<wav|flac|m4a|...>,
+    one per scene with a "vo" line. need_all: a scene line without a take is an error (production)
+    rather than a warning (drafts mix what exists)."""
+    a = piece.get("audio") or {}
+    out: dict = {"voice": {}, "music": None, "sha": {}}
+    errors: list[str] = []
+    warnings: list[str] = []
+    if a.get("voice"):
+        base = Path(root) / vo_dir(pid)
+        for sc in piece["scenes"]:
+            if not (sc.get("vo") or "").strip():
+                continue
+            found = [base / f"{sc['id']}{s}" for s in AUDIO_SUFFIXES if (base / f"{sc['id']}{s}").is_file()]
+            if len(found) > 1:
+                errors.append(f"scene {sc['id']}: more than one voice take ({', '.join(f.name for f in found)}); keep one")
+            elif not found:
+                msg = (f"scene {sc['id']}: no voice take {vo_dir(pid)}/{sc['id']}.wav (or .flac, .m4a, .mp3) for its "
+                       "\"vo\" line")
+                (errors if need_all else warnings).append(msg)
+            else:
+                rel = found[0].relative_to(root).as_posix()
+                out["voice"][sc["id"]] = rel
+        for f in sorted(base.glob("*")) if base.is_dir() else []:
+            if f.suffix.lower() in AUDIO_SUFFIXES and f.stem not in {s["id"] for s in piece["scenes"]}:
+                warnings.append(f"{f.relative_to(root).as_posix()} names no scene; it is not mixed")
+    mu = a.get("music")
+    if mu:
+        if not mu["file"].lower().endswith(AUDIO_SUFFIXES):
+            errors.append(f"audio.music.file {mu['file']} is not an audio file ({', '.join(AUDIO_SUFFIXES)})")
+        else:
+            try:
+                resolve_inside(root, mu["file"], "music", must_exist=True)
+                out["music"] = mu["file"]
+            except InputError as e:
+                errors.append(str(e))
+    for rel in [*out["voice"].values(), *([out["music"]] if out["music"] else [])]:
+        out["sha"][rel] = sha256_file(Path(root) / rel)
+    return out, errors, warnings
+
+
+def audio_hash(root: Path, pid: str, piece: dict) -> str:
+    """What the mix approval covers: the audio settings and the bytes of every take and music file."""
+    files, _, _ = audio_files(root, pid, piece, need_all=False)
+    return sha256_text(canonical({"settings": piece.get("audio") or {}, "files": sorted(files["sha"].items())}))
 
 
 # ------------------------------------------------------------------ the frame plan
@@ -289,7 +373,7 @@ def _drawn(template: str, copy: dict, ad: dict) -> tuple[list[str], int]:
         logo = bool(ad.get("logo")) and ad["endCard"]["logo"]
         texts = [kicker, copy.get("head"), tail]
         n = int(logo) + bool(kicker) + head_parts(copy.get("head")) + bool(tail)
-    elif template == "still":  # the image arrives with the scene; only its caption animates in
+    elif template in ("still", "recording"):  # the picture arrives with the scene; only its caption animates in
         texts = [kicker, copy.get("head"), copy.get("sub")]
         n = bool(kicker) + head_parts(copy.get("head")) + bool(copy.get("sub"))
     else:
@@ -360,15 +444,20 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
         if bgname not in ad["backgrounds"]:
             out.errors.append(f"scene {sid}: background {bgname!r} is not in the concept ({', '.join(ad['backgrounds'])})")
         copy = sc.get("copy") or {}
-        need = {"title": ("head",), "feature": ("head",), "stat": ("value",), "end-card": ("head",), "still": ()}[sc["template"]]
+        need = {"title": ("head",), "feature": ("head",), "stat": ("value",), "end-card": ("head",), "still": (),
+                "recording": ()}[sc["template"]]
         for k in need:
             if not copy.get(k):
                 out.errors.append(f"scene {sid}: a {sc['template']} scene needs copy.{k}" +
                                   (f" (hidden in {fmt} by byFormat)" if k in (authored.get("copy") or {}) else ""))
         if sc["template"] == "still" and not (sc.get("media") or {}).get("image"):
             out.errors.append(f"scene {sid}: a still scene needs media.image (a picture inside the project)")
-        if sc.get("media") and sc["template"] != "still":
-            out.warnings.append(f"scene {sid}: media is only shown by still scenes; it is ignored here")
+        if sc["template"] == "recording" and not (sc.get("media") or {}).get("video"):
+            out.errors.append(f"scene {sid}: a recording scene needs media.video (a screen recording inside the project)")
+        if sc["template"] == "still" and (sc.get("media") or {}).get("video"):
+            out.errors.append(f"scene {sid}: a still scene shows media.image; use the recording template for media.video")
+        if sc.get("media") and sc["template"] not in ("still", "recording"):
+            out.warnings.append(f"scene {sid}: media is only shown by still and recording scenes; it is ignored here")
         for k, v in list(copy.items()) + [("vo", sc.get("vo", ""))]:
             for text in (v if isinstance(v, list) else [v]):
                 if isinstance(text, str) and PLACEHOLDER.search(text):
@@ -412,6 +501,10 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
                 out.reviews.append({"id": f"provenance:{sid}", "check": "image provenance", "kind": "suitability",
                                     "note": f"scene {sid} shows {md['image']} with no media.license: say where it comes from "
                                             "and that the project may use it (stock, generated or third-party pictures)"})
+        if sc["template"] == "recording" and sc.get("media"):
+            md = sc["media"]
+            media = {"video": md.get("video"), "fit": md.get("fit", "cover"), "from": md.get("from", 0),
+                     "focus": md.get("focus", [0.5, 0.5])}
         out.scenes.append(ScenePlan(sid, sc["template"], start, n, overlap, tr, enter, hold_start, hold_end,
                                     probe, layout, bgname, copy, sc.get("vo", ""), read, media))
     out.frames = (out.scenes[-1].start + out.scenes[-1].frames) if out.scenes else 0
@@ -435,6 +528,27 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
     poster = (piece.get("poster") or {}).get("scene")
     if poster and poster not in [s.id for s in out.scenes]:
         out.errors.append(f"poster.scene {poster!r} is not a scene of the piece")
+    prof = output_profile(piece, f)
+    if f["profile"] == "app-preview":
+        if piece.get("transparent"):
+            out.errors.append(f"{fmt}: an App Store preview can't be transparent")
+        if fps != 30:
+            out.errors.append(f"{fmt}: App Store previews run at 30 fps; the piece is {fps} fps")
+        graphics = [s.id for s in out.scenes if s.template != "recording"]
+        if graphics:
+            rec = sum(s.frames for s in out.scenes if s.template == "recording") / max(1, out.frames)
+            out.reviews.append({"id": f"suitability:app-store:{fmt}", "check": "App Store suitability", "kind": "suitability",
+                                "note": f"{fmt}: App Store previews should show footage captured from the app; "
+                                        f"{', '.join(graphics)} {'is' if len(graphics) == 1 else 'are'} graphics, not "
+                                        f"recordings ({rec:.0%} of the preview is recorded). Text overlays and narration "
+                                        "are allowed; check the rest against the App Store Review Guidelines (2.3.4)"})
+    if prof.startswith("alpha-"):
+        if lp and lp["outputs"]:
+            out.errors.append("a transparent piece has no GIF or WebP loop (those formats can't keep the alpha); drop loop")
+        if any(s.template == "recording" for s in out.scenes):
+            out.warnings.append("a transparent piece with a recording scene: the recording is opaque over its area")
+        if piece.get("audio"):
+            out.errors.append("a transparent overlay carries no sound (the editor mixes it); drop audio or transparent")
     return out
 
 
@@ -449,7 +563,7 @@ def _parts(piece: dict, media: dict[str, str] | None = None) -> dict:
         out.update({k: s[k] for k in ("byFormat", "media") if k in s})
         return out
     visual = {"kind": piece["kind"], "formats": piece["formats"], "scenes": [scene_visual(s) for s in piece["scenes"]]}
-    visual.update({k: piece[k] for k in ("loop", "poster", "customFormats") if k in piece})
+    visual.update({k: piece[k] for k in ("loop", "poster", "customFormats", "transparent", "alpha") if k in piece})
     timing = {"fps": piece["fps"], "scenes": [{k: s.get(k) for k in ("id", "duration", "hold", "transitionIn")}
                                               for s in piece["scenes"]]}
     script = {"scenes": [{"id": s["id"], "vo": s.get("vo")} for s in piece["scenes"]], "voice": piece.get("voice")}
@@ -462,7 +576,7 @@ def _parts(piece: dict, media: dict[str, str] | None = None) -> dict:
 def piece_media(p: dl.Project, piece: dict) -> dict[str, str]:
     """media_files for hashing: a missing or unreadable image hashes as missing (the plan reports it)."""
     found, _ = media_files(p.root, piece)
-    rels = [(sc.get("media") or {}).get("image") for sc in piece["scenes"]]
+    rels = [_media_rel(sc)[0] for sc in piece["scenes"]]
     return {r: found.get(r, "missing") for r in rels if r}
 
 
@@ -502,7 +616,7 @@ def gate_piece(p: dl.Project, pid: str) -> PieceGate:
         if rec["hash"] != h[0]:
             changed = [k for k, v in parts.items() if (rec.get("parts") or {}).get(k) != v] or ["the piece"]
             what = " and ".join({"visual": "on-screen content", "timing": "timing", "script": "the voice-over script",
-                                 "media": "an image it shows"}.get(c, c)
+                                 "media": "a picture or recording it shows"}.get(c, c)
                                 for c in changed)
         else:
             what = "the video concept or a value it resolves"
@@ -527,6 +641,64 @@ def approve_storyboard(p: dl.Project, pid: str, by: str, evidence: str, recorded
         raise InputError(f"{rel} has problems to fix before it can be approved:\n  - " + "\n  - ".join(errors + cue_errors))
     h, parts = piece_hashes(p, rel, piece, g)
     return dl.record_approval(p, "storyboard", rel, h, by, evidence, recorded_by, family="video", extra={"parts": parts})
+
+
+# ------------------------------------------------------------------ the mix gate
+
+def mix_hashes(p: dl.Project, pid: str, piece: dict, parts: dict, concept_rel: str | None) -> tuple[str, str]:
+    """(content, inputs) of a mix approval: the audio itself, and the script and the place every line
+    starts (scene starts and their incoming transitions, which the concept's motion can change). A
+    new line or a moved take needs a new listen; a changed picture or colour does not."""
+    placement: list = []
+    if concept_rel:
+        ad = dl.resolve_family(p, "video", dl.load_concept(p, concept_rel))
+        pl = plan(p, pid, piece, ad, piece["formats"][0], production=False)
+        placement = [(s.id, s.start, s.overlap, s.frames) for s in pl.scenes]
+    return audio_hash(p.root, pid, piece), sha256_text(canonical({"script": parts["script"], "timing": parts["timing"],
+                                                                  "placement": placement, "fps": piece["fps"]}))
+
+
+@dataclass
+class MixGate:
+    needed: bool
+    ok: bool
+    problems: list[str]
+    records: list[str]
+    hashes: tuple[str, str] | None = None
+
+
+def gate_mix(p: dl.Project, pid: str, pg: PieceGate | None = None) -> MixGate:
+    """A piece with audio needs the owner to have listened to the mix (on top of the storyboard)."""
+    rel, piece = load_piece(p, pid)
+    if not piece.get("audio"):
+        return MixGate(False, True, [], [])
+    pg = pg or gate_piece(p, pid)
+    if not pg.ok or pg.parts is None:
+        return MixGate(True, False, [f"the mix of {rel} can be approved once its storyboard is"], [])
+    h = mix_hashes(p, pid, piece, pg.parts, pg.concept_gate.concept_rel)
+    rec = dl._latest(p.approvals, gate="mix", subject=rel)
+    if rec is None:
+        return MixGate(True, False, [f"the mix of {rel} has no owner approval (listen to the draft, then direction.py "
+                                     f"approve --gate mix --piece {pid})"], [], h)
+    if (rec["hash"], rec["inputs"]) != h:
+        what = "the audio (a take, the music or a setting)" if rec["hash"] != h[0] else "the voice-over script or timing"
+        return MixGate(True, False, [f"the mix approval {rec['id']} is stale: {what} changed since {rec['at']}"], [], h)
+    return MixGate(True, True, [], [rec["id"]], h)
+
+
+def approve_mix(p: dl.Project, pid: str, by: str, evidence: str, recorded_by: str) -> dict:
+    rel, piece = load_piece(p, pid)
+    if not piece.get("audio"):
+        raise InputError(f"{rel} has no audio to approve (add an \"audio\" section)")
+    pg = gate_piece(p, pid)
+    if not pg.ok:
+        raise dl.GateError("approve the storyboard first: " + "; ".join(pg.problems))
+    _, errors, _ = audio_files(p.root, pid, piece, need_all=True)
+    if errors:
+        raise InputError(f"{rel}: the audio has problems to fix before the mix can be approved:\n  - " + "\n  - ".join(errors))
+    return dl.record_approval(p, "mix", rel, mix_hashes(p, pid, piece, pg.parts, pg.concept_gate.concept_rel),  # type: ignore[arg-type]
+                              by, evidence, recorded_by,
+                              family="video")
 
 
 # ------------------------------------------------------------------ runs and reviews
@@ -627,9 +799,11 @@ def piece_status(p: dl.Project, pid: str, current: tuple[str, str] | None = None
 
 # ------------------------------------------------------------------ voice-over script, prompt, captions
 
-def cues(pl: Plan, piece: dict, ad: dict) -> tuple[list[dict], list[str], list[dict]]:
-    """Planned voice-over windows and subtitle cues. Without a recording the timing is an
-    estimate (words at the concept's voice pace); it is labelled 'planned' everywhere."""
+def cues(pl: Plan, piece: dict, ad: dict, spans: dict[str, float] | None = None) -> tuple[list[dict], list[str], list[dict]]:
+    """Voice-over windows and subtitle cues. Without recordings the timing is an estimate (words at
+    the concept's voice pace), labelled "planned" everywhere. spans {scene: seconds of speech in
+    its take} makes a scene's line "segment-aligned": it starts where the take is placed and lasts
+    as long as the speech, and its captions are spread over that (not word by word)."""
     fps = pl.fps
     wpm = ad["pace"]["voWpm"]
     max_chars = (piece.get("captions") or {}).get("maxCharsPerLine") or (ad.get("subtitles") or {}).get("maxCharsPerLine", 32)
@@ -640,7 +814,9 @@ def cues(pl: Plan, piece: dict, ad: dict) -> tuple[list[dict], list[str], list[d
         if not sc.vo.strip():
             continue
         n = words(sc.vo)
-        est = n / wpm * 60
+        measured = (spans or {}).get(sc.id)
+        est = measured if measured is not None else n / wpm * 60
+        what = "recorded" if measured is not None else "planned"
         # a line starts once the scene has arrived, and never over the previous line
         start = (sc.start + sc.overlap) / fps + 0.15
         if prev_end is not None:
@@ -649,16 +825,26 @@ def cues(pl: Plan, piece: dict, ad: dict) -> tuple[list[dict], list[str], list[d
         end = start + est
         fits = end <= window_end + 1e-9
         if not fits:
+            how = f"the take's speech lasts {est:.1f} s" if measured is not None else \
+                f"{n} words take about {est:.1f} s at {wpm:g} wpm"
             reviews.append({"id": f"vo-fit:{sc.id}", "check": "voice-over fit", "kind": "content",
-                            "note": f"scene {sc.id}: {n} words take about {est:.1f} s at {wpm:g} wpm; the scene leaves "
-                                    f"{window_end - start:.1f} s (the line runs into the next scene)"})
+                            "note": f"scene {sc.id}: {how}; the scene leaves {window_end - start:.1f} s "
+                                    "(the line runs into the next scene)"})
         if end > pl.seconds + 1e-9:
-            errors.append(f"scene {sc.id}: the planned voice-over ends at {end:.2f} s, after the video ({pl.seconds:.2f} s); "
-                          "shorten the lines or lengthen the scenes")
+            errors.append(f"scene {sc.id}: the {what} voice-over ends at {end:.2f} s, after the video ({pl.seconds:.2f} s); "
+                          + ("trim the take or lengthen the scenes" if measured is not None else
+                             "shorten the lines or lengthen the scenes"))
         prev_end = end
         out.append({"scene": sc.id, "start": round(start, 3), "end": round(end, 3), "words": n, "text": sc.vo.strip(),
-                    "fits": fits, "subtitles": _subtitle_cues(sc.vo.strip(), start, end, max_chars, lines_per_cue)})
+                    "fits": fits, "timing": "segment-aligned" if measured is not None else "planned",
+                    "subtitles": _subtitle_cues(sc.vo.strip(), start, end, max_chars, lines_per_cue)})
     return out, errors, reviews
+
+
+def caption_timing(cue_list: list[dict]) -> str:
+    """planned (no takes), segment-aligned (every line has its take) or mixed."""
+    kinds = {c.get("timing", "planned") for c in cue_list}
+    return "segment-aligned" if kinds == {"segment-aligned"} else "planned" if kinds <= {"planned"} else "mixed"
 
 
 def _wrap(text: str, width: int) -> list[str]:
@@ -703,8 +889,14 @@ def srt(cue_list: list[dict]) -> str:
     return "\n".join(out)
 
 
+VTT_NOTES = {"planned": "NOTE planned timing: estimated from the script, not aligned to a recording.",
+             "segment-aligned": "NOTE segment-aligned timing: each line spans its recorded take's speech; "
+                                "the words inside a line are spread evenly, not aligned one by one.",
+             "mixed": "NOTE mixed timing: lines with a recorded take are segment-aligned, the others planned."}
+
+
 def vtt(cue_list: list[dict]) -> str:
-    out = ["WEBVTT", "", "NOTE planned timing: estimated from the script, not aligned to a recording.", ""]
+    out = ["WEBVTT", "", VTT_NOTES[caption_timing(cue_list)], ""]
     for c in cue_list:
         for s in c["subtitles"]:
             out += [f"{_ts(s['start'], '.')} --> {_ts(s['end'], '.')}", *s["lines"], ""]
@@ -717,7 +909,11 @@ def script_md(pid: str, piece: dict, pl: Plan, cue_list: list[dict], ad: dict) -
     lines = [f"# Voice-over script: {piece.get('title') or pid}", "",
              "<!-- Generated by render_video.py from video.json. Edit the scenes' \"vo\" lines there, not this file. -->", "",
              f"Length {pl.seconds:.1f} s ({pl.frames} frames at {pl.fps} fps). Voice-over: {total_words} words at about "
-             f"{ad['pace']['voWpm']:g} words a minute. Timings are planned estimates until a recording exists.", "",
+             f"{ad['pace']['voWpm']:g} words a minute. " + {
+                 "planned": "Timings are planned estimates until a recording exists.",
+                 "segment-aligned": "Timings follow the recorded takes (segment-aligned).",
+                 "mixed": "Lines with a recorded take follow it; the others are planned estimates."}[caption_timing(cue_list)],
+             "",
              "| # | Scene | Time | On screen | Voice-over | Words | Fits |", "|---|---|---|---|---|---|---|"]
     for i, sc in enumerate(pl.scenes, 1):
         c = by_scene.get(sc.id)
@@ -774,13 +970,15 @@ def voice_prompt_md(pid: str, piece: dict, pl: Plan, cue_list: list[dict], ad: d
 class Build:
     page: Path
     assets: list[dict]  # {path (project-relative), sha256, role}
+    notes: list[str] = field(default_factory=list)  # warnings found while building (a short recording)
 
 
 def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, dest: Path, draft: bool,
-            media: dict[str, str] | None = None) -> Build:
-    """The composition for one format in dest: the runtime, fonts, logo, motif and scene images
-    copied in (a snapshot: the render reads only these copies), verified against the hashes the
-    gates used (media: {image path: sha256} as hashed for the storyboard)."""
+            media: dict[str, str] | None = None, ff: str | None = None) -> Build:
+    """The composition for one format in dest: the runtime, fonts, logo, motif, scene pictures and
+    recording frames copied in (a snapshot: the render reads only these copies), verified against
+    the hashes the gates used (media: {path: sha256} as hashed for the storyboard). Recording
+    scenes need ff (ffmpeg) to turn the recording into frames."""
     if dest.exists():
         shutil.rmtree(dest)
     (dest / "fonts").mkdir(parents=True)
@@ -822,40 +1020,70 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
         page_ad["motif"] = dict(ad["motif"], src=files["motif"])
     scenes = [s.page() for s in pl.scenes]
     copied: dict[str, str] = {}
+    notes: list[str] = []
     for sc in scenes:
-        rel = (sc.get("media") or {}).get("image")
+        md = sc.get("media") or {}
+        rel = md.get("video") or md.get("image")
         if not rel:
             continue
         if rel not in copied:
-            src = resolve_inside(p.root, rel, f"scene {sc['id']} image", must_exist=True)
+            src = resolve_inside(p.root, rel, f"scene {sc['id']} media", must_exist=True)
             name = f"assets/media-{len(copied) + 1}{src.suffix.lower()}"
             shutil.copyfile(src, dest / name)
             sha = sha256_file(dest / name)
             if media is not None and media.get(rel) != sha:
                 raise InputError(f"{rel} changed since the piece was checked; run it again")
-            assets.append({"path": rel, "sha256": sha, "role": "media"})
+            assets.append({"path": rel, "sha256": sha, "role": "recording" if md.get("video") else "media"})
             copied[rel] = name
-        sc["media"] = dict(sc["media"], src=copied[rel])
+        if md.get("video"):
+            if not ff:
+                raise InputError(f"scene {sc['id']}: a recording scene needs ffmpeg to turn {rel} into frames")
+            folder = f"assets/rec-{sc['id']}"
+            got = ffmpeg_recording_frames(ff, dest / copied[rel], dest / folder, md.get("from", 0), pl.fps, sc["frames"],
+                                          (w, h), md.get("fit", "cover"))
+            if got == 0:
+                raise InputError(f"scene {sc['id']}: {rel} has no video frames after {md.get('from', 0)} s")
+            if got < sc["frames"]:
+                notes.append(f"scene {sc['id']}: {rel} has {got / pl.fps:.2f} s of video from {md.get('from', 0)} s; the "
+                             f"scene lasts {sc['frames'] / pl.fps:.2f} s, so its last frame holds")
+            sc["media"] = dict(md, src=folder + "/", count=got)
+        else:
+            sc["media"] = dict(md, src=copied[rel])
+    if piece.get("transparent"):
+        with open(dest / "fonts.generated.css", "a", encoding="utf-8") as f:
+            f.write("html, body { background: transparent !important; }\n")
     safe = spec["safe"][ad.get("safeAreas", "standard")]
     data = {"id": pid, "width": w, "height": h, "fps": pl.fps, "frames": pl.frames, "safe": safe, "draft": draft,
             "typeScale": spec["typeScale"], "assets": {k: v for k, v in files.items() if k == "logo"},
             "scenes": scenes}
+    if piece.get("transparent"):
+        data["transparent"] = True
     (dest / "direction.generated.js").write_text("window.AD = " + script_json(page_ad) + ";\n", encoding="utf-8")
     (dest / "video.generated.js").write_text("window.VIDEO = " + script_json(data) + ";\n", encoding="utf-8")
-    return Build(dest / "video.html", assets)
+    return Build(dest / "video.html", assets, notes)
 
 
-def write_text_outputs(write, pid: str, piece: dict, pl: Plan, ad: dict, mood: dict) -> tuple[list[dict], list[str], list[dict]]:
-    """script.md, voice-prompt.md, cues.json and the planned caption sidecars, through write(rel, text)."""
-    cue_list, errors, reviews = cues(pl, piece, ad)
+def ffmpeg_recording_frames(*a, **k) -> int:
+    from . import ffmpeg
+    return ffmpeg.recording_frames(*a, **k)
+
+
+def write_text_outputs(write, pid: str, piece: dict, pl: Plan, ad: dict, mood: dict,
+                       spans: dict[str, float] | None = None) -> tuple[list[dict], list[str], list[dict]]:
+    """script.md, voice-prompt.md, cues.json and the caption sidecars, through write(rel, text).
+    Sidecars are named for their timing: captions.planned.* without takes, captions.* when every
+    line follows its recorded take."""
+    cue_list, errors, reviews = cues(pl, piece, ad, spans)
+    timing = caption_timing(cue_list)
     write("voice/script.md", script_md(pid, piece, pl, cue_list, ad))
     write("voice/voice-prompt.md", voice_prompt_md(pid, piece, pl, cue_list, ad, mood))
-    write("voice/cues.json", dumps_pretty({"piece": pid, "timing": "planned", "fps": pl.fps, "frames": pl.frames,
+    write("voice/cues.json", dumps_pretty({"piece": pid, "timing": timing, "fps": pl.fps, "frames": pl.frames,
                                            "cues": cue_list}))
     side = (piece.get("captions") or {}).get("sidecar", ["srt", "vtt"])
+    name = "captions" if timing == "segment-aligned" else "captions.planned"
     if cue_list:
         if "srt" in side:
-            write("voice/captions.planned.srt", srt(cue_list))
+            write(f"voice/{name}.srt", srt(cue_list))
         if "vtt" in side:
-            write("voice/captions.planned.vtt", vtt(cue_list))
+            write(f"voice/{name}.vtt", vtt(cue_list))
     return cue_list, errors, reviews

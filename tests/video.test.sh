@@ -11,6 +11,8 @@
 #    the outputs (kept by a byte-identical re-render), stale storyboards naming what changed,
 #    interrupted publishes, locks; then a two-format loop (a still scene over a picture, GIF, WebP,
 #    posters) rendered by parallel browsers, and a changed picture making its storyboard stale.
+#    Then an App Store preview of a screen recording with recorded voice and music (the mix gate,
+#    loudness, segment-aligned captions) and a transparent overlay (VP9 alpha).
 # Needs Python 3.9+ with Pillow; parts 2-3 need Chrome, Chromium or Edge, and part 3 ffmpeg.
 # Missing tools are a SKIP locally and a failure when CI=true.
 # Usage: bash tests/video.test.sh
@@ -217,7 +219,7 @@ runin "$P" "$VIDEO" check card --ffmpeg "$FF"
 check "check re-verifies every published video, loop and poster" bash -c "[[ \$(cat '$W/rc') == 0 ]] && [[ \$(grep -c '^PASS  technical' '$W/out') == 8 ]]"
 cp "$P/brand/art/garden.png" "$W/garden.bak"; printf 'x' >> "$P/brand/art/garden.png"
 runin "$P" "$DIR" status
-check "changing the picture's bytes makes the loop's storyboard stale, naming it" has "Gate 3 storyboard card: NOT MET.*an image it shows"
+check "changing the picture's bytes makes the loop's storyboard stale, naming it" has "Gate 3 storyboard card: NOT MET.*a picture or recording it shows"
 check "and leaves the launch piece approved" has "Gate 3 storyboard launch: approved"
 cp "$W/garden.bak" "$P/brand/art/garden.png"
 runin "$P" "$DIR" status; check "restoring the picture restores the approval" has "Gate 3 storyboard card: approved"
@@ -251,6 +253,59 @@ check "changing a custom format's insets makes the approval stale" has "Gate 3 s
 jset "$CV" 'd["customFormats"]["li-card"].pop("safe")'
 runin "$P" "$DIR" status; check "restoring the insets restores the approval" has "Gate 3 storyboard card: approved"
 cp "$W/card.bak" "$CV"
+
+echo "== 6. an App Store preview with recorded voice and music, and a transparent overlay"
+hc_py "$FIX/m3_media.py" "$P" "$FF" > "$W/out" 2>&1; check "the recording, takes and music are generated" test $? -eq 0
+runin "$P" "$VIDEO" lint preview
+check "the preview lints, a graphics scene being a suitability item" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'REVIEW REQUIRED  app-preview-iphone: App Store previews should show footage' '$W/out'"
+runin "$P" "$VIDEO" preview preview --ffmpeg "$FF" --out "$W/apdraft"
+check "the draft has the draft mix and segment-aligned captions" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'with the draft mix' '$W/out' && grep -q 'NOTE segment-aligned' '$W/apdraft/voice/captions.vtt'"
+runin "$P" "$DIR" approve --gate mix --piece preview --by Owner --evidence "listened"
+check "a mix can't be approved before its storyboard" rc 1
+runin "$P" "$DIR" approve --gate storyboard --piece preview --by Owner --evidence "watched the draft"
+runin "$P" "$VIDEO" render preview --ffmpeg "$FF"
+check "production with audio needs the mix approval" bash -c "[[ \$(cat '$W/rc') == 1 ]] && grep -q 'approve --gate mix --piece preview' '$W/out'"
+runin "$P" "$DIR" approve --gate mix --piece preview --by Owner --evidence "listened to the draft"
+check "the owner approves the mix" rc 0
+runin "$P" "$DIR" status
+check "status shows the mix gate" has "Gate 3 mix preview: approved"
+runin "$P" "$VIDEO" render preview --ffmpeg "$FF" --workers 2
+check "the App Store preview renders" rc 0
+for c in technical:app-preview-iphone audio:app-preview-iphone workers:app-preview-iphone voice-over; do
+  check "render reports $c as PASS" has "PASS             $c"
+done
+AO="$P/brand/video/preview/out"
+check "segment-aligned captions are published as captions.srt/vtt" bash -c "[[ -f '$AO/voice/captions.srt' && -f '$AO/voice/captions.vtt' && ! -f '$AO/voice/captions.planned.srt' ]]"
+ARUN="$(ls -t "$P/brand/runs/video" | head -1)"
+hc_py -c "
+import json, sys
+m = json.load(open(sys.argv[1], encoding='utf-8'))
+mp4 = [o for o in m['outputs'] if o['path'].endswith('.mp4')][0]
+assert mp4['audio'] is True and mp4['profile'] == 'app-preview', mp4
+assert m['piece']['captions'] == 'segment-aligned'
+paths = {a['path'] for a in m['inputs']['assets']}
+assert {'brand/video/preview/media/flow.mp4', 'brand/video/preview/media/music.wav', 'brand/video/preview/media/vo/flow.wav'} <= paths, paths
+assert any(r['id'] == 'suitability:app-store:app-preview-iphone' for r in m['reviews'])
+" "$P/brand/runs/video/$ARUN" > "$W/out" 2>&1
+check "the manifest records the sound, the recording, the takes and the suitability item" test $? -eq 0
+runin "$P" "$VIDEO" check preview --ffmpeg "$FF"
+check "check re-verifies the preview with its sound track" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'PASS  technical (app-preview)' '$W/out'"
+MU="$P/brand/video/preview/media/music.wav"; cp "$MU" "$W/music.bak"; printf 'x' >> "$MU"
+runin "$P" "$DIR" status
+check "changing the music makes only the mix stale" bash -c "grep -q 'Gate 3 mix preview: NOT MET.*the audio' '$W/out' && grep -q 'Gate 3 storyboard preview: approved' '$W/out'"
+cp "$W/music.bak" "$MU"
+PV="$P/brand/video/preview/video.json"; cp "$PV" "$W/preview.bak"
+jset "$PV" 'd["scenes"][1]["vo"] = "Try Fernway this week."'
+runin "$P" "$DIR" status
+check "editing a voice-over line makes the storyboard and the mix stale" bash -c "grep -q 'Gate 3 storyboard preview: NOT MET.*voice-over script' '$W/out' && grep -q 'Gate 3 mix preview: NOT MET' '$W/out'"
+cp "$W/preview.bak" "$PV"
+runin "$P" "$DIR" status; check "restoring both restores both approvals" bash -c "grep -q 'Gate 3 storyboard preview: approved' '$W/out' && grep -q 'Gate 3 mix preview: approved' '$W/out'"
+
+runin "$P" "$DIR" approve --gate storyboard --piece lower --by Owner --evidence "watched the overlay"
+runin "$P" "$VIDEO" render lower --ffmpeg "$FF"
+check "the transparent overlay renders" rc 0
+check "it is VP9 with alpha in WebM" bash -c "grep -q 'PASS             technical:overlay: VP9 with alpha' '$W/out' && [[ -f '$P/brand/video/lower/out/overlay/lower.webm' ]]"
+check "its contrast is a review item (the footage under it is unknown)" has "REVIEW REQUIRED  contrast:overlay"
 
 check "no __pycache__ was left in harness/" test -z "$(find "$ROOT/harness" -name __pycache__ -print -quit)"
 echo "video tests: $pass passed, $fail failed"

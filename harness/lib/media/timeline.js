@@ -10,6 +10,8 @@
      absolute time. WAAPI times are composition time; CSS @keyframes times are relative to the
      nearest [data-start] clip (the time base HyperFrames 0.8.119 uses, checked in the M0 spike).
    - A clip ([data-start][data-duration]) is visible for frames [start, end).
+   - An image sequence (img[data-seq-src], a recording pre-extracted to numbered frames) shows file
+     n - start of its run; the runtime waits for the new frame to decode before the frame is drawn.
    - Stray clock reads are frozen (Date, performance.now): a safety net, not the guarantee.
    - The runtime keeps the browser's own requestAnimationFrame / setTimeout in this closure; after
      each seek it waits for one real frame (macOS returned stale frames without it), bounded.
@@ -45,7 +47,7 @@
   const oneFrame = () => new NativePromise((resolve) => nativeRAF(() => resolve()));
   const toFrames = (s, fps) => Math.floor(Number(s) * fps + 0.5);
 
-  let root = null, fps = 30, frames = 0, clips = [], current = -1;
+  let root = null, fps = 30, frames = 0, clips = [], seqs = [], current = -1;
   // Every animation seen so far: a finished animation with fill 'none' leaves
   // document.getAnimations(), but a backward seek must still reach it.
   const known = new Set();
@@ -61,6 +63,10 @@
       const start = toFrames(el.dataset.start, fps);
       return { el, start, end: start + toFrames(el.dataset.duration, fps) };
     });
+    seqs = [...root.querySelectorAll('img[data-seq-src]')].map((el) => ({
+      el, base: el.dataset.seqSrc, start: Number(el.dataset.seqStart), frames: Number(el.dataset.seqFrames),
+      count: Number(el.dataset.seqCount), cur: el.getAttribute('src'),
+    }));
   }
 
   function clipStartMs(el) {
@@ -120,10 +126,18 @@
         const css = typeof CSSAnimation !== 'undefined' && a instanceof CSSAnimation;
         a.currentTime = Math.max(0, ms - (css && a.effect ? clipStartMs(a.effect.target) : 0));
       }
+      const decodes = [];
+      for (const s of seqs) {
+        if (n < s.start || n >= s.start + s.frames) continue;
+        const src = s.base + String(Math.min(n - s.start, s.count - 1)).padStart(5, '0') + '.jpg';
+        if (src !== s.cur) { s.cur = src; s.el.src = src; decodes.push(s.el.decode()); }
+      }
       void document.body.getBoundingClientRect(); // style and layout now, not at the next frame
       current = n;
-      if (opts && opts.raf === false) return n;
-      return withTimeout(oneFrame().then(() => n), 2000, () => 'a rendered frame');
+      const decoded = decodes.length ? NativePromise.all(decodes) : null;
+      if (opts && opts.raf === false) return decoded ? decoded.then(() => n) : n;
+      return withTimeout((decoded || NativePromise.resolve()).then(oneFrame).then(() => n), 5000,
+        () => (decoded ? 'a recording frame to decode and ' : '') + 'a rendered frame');
     },
   };
 })();

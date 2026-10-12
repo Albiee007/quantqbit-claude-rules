@@ -27,6 +27,7 @@ Usage:
   python direction.py approve --gate exception --scope "store:frame:05-brand:layout=inset" --by ... --evidence ...
   python direction.py approve --gate storyboard --piece launch-teaser --by ... --evidence ...
   python direction.py approve --gate storyboard --family motion --piece hero --by ... --evidence ...
+  python direction.py approve --gate mix --piece launch-teaser --by ... --evidence ...   (a video with audio)
   python direction.py approve --gate review --run <run id> --items all --by ... --evidence ...   (video or motion run)
   python direction.py concept new --family store --id b --name "Field notes" [--run <run id>]
   python direction.py concept check brand/concepts/store/<run>/b.json
@@ -310,13 +311,22 @@ def status(a: argparse.Namespace) -> int:
             own = [x for x in pg.problems if x not in video_problems] or pg.problems
             print(f"Gate 3 storyboard {pid}: {'approved' if pg.ok else 'NOT MET: ' + '; '.join(own)}")
             ok = ok and pg.ok
+            mg = vd.gate_mix(p, pid, pg)
+            if mg.needed:
+                print(f"Gate 3 mix {pid}: {'approved' if mg.ok else 'NOT MET: ' + '; '.join(mg.problems)}")
+                ok = ok and mg.ok
     return 0 if ok else 1
 
 
 def approve(a: argparse.Namespace) -> int:
     root = root_of(a)
     p = dl.load_project(root)
-    if a.gate in ("storyboard", "review"):
+    if a.gate == "mix":
+        from harnesslib import video as vd
+        if not a.piece:
+            raise UsageError("a mix approval needs --piece <id> (a video piece with an \"audio\" section)")
+        rec = vd.approve_mix(p, a.piece, a.by, a.evidence, a.recorded_by)
+    elif a.gate in ("storyboard", "review"):
         from harnesslib import motion as mo
         from harnesslib import video as vd
         if a.gate == "storyboard":
@@ -554,11 +564,12 @@ def main() -> int:
     sub.add_parser("status")
     sub.add_parser("summary")
     ap_ = sub.add_parser("approve")
-    ap_.add_argument("--gate", required=True, choices=["direction", "concept", "exception", "storyboard", "review"])
+    ap_.add_argument("--gate", required=True, choices=["direction", "concept", "exception", "storyboard", "mix", "review"])
     ap_.add_argument("--family", choices=dl.FAMILIES)
     ap_.add_argument("--concept")
     ap_.add_argument("--scope")
-    ap_.add_argument("--piece", help="storyboard: the video piece id (or motion piece id with --family motion)")
+    ap_.add_argument("--piece", help="storyboard: the video piece id (or motion piece id with --family motion); "
+                                    "mix: the video piece id")
     ap_.add_argument("--run", help="review: the video or motion run id")
     ap_.add_argument("--items", help="review: comma-separated review item ids, or 'all'")
     ap_.add_argument("--by", required=True)

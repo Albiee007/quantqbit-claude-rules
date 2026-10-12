@@ -118,7 +118,7 @@
         "formats": { "type": "array", "items": { "type": "string" } },
         "frames": { "type": "integer", "minimum": 0 },
         "fps": { "type": "number" },
-        "captions": { "enum": ["planned", "segment-aligned", "word-aligned"] },
+        "captions": { "enum": ["planned", "segment-aligned", "mixed", "word-aligned"] },
         "viewports": { "type": "array", "items": { "type": "string" } },
         "platform": { "type": "string", "maxLength": 40 },
         "driver": { "type": "string", "maxLength": 40 }
