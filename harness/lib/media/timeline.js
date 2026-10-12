@@ -1,6 +1,7 @@
 /* Seek runtime for video compositions (render_video.py injects it before any page script).
 
-   window.__hf = { fps, frames, duration, ready(timeoutMs), seek(seconds, {raf}), waitFor(promise, label), rand(key) }
+   window.__hf = { fps, frames, duration, ready(timeoutMs), seek(seconds, {raf}), waitFor(promise, label), rand(key),
+                   register(el, player) }
    is the HyperFrames engine protocol (window.__hf.seek(t)); our renderer calls seek(n / fps) for
    whole frames n and the runtime turns the time back into a frame: n = floor(t * fps + 1e-6).
 
@@ -12,6 +13,10 @@
    - A clip ([data-start][data-duration]) is visible for frames [start, end).
    - An image sequence (img[data-seq-src], a recording pre-extracted to numbered frames) shows file
      n - start of its run; the runtime waits for the new frame to decode before the frame is drawn.
+   - A library player registered with register(el, player) is positioned on each seek at the time
+     relative to el's clip: a GSAP-style timeline with totalTime(seconds, suppressEvents), a
+     Lottie-style animation with goToAndStop(ms, false), or anything with seek(seconds). It is
+     paused at ready(). The library itself is the project's (licensed, local), never ours.
    - Stray clock reads are frozen (Date, performance.now): a safety net, not the guarantee.
    - The runtime keeps the browser's own requestAnimationFrame / setTimeout in this closure; after
      each seek it waits for one real frame (macOS returned stale frames without it), bounded.
@@ -48,6 +53,23 @@
   const toFrames = (s, fps) => Math.floor(Number(s) * fps + 0.5);
 
   let root = null, fps = 30, frames = 0, clips = [], seqs = [], current = -1;
+  const players = []; // [{el, player}] registered library timelines (GSAP, Lottie...)
+  const clipSeconds = (el, n) => Math.max(0, n / fps - clipStartMs(el) / 1000);
+  function place(p, n) {
+    const t = clipSeconds(p.el, n);
+    if (typeof p.player.totalTime === 'function') p.player.totalTime(t, true);
+    else if (typeof p.player.goToAndStop === 'function') p.player.goToAndStop(t * 1000, false);
+    else if (typeof p.player.seek === 'function') p.player.seek(t);
+  }
+  function playerSeconds(p) {
+    const q = p.player;
+    try {
+      if (typeof q.totalDuration === 'function') return q.totalDuration();
+      if (typeof q.duration === 'function') return q.duration();
+      if (typeof q.getDuration === 'function') return q.getDuration(false);
+    } catch (e) { /* unknown length */ }
+    return 0;
+  }
   // Every animation seen so far: a finished animation with fill 'none' leaves
   // document.getAnimations(), but a backward seek must still reach it.
   const known = new Set();
@@ -87,6 +109,14 @@
     get frame() { return current; },
     /* Something the page loads asynchronously (a font, a Lottie file): ready() waits for it. */
     waitFor(promise, label) { waits.push([NativePromise.resolve(promise), String(label)]); },
+    /* A library player (a GSAP timeline, a Lottie animation) the seek positions, relative to el's clip. */
+    register(el, player) {
+      if (!el || !player) throw new Error('__hf.register needs an element and a player');
+      if (typeof player.totalTime !== 'function' && typeof player.goToAndStop !== 'function' && typeof player.seek !== 'function') {
+        throw new Error('__hf.register: the player has no totalTime(), goToAndStop() or seek()');
+      }
+      players.push({ el, player });
+    },
     /* Deterministic "randomness": a pure function of the composition id and a key. */
     rand(key) {
       const r = root || document.querySelector('[data-composition-id]');
@@ -97,8 +127,14 @@
       const work = (async () => {
         await document.fonts.ready;
         pending.delete('fonts');
-        waits.forEach(([, label]) => pending.add(label));
-        await NativePromise.all(waits.map(([p, label]) => p.then(() => pending.delete(label))));
+        // the scene build registers more waits (a custom scene's player) while it runs: keep going
+        // until a round adds none
+        for (let seen = 0; seen < waits.length;) {
+          const batch = waits.slice(seen);
+          seen = waits.length;
+          batch.forEach(([, label]) => pending.add(label));
+          await NativePromise.all(batch.map(([p, label]) => p.then(() => pending.delete(label))));
+        }
         const imgs = [...document.images];
         imgs.forEach((i) => pending.add('image ' + (i.getAttribute('src') || '')));
         await NativePromise.all(imgs.map((i) => i.decode().catch(() => { throw new Error('image failed to decode: ' + i.getAttribute('src')); })
@@ -106,6 +142,7 @@
         scan();
         const anims = animations();
         anims.forEach((a) => a.pause());
+        players.forEach((p) => { if (typeof p.player.pause === 'function') p.player.pause(); });
         let endMs = 0, infinite = 0;
         for (const a of anims) {
           const t = a.effect && a.effect.getComputedTiming();
@@ -113,7 +150,9 @@
           if (!Number.isFinite(t.endTime)) { infinite += 1; continue; }
           endMs = Math.max(endMs, t.endTime + (typeof CSSAnimation !== 'undefined' && a instanceof CSSAnimation ? clipStartMs(a.effect.target) : 0));
         }
-        return { fps, frames, clips: clips.length, animations: anims.length, animationEndMs: endMs, infinite };
+        for (const p of players) endMs = Math.max(endMs, clipStartMs(p.el) + playerSeconds(p) * 1000);
+        return { fps, frames, clips: clips.length, animations: anims.length + players.length, animationEndMs: endMs, infinite,
+          players: players.length };
       })();
       return withTimeout(work, timeoutMs, () => [...pending].join(', ') || 'the page');
     },
@@ -126,6 +165,7 @@
         const css = typeof CSSAnimation !== 'undefined' && a instanceof CSSAnimation;
         a.currentTime = Math.max(0, ms - (css && a.effect ? clipStartMs(a.effect.target) : 0));
       }
+      for (const p of players) place(p, n);
       const decodes = [];
       for (const s of seqs) {
         if (n < s.start || n >= s.start + s.frames) continue;

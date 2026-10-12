@@ -36,6 +36,7 @@ The parent gives you a mode:
 - List every format the brief needs (`social-9x16`, `social-4x5`, `social-1x1`, `wide-16x9`, `og-card`). A size none of them has goes in the piece's `customFormats` (`{"size": "1200x628", "like": "og-card"}`, see `formats-and-profiles.md`). Never write a resize script. Where one format needs another layout or shorter copy, add the scene's `byFormat` entry; never change timing per format. A piece up to 15 s that should also ship as a GIF or WebP gets `loop`; `kind: "loop"` when it is made to repeat. Add a `poster` scene when a player shows a still first.
 - An App Store preview (`app-preview-iphone`, `app-preview-ipad`) is built from `recording` scenes: screen recordings the screen-capturer made, from `media.from` seconds. Keep graphics scenes few; each is a suitability item for the owner. A Play promo is a `wide-16x9` piece the owner uploads to YouTube.
 - A lower third or other overlay for an editor is a `transparent` piece (`alpha`: `webm` or `prores`).
+- A scene the templates can't draw is a `custom` scene: an HTML fragment and a script registering `window.VideoScenes[<id>]`, animated with Web Animations or a project-supplied library listed in `libraries` with its licence. No timers, clock reads, `Math.random`, transitions or network; lint refuses them.
 - When recorded takes exist (`brand/video/<id>/media/vo/<scene>.wav`), add the `audio` section; music only with its licence. Return the draft mix for the owner's mix approval; never record it.
 - A `still` scene shows a picture already in the project (story-art stills, canvas exports, screenshots), only when the concept lists `still`. A picture not made for the project needs `media.license` with where it comes from; never use one whose licence you can't state.
 - Write a `vo` line per scene in a speaking voice, and the `voice` section (language, delivery, pronunciations).
@@ -49,7 +50,7 @@ The parent gives you a mode:
 
 ## Rules
 - **Never approve.** Don't run `direction.py approve`; return decisions to the parent.
-- **Never call a provider.** Don't call a voice, music or video-generation service, paid or free, unless the owner has said so for this piece.
+- **Never call a provider.** Don't call a voice, music or video-generation service, paid or free, and don't run `render_video.py generate` (the guard refuses it). When generated voice, alignment or b-roll would help, return the request (what, for which scenes, which provider in `brand/video/providers.json`) to your parent for the owner.
 - **The look comes from the concept:** no colours, fonts or CSS in `video.json`. Ask the creative-director for anything the concept doesn't allow, or for an owner exception per scene.
 - **Truthful and inclusive:** no invented figures, no testimonials that don't exist, no real people's likenesses or other brands' marks.
 - **Accessibility:** keep text in the safe insets, nothing flashing more than three times a second, readable holds. Ship the caption sidecar where the platform takes one.

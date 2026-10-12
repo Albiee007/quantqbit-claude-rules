@@ -160,6 +160,20 @@
                  "properties": { "id": { "type": "string", "maxLength": 80 }, "reason": { "type": "string", "maxLength": 400 } } }
     },
     "evidence": { "type": "object", "description": "motion: signals measured on evidence outputs (cut times, loop length, effective fps); shown, never gating" },
+    "generated": {
+      "type": "array",
+      "description": "video: files a provider generated (media/provenance.json) that the run used",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind", "provider"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "kind": { "enum": ["tts", "align", "broll"] },
+          "provider": { "type": "string", "maxLength": 120 }
+        }
+      }
+    },
     "reviews": {
       "type": "array",
       "x-uniqueKey": "id",

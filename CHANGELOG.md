@@ -8,6 +8,38 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.12.0] - 2026-10-12
+
+The last planned slice of branded video: scenes of the project's own, animated with Web Animations or a project-supplied GSAP or Lottie library and still seeked frame by frame; generated voice, word alignment and b-roll through the project's own provider commands, recorded in provenance and flagged for AI disclosure; and HyperFrames as an optional second frame renderer, checked against ours.
+
+### Added
+- **`custom` scenes:** `custom.html` (a fragment), `custom.script` (registers `window.VideoScenes[<scene>] = (el, ctx) => player`) and optionally `custom.lottie` (data passed as `ctx.lottie`).
+  - The builder can create Web Animations, or return a paused GSAP-style timeline, a Lottie animation or any `seek()`able player. The runtime registers it (`__hf.register`) and positions it on every seek at the scene-relative time; readiness counts players and their length.
+  - **`libraries`:** `[{file, name, license}]`, the project's own local copies, loaded before the scenes. The harness never fetches or vendors a library.
+  - **Lint** refuses timers and frame loops, clock reads, `Math.random`, CSS transitions, the network and `play()`/`autoplay`/`loop: true` in a scene's own HTML and script.
+  - The scene files and libraries are part of the storyboard approval. The concept opts in with `custom` in `sceneTemplates`.
+- **Providers:** `render_video.py generate <id> --what tts|align|broll [--scene] [--force]` runs the project's own commands from `brand/video/providers.json` (schema `video-providers`).
+  - Placeholders, no shell, a timeout. `env` names the keys a command needs; they stay in the environment and are never recorded.
+  - `tts` writes a take per line; `align` writes word timings bound to the take's bytes; `broll` writes a scene's picture or video from `media.prompt`.
+  - Every generated file is recorded in `media/provenance.json` (schema `video-provenance`).
+  - The guard refuses `generate` from sub-agents: only the main session runs a provider, after the owner asks.
+- **Word-aligned captions:** with an alignment, each caption spans its first to its last word (`timing: word-aligned`, sidecars `captions.srt|vtt`).
+- **AI disclosure:** a render lists generated voice (`disclosure:ai-voice`) and scenes showing generated media (`disclosure:ai-media:<scene>`) as suitability review items. The manifest lists the generated files under `generated`.
+- **The HyperFrames engine:** `render --engine hyperframes [--hyperframes CLI] [--node PATH]`.
+  - Exports the composition as a HyperFrames project and asks the pinned CLI (0.8.119, telemetry off) for a PNG sequence. Our encoder, profiles, sound, checks, manifest (`engine.renderer`, `engine.hyperframes`) and approvals stay the same.
+  - `engine-parity:<format>` compares its frames with ours at each scene's still frame; the fixture measured differences of 0.00–0.04 of 255.
+  - Recording and custom scenes need our runtime and are refused.
+  - CI runs `tests/video-hyperframes.test.sh` in its own job, which may fail without failing the build because it downloads HyperFrames and a browser.
+- References: `providers.md`; custom scenes and engines in the composition contract.
+
+### Changed
+- `motion.js` calls `__hf.waitFor` only where the runtime has it (HyperFrames' runtime doesn't).
+
+### Upgrade notes
+- Pieces without the new fields render and hash as before.
+- To use `custom` scenes, the creative-director adds `custom` to the video concept's `sceneTemplates`, and the owner re-approves the concept. Put the libraries in the project, with their licences.
+- To generate media, add `brand/video/providers.json` with your own commands, and set their keys in the environment.
+
 ## [1.11.0] - 2026-10-12
 
 Branded video gets sound, screen recordings and transparency: App Store previews built from the app's own recordings, explainers with recorded voice-over and licensed music mixed to a loudness target, captions timed to the takes, and overlays with an alpha channel for editors.

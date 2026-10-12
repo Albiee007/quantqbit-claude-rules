@@ -325,6 +325,14 @@ def audio_info(fp: str, path: Path) -> dict:
             "codec": a[0].get("codec_name", "")}
 
 
+def decoded_seconds(ff: str, path: Path) -> float:
+    """An audio file's length from its decoded samples (a header's duration is an estimate for mp3
+    and m4a)."""
+    pcm = _run([ff, "-v", "error", "-i", str(path), "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"],
+               f"length of {Path(path).name}").stdout
+    return len(pcm) / 16000
+
+
 def speech_span(ff: str, path: Path, noise_db: float = -40.0, gap: float = 0.15) -> tuple[float, float, float]:
     """(lead, end, total) seconds of a voice-over take: where the speech starts and ends inside the
     file (the room tone before and after is not speech), from ffmpeg's silencedetect."""
@@ -333,10 +341,7 @@ def speech_span(ff: str, path: Path, noise_db: float = -40.0, gap: float = 0.15)
     err = r.stderr.decode(errors="replace")
     starts = [float(x) for x in re.findall(r"silence_start: (-?[0-9.]+)", err)]
     ends = [float(x) for x in re.findall(r"silence_end: ([0-9.]+)", err)]
-    # the decoded length (a header's duration is an estimate for mp3 and m4a)
-    pcm = _run([ff, "-v", "error", "-i", str(path), "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"],
-               f"length of {Path(path).name}").stdout
-    total = len(pcm) / 16000
+    total = decoded_seconds(ff, path)
     lead = ends[0] if starts and starts[0] <= 0.01 and ends else 0.0
     # trailing silence: a silence that starts after the speech and runs to the end of the file
     trailing = bool(starts) and starts[-1] > lead and (len(starts) > len(ends) or ends[-1] >= total - 0.1)

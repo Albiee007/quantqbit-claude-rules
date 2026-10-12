@@ -24,6 +24,9 @@
 | Audio: a missing voice take for a `vo` line, two takes for one scene, a music file that is missing or not audio | FAIL (a warning in drafts) |
 | A recorded take running past the end of the video | FAIL |
 | A transparent piece with loops or audio | FAIL |
+| A custom scene without a script; its HTML or script using timers, clock reads, `Math.random`, CSS transitions, the network or playback | FAIL (a warning in `preview`) |
+| Generated voice or media in the piece (provenance.json) | REVIEW REQUIRED (`disclosure:ai-voice`, `disclosure:ai-media:<scene>`) |
+| `--engine hyperframes` with recording or custom scenes | refused (they need our runtime) |
 | Reading time longer than the still part | REVIEW REQUIRED (`reading:<scene>`, or `reading:<scene>:<format>` when a format changes the copy) |
 | Planned voice-over longer than its scene | REVIEW REQUIRED (`vo-fit:<scene>`) |
 | Planned voice-over ending after the video | FAIL |
@@ -43,6 +46,7 @@ Checks that look at a format's output are named `<check>:<format>` (for example 
 | `workers` (more than one browser): the frames where their runs meet are drawn identically | PASS / FAIL |
 | `audio:<format>`: integrated loudness within 1 LU of the target, true peak at most −1 dBTP; or the silent track of an App Store preview | PASS / FAIL |
 | `contrast:<format>` of a transparent overlay | REVIEW REQUIRED (`contrast:overlay`) |
+| `engine-parity:<format>` (`--engine hyperframes`): HyperFrames' frames against ours at each scene's still frame | PASS or REVIEW REQUIRED (`engine-parity`) |
 | `contrast`: computed against solid backgrounds and caption plates; whole-gradient bound | PASS / FAIL |
 | `contrast` sampled from pixels (text over a drawn object, a failing gradient) | REVIEW REQUIRED (`contrast:<scene>:<n>`) or FAIL |
 | `text`: glyph coverage from the font file; text cut off by the frame | PASS / FAIL |

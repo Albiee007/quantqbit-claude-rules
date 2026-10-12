@@ -49,7 +49,7 @@ Videos render **silent** unless the piece has an `audio` section. Every run (and
   - Lines split at the subtitle width (default 32 characters, two lines a cue).
   - These are estimates. Planned cues say so in the VTT header, in `cues.json` and in the run manifest (`piece.captions: "planned"`).
 - **Segment-aligned:** with takes. Each line spans its take's measured speech, and its cues are spread over that span: right per line, approximate inside a line. The VTT note, `cues.json` and the manifest say `segment-aligned`. A draft with takes for some lines only says `mixed`.
-- **Word-aligned:** needs speech alignment, an opt-in provider. Planned for a later release.
+- **Word-aligned:** with an alignment of each take (`render_video.py generate --what align`, the project's own aligner; see [providers](providers.md)). Each caption starts at its first word and ends at its last. Sidecars `voice/captions.srt|vtt`, labelled `word-aligned`.
 - Don't burn planned captions into a video that has a real voice-over: their timing is a guess.
 
 ## Recording specs
@@ -59,8 +59,7 @@ Videos render **silent** unless the piece has an `audio` section. Every run (and
 - **Where:** `brand/video/<id>/media/vo/`. Media files are project-owned; consider Git LFS. They never go into `.claude/`.
 - **Licence:** music needs `license`; a voice that isn't the owner's or the team's needs the same kind of evidence, kept with the project's records.
 
-## Not in this release
+## Generated voice
 
-- TTS through an opt-in provider, with a casting sample the owner approves first.
-- Word-aligned captions.
-- AI-generated b-roll under the HTML overlays.
+- A take can come from the project's own TTS command (`render_video.py generate --what tts`, run by the main session when the owner asks; see [providers](providers.md)). It is mixed, approved and checked like a recorded take.
+- Generated takes are an AI-disclosure review item on every render that uses them.

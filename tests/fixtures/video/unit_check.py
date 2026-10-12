@@ -351,6 +351,87 @@ def m3_checks() -> None:
     check("atrim=start=0.350,asetpts=PTS-STARTPTS,adelay=0|0" in g, "a take with more room tone than lead time is trimmed, not late")
 
 
+def m4_checks() -> None:
+    """Custom scenes, providers, word-aligned captions, the HyperFrames export (1.12)."""
+    from harnesslib import hyperframes as hfx
+    from harnesslib import providers as pvx
+    tmp = Path(os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp") / f"m4-{os.getpid()}"
+    (tmp / "s").mkdir(parents=True, exist_ok=True)
+    try:
+        good = tmp / "s" / "good.js"
+        good.write_text("// no setTimeout here: a comment\nwindow.VideoScenes = {};\nVideoScenes.a = (el, ctx) => ctx.rand('x');\n"
+                        "const svg = 'http://www.w3.org/2000/svg';\n", encoding="utf-8")
+        bad = tmp / "s" / "bad.js"
+        bad.write_text("const t = Date.now();\nrequestAnimationFrame(() => {});\nel.style.transition = 'x';\n"
+                       "fetch('https://example.com/x.json');\nanim.play();\n", encoding="utf-8")
+        check(vd.custom_code_problems(tmp, {"id": "a", "custom": {"script": "s/good.js"}}) == [],
+              "a custom scene script without clocks, timers or network passes (comments and SVG namespaces aside)")
+        probs = vd.custom_code_problems(tmp, {"id": "a", "custom": {"script": "s/bad.js"}})
+        html = tmp / "s" / "page.html"
+        html.write_text("<h2>Release Date</h2>\n<p>Updated daily // not a comment</p>\n<video src=\"a.mp4\" autoplay></video>\n"
+                        "<div style=\"transition-duration: 2s\"></div>\n<img src=\"//cdn.example.com/x.png\">\n", encoding="utf-8")
+        hp = vd.custom_code_problems(tmp, {"id": "a", "custom": {"html": "s/page.html", "script": "s/good.js"}})
+        check(len(hp) == 3 and not any("a clock read" in x for x in hp) and any(":3:" in x for x in hp),
+              f"in HTML, visible text is not code, while autoplay, transition-* and //cdn links are caught ({hp})")
+        check(len(probs) == 5 and any("s/bad.js:1:" in x for x in probs), f"clocks, frame loops, transitions, network and playback each fail ({len(probs)})")
+        ad = dict(AD, sceneTemplates=AD["sceneTemplates"] + ["custom"])
+        cu = [{"id": "c", "template": "custom", "duration": 3}]
+        check(any("needs custom.script" in e for e in vd.plan(None, "t", piece(cu), ad, "social-9x16", False).errors),
+              "a custom scene needs a script")
+        p_ = dict(piece([{"id": "c", "template": "custom", "duration": 3, "custom": {"script": "s/good.js"}}]),
+                  libraries=[{"file": "lib/x.js", "name": "x", "license": "MIT"}])
+        refs = {r for r, _, _ in vd.media_refs(p_)}
+        check(refs == {"s/good.js", "lib/x.js"}, f"a custom scene's script and the libraries are part of the storyboard ({refs})")
+        words = pvx.check_words({"words": [{"word": "Plan", "start": 0.5, "end": 0.8}, {"word": "ahead.", "start": 0.85, "end": 1.2}]}, 2.0)
+        check(len(words) == 2, "a word alignment within the take is accepted")
+        for bad_words in ({"words": []}, {"words": [{"word": "x", "start": 1.0, "end": 0.5}]},
+                          {"words": [{"word": "x", "start": 0.5, "end": 3.0}]}):
+            try:
+                pvx.check_words(bad_words, 2.0)
+                check(False, f"a broken alignment is refused ({bad_words})")
+            except Exception:
+                check(True, f"a broken alignment is refused ({str(bad_words)[:40]})")
+        line = [{"id": "a", "template": "title", "duration": 4, "copy": {"head": "Hi"}, "vo": "Plan ahead."}]
+        pp = piece(line)
+        pl = vd.plan(None, "t", pp, AD, "social-9x16", False)
+        cl, _, _ = vd.cues(pl, pp, AD, {"a": 0.7}, {"a": words}, {"a": 0.5})
+        sub = cl[0]["subtitles"][0]
+        check(cl[0]["timing"] == "word-aligned" and sub["start"] == round(cl[0]["start"] - 0.5 + 0.5, 3)
+              and sub["end"] == round(cl[0]["start"] - 0.5 + 1.2, 3) and "word-aligned" in vd.vtt(cl),
+              f"aligned words time each caption from its first word to its last ({sub})")
+        from harnesslib import providers as pvq
+        argv = pvq.argv_for("tts", {"command": ["prog", "{text}", "--c", "{casting}"]},
+                            {"text": "{casting}", "casting": "x"})
+        check(argv[1] == "{casting}" and argv[3] == "x", f"placeholders are filled in one pass ({argv})")
+        frames_dir = tmp / "frames"
+        frames_dir.mkdir()
+        for n in (1, 2, 9, 10, 11):
+            (frames_dir / f"frame_{n}.png").write_bytes(b"")
+        order = [f.name for f in hfx.frame_files(frames_dir)]
+        check(order == ["frame_1.png", "frame_2.png", "frame_9.png", "frame_10.png", "frame_11.png"],
+              f"HyperFrames frames are read in frame order ({order})")
+        build = tmp / "build"
+        (build / "fonts").mkdir(parents=True)
+        (build / "video.html").write_text('<head>\n<script src="timeline.js"></script>\n</head><body></body>', encoding="utf-8")
+        (build / "timeline.js").write_text("//", encoding="utf-8")
+        proj = hfx.export(build, tmp / "hfproj")
+        html = (proj / "index.html").read_text(encoding="utf-8")
+        check("timeline.js" not in html and not (proj / "timeline.js").exists() and (proj / "fonts").is_dir(),
+              "the HyperFrames export is index.html with its assets and without our seek runtime")
+
+        class S:
+            def __init__(self, i, t):
+                self.id, self.template = i, t
+        try:
+            hfx.refuse([S("a", "title"), S("b", "recording")])
+            check(False, "HyperFrames refuses scenes that need our runtime")
+        except Exception as e:
+            check("b" in str(e) and "--engine ours" in str(e), "HyperFrames refuses scenes that need our runtime")
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def caption_checks() -> None:
     sc = [{"id": "a", "template": "title", "duration": 4, "copy": {"head": "Hi"}, "vo": "One two three four five six seven eight."},
           {"id": "b", "template": "title", "duration": 2, "copy": {"head": "Yo"}, "transitionIn": {"type": "cut"},
@@ -491,6 +572,7 @@ def main() -> int:
     custom_format_checks()
     loop_checks()
     m3_checks()
+    m4_checks()
     caption_checks()
     signal_checks()
     token_checks()

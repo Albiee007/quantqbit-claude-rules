@@ -66,4 +66,26 @@ How a video piece becomes frames. `render_video.py` and the libraries it uses (`
 
 - `data-no-timeline` tells HyperFrames there is no GSAP timeline to wait for; the animations are Web Animations, which its CSS/WAAPI adapter seeks.
 - Brand fonts are always local files (`@font-face`). HyperFrames replaces system fonts with its own deterministic set, so a system-font role would render differently there.
-- Rendering through HyperFrames (`--engine hyperframes`) is planned, not in this release. The markup is kept compatible so a piece can move without rework.
+## Custom scenes and libraries
+
+- A `custom` scene is the project's own: `custom.html` (a fragment placed in the scene), `custom.script`, and optionally `custom.lottie` (animation data). The script registers a builder: `window.VideoScenes["<scene id>"] = (el, ctx) => player`.
+- `ctx` gives `width`, `height`, `fps`, `frames`, `seconds`, `safe`, `AD` (the resolved concept), `lottie`, `headPx`, `ms(frames)`, `start` (the scene's start in composition milliseconds, for Web Animation delays) and `rand(key)`.
+- The builder may create Web Animations (`el.animate(...)`, with delays from `ctx.start`), which the runtime seeks like ours. It may also return a library player, which the runtime registers (`__hf.register(el, player)`) and positions on every seek at the time relative to the scene. Accepted players:
+  - a paused GSAP-style timeline (`totalTime(seconds, true)`);
+  - a Lottie animation with `autoplay: false` (`goToAndStop(ms, false)`);
+  - anything with `seek(seconds)`.
+
+  A promise can be returned too; readiness waits for it.
+- **Libraries** (GSAP, lottie-web...) are the project's: `libraries: [{file, name, license}]`, local files loaded before the scenes. The harness never fetches or vendors one.
+- **Lint** refuses the scene's own HTML and script (not the libraries) when they use timers or frame loops, clock reads, `Math.random`, CSS transitions, the network, or `play()`/`autoplay`/`loop: true`. Their bytes and the libraries' bytes are part of the storyboard approval.
+
+## Engines
+
+- `render --engine ours` (default) draws every frame in our browser, as above.
+- `render --engine hyperframes` asks the pinned HyperFrames CLI (0.8.119) for the frames:
+  - The composition is exported as a HyperFrames project: `index.html` plus fonts, assets and scripts, without our runtime, since HyperFrames brings its own `window.__hf`.
+  - The CLI renders a PNG sequence. Our encoder, profiles, sound, checks, manifest and approvals then work as with our engine.
+  - A parity signal (`engine-parity:<format>`) compares HyperFrames' frame with ours at every scene's still frame. Fonts and anti-aliasing differ between browser builds, so it is a signal.
+  - It needs Node.js 22+ and the CLI (`HYPERFRAMES_BIN`, `--hyperframes`, or `npx`, which downloads it), and turns HyperFrames' render telemetry off.
+  - Recording and custom scenes need our runtime, so they are refused there.
+- The manifest records `engine.renderer` and `engine.hyperframes`.
