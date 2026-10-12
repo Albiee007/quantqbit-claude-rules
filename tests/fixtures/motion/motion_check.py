@@ -70,6 +70,15 @@ def shots(chrome: str, piece: dict, scope: mo.ProcessScope, force_virtual: bool 
     return out, states, extra
 
 
+def repeat(a: dict, b: dict, what: str) -> tuple[bool, str]:
+    """Two fresh browsers agree at every time: identical, or near-identical (rasterisation noise,
+    which the capture contract counts as a pass). The detail names each time's verdict."""
+    verdicts = {t: mc.same(a[t], b[t]) for t in TIMES}
+    diffs = {t: mc.pixel_diff(a[t], b[t]) for t in TIMES if verdicts[t] != "identical"}
+    ok = all(v != "different" for v in verdicts.values())
+    return ok, f"{what}: the same pixels in two fresh browsers ({verdicts}; differences {diffs})"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--chrome")
@@ -81,8 +90,7 @@ def main() -> int:
         s1, _, x1 = shots(chrome, p, scope)
         s2, _, _ = shots(chrome, p, scope)
         check(x1["mode"] == "virtual-clock", "without a hook the capture steps the virtual clock")
-        same = [t for t in TIMES if mc.same(s1[t], s2[t]) == "identical"]
-        check(len(same) == len(TIMES), f"virtual clock: identical pixels in two fresh browsers at {len(same)}/{len(TIMES)} times")
+        check(*repeat(s1, s2, "virtual clock"))
         check(len({mc.same(s1[t], s1[TIMES[0]]) for t in TIMES[1:]} - {"identical"}) > 0, "the captures differ over time (the clock moves)")
         f = x1["frozen"]
         check(f[0] == f[2] and f[1] == f[3], "performance.now and Date stand still between steps")
@@ -91,7 +99,7 @@ def main() -> int:
         h1, st1, x2 = shots(chrome, p, scope)
         h2, _, _ = shots(chrome, p, scope)
         check(x2["mode"] == "app-seek", "with window.__motion the capture uses the app's seek")
-        check(all(mc.same(h1[t], h2[t]) == "identical" for t in TIMES), "app seek: identical pixels in two fresh browsers")
+        check(*repeat(h1, h2, "app seek"))
         check(all((st1[t] or {}).get("sceneId") == mo.expected_scene(p, t) for t in TIMES),
               "state().sceneId matches the spec's scene at every time")
         # forced virtual clock on a page with a hook
@@ -101,7 +109,8 @@ def main() -> int:
         check(x3["mode"] == "virtual-clock", "seekMode virtual-clock ignores the hook")
         # reduced motion
         r, _, _ = shots(chrome, spec("?no-seek"), scope, reduced=True)
-        check(all(mc.same(r[t], r[0.0]) == "identical" for t in TIMES), "reduced motion: the page stands still")
+        rv = {t: mc.same(r[t], r[0.0]) for t in TIMES}
+        check(all(v != "different" for v in rv.values()), f"reduced motion: the page stands still ({rv})")
         # blocked network
         _, _, x4 = shots(chrome, spec("?no-seek&remote"), scope)
         check(any("example.com" in u for u in x4["blocked"]), "a remote request is blocked and reported")

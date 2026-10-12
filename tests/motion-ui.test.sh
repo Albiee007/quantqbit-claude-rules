@@ -56,7 +56,7 @@ lines_ok() {
   local f="$1" line
   while IFS= read -r line; do
     case "$line" in ok*) ok "${line#ok    }" ;; FAIL*) fail=$((fail + 1)); printf '  [FAIL] %s\n' "${line#FAIL  }"
-      [[ "${GITHUB_ACTIONS:-}" == "true" ]] && printf '::error title=motion-ui: %s::\n' "${line#FAIL  }" ;; esac
+      [[ "${GITHUB_ACTIONS:-}" == "true" ]] && printf '::error title=motion-ui check failed::%s\n' "${line#FAIL  }" ;; esac  # a message, not only a title: GitHub drops empty ones
   done < "$f"
 }
 finish() { echo "motion-ui tests: $pass passed, $fail failed"; [[ $fail -eq 0 ]] || exit 1; }
