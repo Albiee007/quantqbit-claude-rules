@@ -44,6 +44,11 @@ How a video piece becomes frames. `render_video.py` and the libraries it uses (`
 - Where two runs meet, both browsers draw the meeting frame and the render compares them (`workers:<format>`, PASS / FAIL). A difference means the page depends on something other than the frame number.
 - `auto` (the default) uses one browser per 90 frames, at most half the CPUs and 4.
 
+## Recordings
+
+- A `recording` scene's video is turned into numbered JPEG frames with ffmpeg before the render, at the piece's fps: frame `n` of the scene is file `n` (a phone's variable-rate recording becomes one picture per video frame). Past the recording's end the last frame holds.
+- The page shows them with `img[data-seq-src]`. On each seek the runtime sets the frame's file and waits for it to decode before the frame is drawn, so the browser never plays video and seeking stays history-independent.
+
 ## Loops and posters
 
 - A loop (GIF or animated WebP) is made from the format's master video: every `fps / loop.fps`-th frame, scaled to `loop.width`. It has the master's frames, never new ones, and loops forever.

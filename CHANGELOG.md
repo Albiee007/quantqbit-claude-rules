@@ -8,6 +8,42 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.11.0] - 2026-10-12
+
+Branded video gets sound, screen recordings and transparency: App Store previews built from the app's own recordings, explainers with recorded voice-over and licensed music mixed to a loudness target, captions timed to the takes, and overlays with an alpha channel for editors.
+
+### Added
+- **`recording` scenes:** a screen recording (`media.video`, from `media.from` seconds) shown frame by frame.
+  - ffmpeg turns the recording into numbered frames at the piece's fps before the render. The runtime shows file `n - start` and waits for it to decode before the frame is drawn, so seeking stays history-independent. Past the recording's end, the last frame holds (a warning).
+  - The recording's bytes are part of the storyboard approval, like a still scene's picture. The concept opts in with `recording` in `sceneTemplates`.
+- **App Store previews:** formats `app-preview-iphone` (886×1920) and `app-preview-ipad` (1200×1600), and the `app-preview` profile.
+  - Checks: H.264 High at 30 fps, 15–30 s, at most 500 MB, one stereo AAC track (silent when the piece has none).
+  - Scenes that are not recordings become a `suitability:app-store:<format>` review item with the share of the preview that is recorded.
+  - Other device sizes: `customFormats` entries `like` an app-preview format. The Play promo is a `wide-16x9` piece uploaded to YouTube.
+- **Audio:** an `audio` section mixes recorded voice-over takes (`brand/video/<id>/media/vo/<scene>.wav`, one per `vo` line) and licensed music (`license` required, `gainDb`, ducked under the voice).
+  - Two-pass EBU R128 normalisation to `web` −16 LUFS or `broadcast` −23 LUFS, true peak −2 dBTP (headroom for the AAC encode); the render measures the result (`audio:<format>`, PASS within 1 LU and true peak at most −1 dBTP).
+  - AAC stereo at 48 kHz, muxed into every format.
+  - Drafts (`preview`) mix the takes that exist.
+- **The mix gate:** `direction.py approve --gate mix --piece <id>`, after the storyboard. It binds to the audio settings and the bytes of every take and music file, and to the piece's script and where each line starts (scene timing and transitions). A new take or music file makes only the mix stale; a new voice-over line makes the storyboard and the mix stale. `render` refuses without it, and `direction.py status` shows `Gate 3 mix <id>`.
+- **Segment-aligned captions:** with takes, each line spans its take's measured speech (ffmpeg silence detection skips the room tone). The take is placed where its line starts. Sidecars are `voice/captions.srt|vtt` and say `segment-aligned`; without takes they stay `captions.planned.*`.
+- **Transparent overlays:** `"transparent": true` renders without canvas, scene backgrounds or motif.
+  - `"alpha": "webm"` (VP9 `yuva420p`, the default) or `"prores"` (ProRes 4444 `yuva444p10le`).
+  - Checks: the codec, the alpha flag or pixel format, and transparent pixels in a decoded frame.
+  - Contrast is a review item, because the footage underneath is unknown. Overlays have no loops and no sound.
+- Library:
+  - `harnesslib.ffmpeg`: `recording_frames`, `speech_span`, `mix`, `mux`, `loudness`, `alpha_range`, and the `app-preview`, `alpha-webm` and `alpha-prores` profiles; `check_profile` checks sound tracks.
+  - `harnesslib.video`: `audio_files`, `audio_hash`, `gate_mix`, `approve_mix`, `output_profile`, `caption_timing`.
+
+### Changed
+- `cues()` takes the measured speech per scene; `cues.json` records `timing` per line.
+- A video meant to be silent fails `technical` if it carries a sound track.
+- Transparent captures use an emulated transparent background only: Chrome's `--default-background-color` flag stalled page loads under network interception.
+
+### Upgrade notes
+- Pieces without the new fields render and hash as before: 9:16 output is byte-identical to 1.10.0, and storyboard approvals stay valid.
+- To use `recording` scenes, the creative-director adds `recording` to the video concept's `sceneTemplates`, and the owner re-approves the concept.
+- A piece that gains an `audio` section needs a mix approval before its next production render.
+
 ## [1.10.0] - 2026-10-12
 
 Hero, cinematic and reference-driven UI motion as a first-class media family. A project could already approve a look and render videos, but recreating a hero animation from a reference recording was prose and guesswork: nothing recorded what was analysed, what the owner approved, or whether the built motion matched. The `motion-ui` skill and the `motion-designer` agent turn a reference into an owner-approved spec, build it in the project's own stack and tokens, and verify it with deterministic captures, real-time behaviour checks and a recording.

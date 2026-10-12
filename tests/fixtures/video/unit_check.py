@@ -280,6 +280,77 @@ def loop_checks() -> None:
             f.unlink(missing_ok=True)
 
 
+def m3_checks() -> None:
+    """App previews, recordings, transparency and recorded voice-over (1.11)."""
+    ad = dict(AD, sceneTemplates=AD["sceneTemplates"] + ["recording"])
+    rec = {"id": "r", "template": "recording", "duration": 13, "media": {"video": "brand/v/flow.mp4"}, "copy": {"head": "Plan"}}
+    end = {"id": "e", "template": "end-card", "duration": 3, "copy": {"head": "Try it"}, "transitionIn": {"type": "fade"}}
+    ap = dict(piece([rec, end]), kind="app-preview", formats=["app-preview-iphone"])
+    pl = vd.plan(None, "t", ap, ad, "app-preview-iphone", True)
+    check(not pl.errors and pl.scenes[0].media["video"] == "brand/v/flow.mp4",
+          f"an app preview of a recording and an end card plans ({pl.errors})")
+    check(any(r["id"] == "suitability:app-store:app-preview-iphone" and "e" in r["note"] for r in pl.reviews),
+          "graphics scenes in an App Store preview are a suitability review item, not a failure")
+    errs = vd.plan(None, "t", dict(ap, fps=25), ad, "app-preview-iphone", True).errors
+    check(any("30 fps" in e for e in errs), "an App Store preview must run at 30 fps")
+    short = dict(ap, scenes=[dict(rec, duration=8)])
+    check(any("takes 15-30 s" in e for e in vd.plan(None, "t", short, ad, "app-preview-iphone", True).errors),
+          "an App Store preview shorter than 15 s fails")
+    norec = [{"id": "r", "template": "recording", "duration": 4}]
+    check(any("needs media.video" in e for e in vd.plan(None, "t", piece(norec), ad, "social-9x16", False).errors),
+          "a recording scene needs a recording")
+    check(vd.output_profile(dict(piece([]), transparent=True), vd.FORMATS["wide-16x9"]) == "alpha-webm" and
+          vd.output_profile(dict(piece([]), transparent=True, alpha="prores"), vd.FORMATS["wide-16x9"]) == "alpha-prores" and
+          vd.output_profile(piece([]), vd.FORMATS["app-preview-ipad"]) == "app-preview",
+          "transparent pieces encode with an alpha profile; app previews with the app-preview profile")
+    tr = dict(piece([{"id": "a", "template": "title", "duration": 3, "copy": {"head": "Hi"}}]), transparent=True,
+              loop={"outputs": ["gif"]}, audio={"voice": True})
+    errs = vd.plan(None, "t", tr, AD, "social-9x16", False).errors
+    check(any("can't keep the alpha" in e for e in errs) and any("carries no sound" in e for e in errs),
+          "a transparent piece has no GIF loop and no sound")
+    one = [{"id": "a", "template": "title", "duration": 4, "copy": {"head": "Hi"}, "vo": "One two three four five six."},
+           {"id": "b", "template": "title", "duration": 3, "copy": {"head": "Yo"}, "transitionIn": {"type": "cut"}, "vo": "Bye now."}]
+    p_ = piece(one)
+    pl = vd.plan(None, "t", p_, AD, "social-9x16", False)
+    cl, _, _ = vd.cues(pl, p_, AD, {"a": 1.25, "b": 0.8})
+    check(cl[0]["end"] == round(cl[0]["start"] + 1.25, 3) and vd.caption_timing(cl) == "segment-aligned",
+          "a recorded take sets its line's length (segment-aligned captions)")
+    cl2, _, _ = vd.cues(pl, p_, AD, {"a": 1.25})
+    check(vd.caption_timing(cl2) == "mixed" and "mixed timing" in vd.vtt(cl2), "takes for some lines only: mixed, and the VTT says so")
+    long_, errs, _ = vd.cues(pl, p_, AD, {"b": 9.0})
+    check(any("recorded voice-over ends" in e and "trim the take" in e for e in errs), "a take running past the video fails")
+    check(ffm.PROFILES["app-preview"]["audio"] == "required" and ffm.PROFILES["alpha-webm"]["suffix"] == ".webm",
+          "the app-preview profile requires a sound track; alpha WebM is a .webm")
+    info = {"streams": [{"codec_type": "video", "codec_name": "h264", "profile": "High", "pix_fmt": "yuv420p",
+                         "color_space": "bt709", "color_primaries": "bt709", "color_transfer": "bt709",
+                         "width": 886, "height": 1920, "r_frame_rate": "30/1", "nb_read_frames": "480"}]}
+    tmp = Path(os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp") / f"ap-{os.getpid()}.mp4"
+    tmp.write_bytes(b"\0\0\0\x20ftypisom" + b"moov" + b"\0" * 32 + b"mdat")
+    try:
+        probs = ffm.check_profile(info, tmp, "app-preview", 480, (886, 1920), 30)
+        check(probs == ["0 audio streams, want 1"], f"an app preview without a sound track fails ({probs})")
+        info["streams"].append({"codec_type": "audio", "codec_name": "aac", "channels": 2, "sample_rate": "48000"})
+        check(ffm.check_profile(info, tmp, "app-preview", 480, (886, 1920), 30) == [], "with a stereo AAC track it passes")
+        check(any("lasts 32.00 s" in x for x in ffm.check_profile(info, tmp, "app-preview", 960, (886, 1920), 30)),
+              "an app preview over 30 s fails")
+        check(any("silent video" in x for x in ffm.check_profile(info, tmp, "h264-web", 480, (886, 1920), 30)),
+              "a sound track in a video meant to be silent fails")
+        alpha = {"streams": [{"codec_type": "video", "codec_name": "vp9", "pix_fmt": "yuv420p", "width": 960, "height": 540,
+                              "r_frame_rate": "30/1", "nb_read_frames": "90", "tags": {"ALPHA_MODE": "1"}}]}
+        check(ffm.check_profile(alpha, tmp, "alpha-webm", 90, (960, 540), 30) == [], "a VP9 track tagged alpha_mode=1 passes")
+        alpha["streams"][0]["tags"] = {}
+        check(any("no alpha" in x for x in ffm.check_profile(alpha, tmp, "alpha-webm", 90, (960, 540), 30)),
+              "a VP9 track without alpha fails")
+    finally:
+        tmp.unlink(missing_ok=True)
+    g, label = ffm._mix_graph([(0, 0.65), (1, 12.4)], (2, -18, True), 15.6)
+    check("adelay=650|650" in g and "adelay=12400|12400" in g and "sidechaincompress" in g and "atrim=0:15.600" in g
+          and label == "[mixed]", "the mix places each take at its line's start and ducks the music under the voice")
+    check("[vor]apad,atrim=0:15.600[vo]" in g, "the voice bus lasts the whole video (the ducked music runs to the end)")
+    g, _ = ffm._mix_graph([(0, -0.35)], None, 5.0)
+    check("atrim=start=0.350,asetpts=PTS-STARTPTS,adelay=0|0" in g, "a take with more room tone than lead time is trimmed, not late")
+
+
 def caption_checks() -> None:
     sc = [{"id": "a", "template": "title", "duration": 4, "copy": {"head": "Hi"}, "vo": "One two three four five six seven eight."},
           {"id": "b", "template": "title", "duration": 2, "copy": {"head": "Yo"}, "transitionIn": {"type": "cut"},
@@ -419,6 +490,7 @@ def main() -> int:
     format_checks()
     custom_format_checks()
     loop_checks()
+    m3_checks()
     caption_checks()
     signal_checks()
     token_checks()

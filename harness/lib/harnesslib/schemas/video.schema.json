@@ -24,9 +24,11 @@
     "kind": {
       "enum": [
         "social",
-        "loop"
+        "loop",
+        "explainer",
+        "app-preview"
       ],
-      "description": "social: a promo clip; loop: a short piece meant to repeat (GIF/WebP loop by default, loop-seam signal)"
+      "description": "social: a promo clip; loop: made to repeat (GIF/WebP by default, loop-seam signal); explainer: a longer piece, usually with voice and music; app-preview: an App Store preview, mostly screen recordings"
     },
     "title": {
       "type": "string",
@@ -39,7 +41,7 @@
       "items": {
         "$ref": "#/$defs/formatId"
       },
-      "description": "built-in formats (social-9x16, social-4x5, social-1x1, wide-16x9, og-card) or ids declared in customFormats; every format shares one timeline; scenes may change layout and copy per format with byFormat"
+      "description": "built-in formats (social-9x16, social-4x5, social-1x1, wide-16x9, og-card, app-preview-iphone, app-preview-ipad) or ids declared in customFormats; every format shares one timeline; scenes may change layout and copy per format with byFormat"
     },
     "customFormats": {
       "type": "object",
@@ -178,6 +180,65 @@
         }
       }
     },
+    "transparent": {
+      "type": "boolean",
+      "description": "an overlay with an alpha channel (lower thirds, stingers): no canvas, scene backgrounds or motif; encoded with the alpha profile instead of H.264"
+    },
+    "alpha": {
+      "enum": [
+        "webm",
+        "prores"
+      ],
+      "description": "transparent pieces: VP9 with alpha in WebM (default) or ProRes 4444 in QuickTime"
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "sound mixed into the video (never part of the storyboard approval; the owner approves the mix separately)",
+      "properties": {
+        "voice": {
+          "type": "boolean",
+          "description": "mix the recorded voice-over: one take per scene with a vo line, brand/video/<id>/media/vo/<scene>.wav (or .flac, .m4a, .mp3)"
+        },
+        "music": {
+          "type": "object",
+          "required": [
+            "file",
+            "license"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "file": {
+              "type": "string",
+              "format": "relpath"
+            },
+            "license": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 300,
+              "description": "the licence and where it is recorded (track, library, licence id)"
+            },
+            "gainDb": {
+              "type": "number",
+              "minimum": -40,
+              "maximum": 0,
+              "description": "music level before the mix is normalised; default -18"
+            },
+            "duck": {
+              "type": "boolean",
+              "description": "lower the music while someone speaks (default true)"
+            }
+          }
+        },
+        "loudness": {
+          "enum": [
+            "web",
+            "broadcast"
+          ],
+          "description": "web: -16 LUFS (default); broadcast: -23 LUFS (EBU R128); true peak -2 dBTP"
+        }
+      }
+    },
     "voice": {
       "type": "object",
       "additionalProperties": false,
@@ -294,7 +355,8 @@
             "feature",
             "stat",
             "end-card",
-            "still"
+            "still",
+            "recording"
           ]
         },
         "duration": {
@@ -350,16 +412,25 @@
         },
         "media": {
           "type": "object",
-          "required": [
-            "image"
-          ],
           "additionalProperties": false,
-          "description": "the picture a still scene shows (its bytes are part of the storyboard approval)",
+          "description": "still scenes: the picture (image); recording scenes: the screen recording (video). The bytes are part of the storyboard approval",
           "properties": {
             "image": {
               "type": "string",
               "format": "relpath",
               "pattern": "\\.([Pp][Nn][Gg]|[Jj][Pp][Ee]?[Gg]|[Ww][Ee][Bb][Pp]|[Ss][Vv][Gg])$"
+            },
+            "video": {
+              "type": "string",
+              "format": "relpath",
+              "pattern": "\\.([Mm][Pp]4|[Mm][Oo][Vv]|[Mm]4[Vv]|[Ww][Ee][Bb][Mm])$",
+              "description": "a screen recording captured from the app (mobile-screen-capture), shown frame by frame"
+            },
+            "from": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3600,
+              "description": "recording scenes: seconds into the recording where the scene starts (default 0)"
             },
             "fit": {
               "enum": [

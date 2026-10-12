@@ -9,8 +9,10 @@
 | `social-1x1` | 1080 × 1080 | 3–60 s | top 80 (100), right 80 (100), bottom 120 (160), left 80 (100) px | square feed posts |
 | `wide-16x9` | 1920 × 1080 | 3–600 s | top 96 (108), right 160 (192), bottom 150 (200), left 160 (192) px | YouTube, the web, presentations |
 | `og-card` | 1200 × 630 | 1–15 s | top 48 (64), right 64 (80), bottom 48 (64), left 64 (80) px | animated link cards, email and chat loops |
+| `app-preview-iphone` | 886 × 1920 | 15–30 s | top 120 (160), right 60 (80), bottom 160 (220), left 60 (80) px | App Store preview, iPhone 6.9" and 6.5" |
+| `app-preview-ipad` | 1200 × 1600 | 15–30 s | top 100 (130), right 80 (100), bottom 140 (180), left 80 (100) px | App Store preview, iPad 13" |
 
-- Every format is encoded with the `h264-web` profile. A piece lists its formats; they all share one timeline.
+- The social, wide and link-card formats are encoded with `h264-web`; the App Store preview formats with `app-preview`; a transparent piece with an alpha profile. A piece lists its formats; they all share one timeline.
 - **Safe insets** keep text clear of the platforms' own buttons, captions and progress bars. They are heuristics measured from the platforms' 2026 UI. Platforms change their UI, so the check is a signal.
 - The concept chooses `safeAreas: standard | strict`.
 - The templates place text inside the insets. Text found outside them is a REVIEW REQUIRED item (kind `suitability`), not a failure: the video is still technically valid.
@@ -48,6 +50,20 @@ When a platform wants a size the table lacks, declare it in the piece. Never edi
 - `poster: { "scene": "<id>" }` writes a PNG still per format: that scene's still frame, for players that show a picture before playing.
 - **GIF** uses one 256-colour palette for the file, so gradients band. Prefer WebP where the platform takes it, and keep GIFs short and narrow.
 
+## App Store previews and the Play promo
+
+- **App Store previews** follow App Store Connect's rules (2026): H.264, 30 fps, 15 to 30 seconds, at most 500 MB, a stereo AAC track. The `app-preview` profile checks each of them; a piece without audio gets a silent track.
+- **Footage:** previews should show the app itself. Build them from `recording` scenes (screen recordings made with `mobile-screen-capture`). Text overlays and a voice-over are allowed. Any scene that is not a recording becomes a `suitability:app-store:<format>` review item with the share of the preview that is recorded; the owner checks it against the App Store Review Guidelines (2.3.4).
+- **Other device sizes:** declare them in `customFormats` with `"like": "app-preview-iphone"` (or `-ipad`) and the size App Store Connect asks for.
+- **Google Play promo video:** Play takes a YouTube link, not a file. Render `wide-16x9` and upload it to YouTube.
+
+## Transparent overlays
+
+- `"transparent": true` renders without the canvas, scene backgrounds or motif: lower thirds, name titles, stingers for an editor.
+- `"alpha": "webm"` (default) encodes VP9 with alpha (`yuva420p`) in WebM; `"prores"` encodes ProRes 4444 (`yuva444p10le`) in QuickTime for editing software.
+- Checks: the codec, the alpha flag or pixel format, and a decoded frame that actually has transparent pixels.
+- Contrast can't be measured without the footage underneath, so it is a review item. Overlays have no loops and no sound.
+
 ## Output profiles
 
 A profile says how to encode **and** what the file must look like, so the checks match what was asked for.
@@ -56,6 +72,9 @@ A profile says how to encode **and** what the file must look like, so the checks
 |---|---|---|
 | `h264-web` | libx264 High, CRF 18, preset medium, yuv420p, explicit BT.709 matrix and tags, `+faststart` | codec h264, profile High, yuv420p, BT.709 colour space, primaries and transfer, moov before mdat, exact size, fps and frame count |
 | `h264-draft` | the same at CRF 26, veryfast, half size (padded to even sides), 15 fps | previews only |
+| `app-preview` | `h264-web` capped at 12 Mb/s, with an AAC stereo track (256 kb/s) | as `h264-web`, plus 30 fps, 15–30 s, at most 500 MB, one stereo AAC track at 44.1 or 48 kHz |
+| `alpha-webm` | libvpx-vp9, `yuva420p`, CRF 24, frames in as PNG | codec vp9, `alpha_mode=1`, transparent pixels present, size, fps, frame count |
+| `alpha-prores` | prores_ks 4444, `yuva444p10le`, frames in as PNG | codec prores, a `yuva444` pixel format, transparent pixels present, size, fps, frame count |
 | `gif` | ffmpeg palettegen and paletteuse (sierra dither), loops forever | GIF, size, loop forever, play length, at most the master's frames |
 | `webp-anim` | lossy WebP, quality 80, loops forever (Pillow) | WebP, size, loop forever, play length, at most the master's frames (identical frames may be merged) |
 | `poster` | the browser's PNG of the scene's still frame | PNG, the format's size |
@@ -67,6 +86,6 @@ A profile says how to encode **and** what the file must look like, so the checks
 
 They are reported separately:
 - **technical** is PASS or FAIL against the profile;
-- **suitability** for a platform is a REVIEW REQUIRED signal (safe areas, file size, picture provenance).
+- **suitability** for a platform is a REVIEW REQUIRED signal (safe areas, file size, picture provenance, App Store footage, overlay contrast).
 
 An owner can accept a suitability item for a use the heuristic doesn't know about.

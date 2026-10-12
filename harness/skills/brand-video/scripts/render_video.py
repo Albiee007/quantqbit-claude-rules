@@ -161,6 +161,7 @@ class Job:
             self.pid = a.id
             self.rel, self.piece = vd.load_piece(self.p, a.id)
             self.production = production
+            self.mixgate = vd.MixGate(False, True, [], [])  # production checks it below
             if production:
                 self.gate = vd.gate_piece(self.p, a.id)
             else:
@@ -177,6 +178,11 @@ class Job:
                 if self.piece.get("concept") and self.piece["concept"] != self.concept_rel:
                     print(f"note: {self.rel} names {self.piece['concept']} for drafts; production uses the approved "
                           f"{self.concept_rel}")
+                self.mixgate = vd.gate_mix(self.p, a.id, self.gate)
+                if not self.mixgate.ok:
+                    raise dl.GateError(f"video production of {self.rel} needs owner approval:\n  - " +
+                                       "\n  - ".join(self.mixgate.problems) +
+                                       "\n  Listen to a draft with: render_video.py preview " + a.id)
                 concept = dl.load_concept(self.p, self.concept_rel)  # type: ignore[arg-type]
                 self.ad = dl.resolve_family(self.p, "video", concept)
             else:
@@ -190,6 +196,8 @@ class Job:
                 self.formats = [only]
             self.specs = {f: vd.format_spec(self.piece, f) for f in self.formats}  # resolved once per job
             self.media, self.media_errors = vd.media_files(self.root, self.piece)
+            self.audio, self.audio_errors, self.audio_warnings = vd.audio_files(self.root, a.id, self.piece, need_all=production)
+            self.profiles = {f: vd.output_profile(self.piece, self.specs[f]) for f in self.formats}
             mode = production if strict is None else strict
             self.plans = {f: vd.plan(self.p, a.id, self.piece, self.ad, f, mode) for f in self.formats}
             self.fmt = self.formats[0]
@@ -201,7 +209,8 @@ class Job:
 
     def merged(self, what: str) -> list:
         """errors, warnings or reviews of every format, each once (reviews by id)."""
-        out: list = list(self.media_errors) if what == "errors" else []
+        out: list = (list(self.media_errors) + list(self.audio_errors) if what == "errors" else
+                     list(self.audio_warnings) if what == "warnings" else [])
         seen: set = set(out)
         for pl in self.plans.values():
             for x in getattr(pl, what):
@@ -210,6 +219,13 @@ class Job:
                     seen.add(key)
                     out.append(x)
         return out
+
+    def has_recording(self) -> bool:
+        return any(s.template == "recording" for s in self.plan.scenes)
+
+    def needs_track(self, fmt: str) -> bool:
+        """The format's file carries a sound track: the piece's mix, or silence for an app preview."""
+        return bool(self.piece.get("audio")) or ffm.PROFILES[self.profiles[fmt]].get("audio") == "required"
 
     def exceptions(self) -> list[str]:
         return sorted({r for pl in self.plans.values() for r in pl.exceptions})
@@ -230,6 +246,13 @@ def report_plan(job: Job) -> int:
     lp = vd.loop_spec(job.piece)
     if lp and lp["outputs"]:
         print(f"  loops: {', '.join(lp['outputs'])} at {lp['fps']} fps, up to {lp['width']} px wide")
+    if job.piece.get("audio"):
+        au = job.audio
+        print(f"  audio: {len(au['voice'])} voice take(s)" + (f", music {au['music']}" if au["music"] else "") +
+              f", {job.piece['audio'].get('loudness', 'web')} loudness")
+    for f, prof in job.profiles.items():
+        if prof != "h264-web":
+            print(f"  {f}: {ffm.PROFILES[prof]['label']}")
     for w in job.merged("warnings"):
         print(f"WARN  {w}")
     errors = job.merged("errors")
@@ -240,14 +263,75 @@ def report_plan(job: Job) -> int:
     return len(errors)
 
 
+# ------------------------------------------------------------------ audio
+
+class Audio:
+    """The piece's sound for one run: takes and music copied into work/ (and checked against the
+    hashes the mix approval used), where the speech sits in each take, the segment-aligned cues, and
+    the normalised mix. A piece without an "audio" section has no Audio."""
+
+    def __init__(self, job: Job, ff: str, work: Path) -> None:
+        self.job, self.ff = job, ff
+        a = job.piece.get("audio") or {}
+        self.lufs = vd.LUFS[a.get("loudness", "web")]
+        self.true_peak = -2.0  # the AAC encode can lift peaks; the check allows -1.0 dBTP
+        work.mkdir(parents=True, exist_ok=True)
+        self.copies: dict[str, Path] = {}
+        for i, (rel, sha) in enumerate(sorted(job.audio["sha"].items())):
+            target = work / f"in-{i}{Path(rel).suffix.lower()}"
+            shutil.copyfile(job.root / rel, target)
+            if sha256_file(target) != sha:
+                raise InputError(f"{rel} changed while the render was starting; run it again")
+            self.copies[rel] = target
+        self.leads: dict[str, float] = {}
+        self.spans: dict[str, float] = {}
+        for sid, rel in job.audio["voice"].items():
+            lead, end, _ = ffm.speech_span(ff, self.copies[rel])
+            self.leads[sid], self.spans[sid] = lead, round(end - lead, 3)
+        self.cues, self.errors, self.reviews = vd.cues(job.plan, job.piece, job.ad, self.spans)
+        self.wav = work / "mix.wav"
+        self.measured: dict = {}
+
+    def mix(self) -> Path:
+        starts = {c["scene"]: c["start"] for c in self.cues}
+        voices = [(self.copies[rel], starts[sid] - self.leads[sid]) for sid, rel in self.job.audio["voice"].items()
+                  if sid in starts]
+        mu = (self.job.piece.get("audio") or {}).get("music")
+        music = (self.copies[mu["file"]], mu.get("gainDb", -18), mu.get("duck", True)) if mu and self.job.audio["music"] else None
+        if not voices and not music:
+            raise InputError(f"{self.job.rel}: the audio section names no take and no music to mix")
+        self.measured = ffm.mix(self.ff, self.wav, self.job.plan.seconds, voices, music, self.lufs, self.true_peak)
+        return self.wav
+
+    def check(self, path: Path) -> dict:
+        i, tp = ffm.loudness(self.ff, path)
+        ok = abs(i - self.lufs) <= 1.0 and tp <= -1.0
+        return {"result": "PASS" if ok else "FAIL",
+                "detail": f"{i:.1f} LUFS integrated (target {self.lufs:g}), true peak {tp:.1f} dBTP (limit -1.0); "
+                          f"{len(self.spans)} voice take(s), captions {vd.caption_timing(self.cues) if self.cues else 'none'}"}
+
+
+def add_track(job: Job, ff: str, fmt: str, mp4: Path, audio: Audio | None, duration: float) -> None:
+    """The format's master gains its sound track in place: the mix, or silence (app previews)."""
+    tmp = mp4.with_name(mp4.stem + ".track" + mp4.suffix)
+    ffm.mux(ff, mp4, audio.wav if audio else None, tmp, duration,
+            bitrate="256k" if job.profiles[fmt] == "app-preview" else "192k")
+    os.replace(tmp, mp4)
+
+
 # ------------------------------------------------------------------ rendering
 
 def runtime_js() -> str:
     return (vd.MEDIA / "timeline.js").read_text(encoding="utf-8")
 
 
-def open_page(b: cdp.Browser, page_path: Path, size: tuple[int, int]) -> tuple[cdp.Page, dict]:
+def open_page(b: cdp.Browser, page_path: Path, size: tuple[int, int], clear: bool = False) -> tuple[cdp.Page, dict]:
+    """clear: a transparent piece (the page has no backdrop, so screenshots keep the alpha). The
+    emulated transparent background is enough; Chrome's --default-background-color flag stalls
+    the page load when requests are intercepted, so it is not used."""
     page = b.new_page(size)
+    if clear:
+        page.transparent()
     page.block_network()
     page.add_init_script(runtime_js())
     page.navigate(page_path.resolve().as_uri())
@@ -269,6 +353,11 @@ def page_problems(info: dict, pl: vd.Plan) -> list[str]:
         out.append(f"animations run to {info['animationEndMs']:.0f} ms, past the end of the video "
                    f"({pl.frames * 1000 / pl.fps:.0f} ms)")
     return out
+
+
+def grab(page: cdp.Page, size: tuple[int, int], scale: float, alpha: bool) -> bytes:
+    """One frame for the encoder: JPEG (opaque profiles) or PNG with its alpha (transparent ones)."""
+    return page.screenshot("png", None, size, scale) if alpha else page.screenshot("jpeg", QUALITY, size, scale)
 
 
 def seek(page: cdp.Page, n: int, fps: int) -> None:
@@ -359,9 +448,11 @@ class Worker(threading.Thread):
     browsers must draw the frame where they meet identically (the seek contract across workers)."""
 
     def __init__(self, chrome: str, page_path: Path, size: tuple[int, int], fps: int, frames: list[int],
-                 nxt: int | None, spool: Path, scale: float, sample: set[int], stop: threading.Event) -> None:
+                 nxt: int | None, spool: Path, scale: float, sample: set[int], stop: threading.Event,
+                 alpha: bool = False) -> None:
         super().__init__()
         self.args = (chrome, page_path, size, fps, frames, nxt, spool, scale, sample)
+        self.alpha = alpha
         self.stop = stop
         self.error: BaseException | None = None
         self.first: str | None = None
@@ -372,12 +463,12 @@ class Worker(threading.Thread):
         chrome, page_path, size, fps, frames, nxt, spool, scale, sample = self.args
         try:
             with cdp.Browser.launch(chrome, size) as b, open(spool, "wb") as out:
-                page, _ = open_page(b, page_path, size)
+                page, _ = open_page(b, page_path, size, self.alpha)
                 for i, n in enumerate(frames):
                     if self.stop.is_set():
                         return
                     seek(page, n, fps)
-                    out.write(page.screenshot("jpeg", QUALITY, size, scale))
+                    out.write(grab(page, size, scale, self.alpha))
                     if i == 0:
                         self.first = png_hash(page)
                     if n in sample:
@@ -405,6 +496,7 @@ def render_frames(job: Job, fmt: str, chrome: str, build: vd.Build, dest: Path |
     hashes: dict[int, str] = {}
     written = 0
     encode = dest is not None and ff is not None
+    alpha = bool(ffm.PROFILES[profile].get("alpha"))
     runs = _split(list(range(0, pl.frames, step)), workers if encode else 1)
     stop = threading.Event()
     helpers: list[Worker] = []
@@ -413,11 +505,11 @@ def render_frames(job: Job, fmt: str, chrome: str, build: vd.Build, dest: Path |
         for k in range(1, len(runs)):
             nxt = runs[k + 1][0] if k + 1 < len(runs) else None
             helpers.append(Worker(chrome, build.page, size, pl.fps, runs[k], nxt, tmp / f"{k}.bin", scale,  # type: ignore[operator]
-                                  set(sample), stop))
+                                  set(sample), stop, alpha))
         for t in helpers:
             t.start()
         with cdp.Browser.launch(chrome, size) as b:
-            page, info = open_page(b, build.page, size)
+            page, info = open_page(b, build.page, size, alpha)
             probs = page_problems(info, pl)
             if probs:
                 raise InputError("the built composition does not match its plan: " + "; ".join(probs))
@@ -427,10 +519,10 @@ def render_frames(job: Job, fmt: str, chrome: str, build: vd.Build, dest: Path |
                 seek(page, sc0.probe, pl.fps)  # reached again after the encode: history must not matter
                 first = png_hash(page)
                 out_fps = f"{pl.fps}/{step}" if step > 1 else pl.fps  # exact rate, so drafts keep the planned timing
-                with ffm.Encoder(ff, profile, dest, out_fps) as enc:  # type: ignore[arg-type]
+                with ffm.Encoder(ff, profile, dest, out_fps, codec="png" if alpha else "mjpeg") as enc:  # type: ignore[arg-type]
                     for n in runs[0]:
                         seek(page, n, pl.fps)
-                        enc.write(page.screenshot("jpeg", QUALITY, size, scale))
+                        enc.write(grab(page, size, scale, alpha))
                         written += 1
                         if n in sample:
                             hashes[n] = png_hash(page)
@@ -468,7 +560,7 @@ def render_frames(job: Job, fmt: str, chrome: str, build: vd.Build, dest: Path |
             shutil.rmtree(tmp, ignore_errors=True)
     if sample:
         with cdp.Browser.launch(chrome, size) as b:
-            page, _ = open_page(b, build.page, size)
+            page, _ = open_page(b, build.page, size, alpha)
             again = {}
             for n in reversed(sample):  # a fresh browser, reached in the opposite order
                 seek(page, n, pl.fps)
@@ -534,13 +626,18 @@ def lint(a: argparse.Namespace) -> int:
     print("gate: " + ("storyboard approved" if g.ok else "NOT MET: " + "; ".join(g.problems)))
     if not a.static and not errors:
         chrome = browser.find_chrome(a.chrome)
+        ff = ffm.find_ffmpeg(a.ffmpeg)[0] if job.has_recording() else None
         _, framecheck = need_pillow()
         for fmt in job.formats:
             pl, size = job.plans[fmt], job.specs[fmt]["size"]
+            clear = bool(job.piece.get("transparent"))
             with tempfile.TemporaryDirectory() as tmp:
-                build = vd.compose(job.p, job.pid, job.piece, pl, job.ad, fmt, Path(tmp) / "build", draft=True, media=job.media)
+                build = vd.compose(job.p, job.pid, job.piece, pl, job.ad, fmt, Path(tmp) / "build", draft=True,
+                                   media=job.media, ff=ff)
+                for note in build.notes:
+                    print(f"WARN  {note}")
                 with cdp.Browser.launch(chrome, size) as b:
-                    page, info = open_page(b, build.page, size)
+                    page, info = open_page(b, build.page, size, clear)
                     probs = page_problems(info, pl)
                     sc = pl.scenes[0]
                     seek(page, sc.probe, pl.fps)
@@ -566,12 +663,20 @@ def voice(a: argparse.Namespace) -> int:
     def write(rel: str, text: str) -> None:
         write_atomic(base / rel, text)
 
-    cue_list, errors, reviews = vd.write_text_outputs(write, job.pid, job.piece, job.plan, job.ad, job.p.direction["mood"])
+    spans = None
+    if job.audio["voice"]:
+        ff, _ = ffm.find_ffmpeg(a.ffmpeg)
+        with tempfile.TemporaryDirectory() as tmp:
+            spans = Audio(job, ff, Path(tmp)).spans
+    cue_list, errors, reviews = vd.write_text_outputs(write, job.pid, job.piece, job.plan, job.ad, job.p.direction["mood"], spans)
+    for w in job.audio_warnings:
+        print(f"WARN  {w}")
     for e in errors:
         print(f"FAIL  {e}")
     for r in reviews:
         print(f"REVIEW REQUIRED  {r['note']}")
-    print(f"wrote the voice-over script, voice prompt and planned captions ({len(cue_list)} line(s)) to {base / 'voice'}")
+    timing = vd.caption_timing(cue_list) if cue_list else "planned"
+    print(f"wrote the voice-over script, voice prompt and {timing} captions ({len(cue_list)} line(s)) to {base / 'voice'}")
     return 1 if errors else 0
 
 
@@ -588,33 +693,54 @@ def preview(a: argparse.Namespace) -> int:
             ff, _ = ffm.find_ffmpeg(a.ffmpeg)
         except OperationalError as e:
             print(f"note: {e}; writing the stills only")
+    if job.has_recording() and not ff:
+        ff, _ = ffm.find_ffmpeg(a.ffmpeg)  # recordings become frames with ffmpeg even for stills
     out = Path(a.out) if a.out else self_ignoring_dir(job.dir / ".preview", "render_video.py drafts") / run_id()
     out.mkdir(parents=True, exist_ok=True)
     failed = False
     step = max(1, round(job.plan.fps / 15))  # about 15 fps; the encoder gets the exact rate fps/step
-    for fmt in job.formats:
-        (out / fmt).mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory() as tmp:
-            build = vd.compose(job.p, job.pid, job.piece, job.plans[fmt], job.ad, fmt, Path(tmp) / "build", draft=True,
-                               media=job.media)
-            probe, _, n, _ = render_frames(job, fmt, chrome, build, out / fmt / "draft.mp4" if ff else None, ff,
-                                           "h264-draft", step=step, scale=0.5, check=not a.no_contrast,
-                                           workers=workers_for(a, job.plan.frames // step), spool_dir=Path(tmp))
-        sheet(probe, out / fmt / "sheet.png")
-        for f in probe.findings:
-            if f.result != con.PASS:
-                print(f.line())
-        for t in probe.text:
-            print(f"FAIL  text ({fmt}): {t}")
-        for r in probe.reviews:
-            print(f"REVIEW REQUIRED  {r['note']}")
-        failed = failed or bool(probe.text) or any(f.result == con.FAIL for f in probe.findings)
-        print(f"{fmt}: sheet.png" + (f", draft.mp4 ({n} frames at half size)" if ff else ""))
+    audio = None
+    work = Path(tempfile.mkdtemp(prefix="preview-"))
+    try:
+        if job.piece.get("audio") and ff and not a.frames_only:
+            audio = Audio(job, ff, work / "audio")
+            if job.audio["voice"] or job.audio["music"]:
+                audio.mix()
+            else:
+                audio = None
+        for fmt in job.formats:
+            (out / fmt).mkdir(exist_ok=True)
+            tmp = work / fmt
+            build = vd.compose(job.p, job.pid, job.piece, job.plans[fmt], job.ad, fmt, tmp / "build", draft=True,
+                               media=job.media, ff=ff)
+            for note in build.notes:
+                print(f"WARN  {note}")
+            draft = out / fmt / "draft.mp4" if ff and not a.frames_only else None
+            probe, _, n, _ = render_frames(job, fmt, chrome, build, draft, ff, "h264-draft", step=step, scale=0.5,
+                                           check=not a.no_contrast, workers=workers_for(a, job.plan.frames // step),
+                                           spool_dir=tmp)
+            if draft is not None and (audio or job.needs_track(fmt)):
+                add_track(job, ff, fmt, draft, audio, job.plan.seconds)  # type: ignore[arg-type]
+            sheet(probe, out / fmt / "sheet.png")
+            clear = bool(job.piece.get("transparent"))
+            for f in probe.findings:
+                if f.result != con.PASS and not clear:
+                    print(f.line())
+            for t in probe.text:
+                print(f"FAIL  text ({fmt}): {t}")
+            for r in probe.reviews:
+                print(f"REVIEW REQUIRED  {r['note']}")
+            failed = failed or bool(probe.text) or (not clear and any(f.result == con.FAIL for f in probe.findings))
+            print(f"{fmt}: sheet.png" + (f", draft.mp4 ({n} frames at half size" + (", with the draft mix" if audio else "")
+                                         + ")" if draft else ""))
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
     def write(rel: str, text: str) -> None:
         write_atomic(out / rel, text)
 
-    _, cue_errors, cue_reviews = vd.write_text_outputs(write, job.pid, job.piece, job.plan, job.ad, job.p.direction["mood"])
+    _, cue_errors, cue_reviews = vd.write_text_outputs(write, job.pid, job.piece, job.plan, job.ad, job.p.direction["mood"],
+                                                       audio.spans if audio else None)
     for r in cue_reviews:
         print(f"REVIEW REQUIRED  {r['note']}")
     for e in cue_errors:
@@ -632,35 +758,56 @@ def render(a: argparse.Namespace) -> int:
 
 
 def _render_format(a: argparse.Namespace, job: Job, fmt: str, build: vd.Build, pub: Publisher, chrome: str, ff: str,
-                   fp: str, workers: int, spool: Path, checks: dict, reviews: list, meta: dict) -> None:
-    """One format: frames -> master video, then loops and poster, each checked."""
+                   fp: str, workers: int, spool: Path, checks: dict, reviews: list, meta: dict,
+                   audio: Audio | None = None) -> None:
+    """One format: frames -> master video (with its sound track), then loops and poster, each checked."""
     pl, pid = job.plans[fmt], job.pid
     size = job.specs[fmt]["size"]
-    profile = job.specs[fmt]["profile"]
+    profile = job.profiles[fmt]
+    clear = bool(ffm.PROFILES[profile].get("alpha"))
     sfx = f":{fmt}"
     tag = sfx if len(job.formats) > 1 else ""
-    mp4_rel = f"{fmt}/{pid}.mp4"
+    mp4_rel = f"{fmt}/{pid}{ffm.PROFILES[profile]['suffix']}"
     mp4 = pub.stage_path(mp4_rel)
     _, framecheck = need_pillow()
+    for note in build.notes:
+        print(f"WARN  {note}")
     probe, det, _, wk = render_frames(job, fmt, chrome, build, mp4, ff, profile, check=not a.no_contrast,
                                       determinism=a.determinism, workers=workers, spool_dir=spool)
+    track = job.needs_track(fmt)
+    if track:
+        add_track(job, ff, fmt, mp4, audio, pl.seconds)
     info = ffm.probe(fp, mp4)
-    tech = ffm.check_profile(info, mp4, profile, pl.frames, size, pl.fps)
+    tech = ffm.check_profile(info, mp4, profile, pl.frames, size, pl.fps, audio=bool(audio))
+    if clear:
+        rng = ffm.alpha_range(ff, mp4, profile)
+        if rng is not None and rng[0] == 255:
+            tech.append("every pixel is opaque (the alpha channel carries no transparency)")
     checks["technical" + sfx] = {"result": "FAIL" if tech else "PASS",
                                  "detail": "; ".join(tech) or f"{ffm.PROFILES[profile]['label']}, {pl.frames} frames"}
+    if track:
+        checks["audio" + sfx] = audio.check(mp4) if audio else {
+            "result": "PASS", "detail": "a silent stereo AAC track (an App Store preview needs one)"}
     s = [x for x in info["streams"] if x.get("codec_type") == "video"][0]
     meta[mp4_rel] = dict(size=list(size), profile=profile, durationS=round(pl.seconds, 6), fps=pl.fps, frames=pl.frames,
-                         codec=s.get("codec_name", ""), pixFmt=s.get("pix_fmt", ""), audio=False, format=fmt)
+                         codec=s.get("codec_name", ""), pixFmt=s.get("pix_fmt", ""), audio=bool(audio), format=fmt)
     gray, _, _ = ffm.gray_frames(ff, mp4)
     fl, fl_reviews = flash_reviews(gray, pl.fps, tag)
     checks["flashing" + sfx] = fl
     reviews += fl_reviews
     counts = con.summary(probe.findings)
-    checks["contrast" + sfx] = ({"result": "SKIPPED", "detail": "--no-contrast"} if a.no_contrast else
-                                {"result": con.overall(counts), "detail": f"{len(probe.findings)} text runs at the scenes' still frames"})
+    if clear and not a.no_contrast:  # an overlay's backdrop is whatever the editor puts under it
+        checks["contrast" + sfx] = {"result": "REVIEW REQUIRED", "detail": "a transparent overlay: the text's contrast "
+                                    "depends on the footage it is laid over"}
+        reviews.append({"id": "contrast:overlay" + tag, "check": "contrast", "kind": "suitability",
+                        "note": f"{fmt}: a transparent overlay; check the text against the footage it will sit on "
+                                "(the concept's text colours assume its own backgrounds)"})
+    else:
+        checks["contrast" + sfx] = ({"result": "SKIPPED", "detail": "--no-contrast"} if a.no_contrast else
+                                    {"result": con.overall(counts), "detail": f"{len(probe.findings)} text runs at the scenes' still frames"})
     checks["text" + sfx] = {"result": "SKIPPED" if a.no_contrast else ("FAIL" if probe.text else "PASS"),
                             "detail": "; ".join(probe.text)[:2000] or "glyph coverage and clipping of every text run"}
-    reviews += probe.reviews
+    reviews += [r for r in probe.reviews if not (clear and r["check"] == "contrast")]
     safe = [r for r in probe.reviews if r["check"] == "safe area"]
     if a.no_contrast:
         checks["safe-area" + sfx] = {"result": "SKIPPED", "detail": "--no-contrast"}
@@ -737,6 +884,7 @@ def _render(a: argparse.Namespace, job: Job) -> int:
     chrome = browser.find_chrome(a.chrome)
     ff, fp = ffm.find_ffmpeg(a.ffmpeg)
     pl, pid = job.plan, job.pid
+    audio: Audio | None = None
     started = dl.now_utc()
     rid = run_id()
     build_dir = job.dir / ".build" / rid
@@ -746,31 +894,44 @@ def _render(a: argparse.Namespace, job: Job) -> int:
     workers = workers_for(a, pl.frames)
     try:
         builds = {fmt: vd.compose(job.p, pid, job.piece, job.plans[fmt], job.ad, fmt, build_dir / fmt, draft=False,
-                                  media=job.media) for fmt in job.formats}
-        # The gate again, now that fonts, logo, motif and images are copied: equal hashes prove the
-        # copies the frames come from are the bytes that were approved (nothing changed in between).
-        if vd.gate_piece(job.p, pid).hashes != job.gate.hashes:
+                                  media=job.media, ff=ff) for fmt in job.formats}
+        if job.piece.get("audio"):
+            audio = Audio(job, ff, build_dir / "audio")
+            for e in audio.errors:
+                print(f"FAIL  {e}")
+            if audio.errors:
+                print(f"render refused: {len(audio.errors)} problem(s) with the recorded voice-over")
+                return 1
+            audio.mix()
+        # The gates again, now that fonts, logo, motif, pictures, recordings and audio are copied:
+        # equal hashes prove the copies the run uses are the bytes that were approved.
+        again = vd.gate_piece(job.p, pid)
+        if again.hashes != job.gate.hashes or vd.gate_mix(job.p, pid, again).hashes != job.mixgate.hashes:
             raise InputError(f"{job.rel} or something it uses changed while the render was starting; run it again")
         with Publisher(job.dir / "out", f"video {pid}", run=rid) as pub:
             for fmt in job.formats:
-                _render_format(a, job, fmt, builds[fmt], pub, chrome, ff, fp, workers, build_dir, checks, reviews, meta)
+                _render_format(a, job, fmt, builds[fmt], pub, chrome, ff, fp, workers, build_dir, checks, reviews, meta,
+                               audio)
             if a.no_contrast:
                 reviews.append({"id": "skipped:contrast-text-safe-area", "check": "skipped checks", "kind": "technical",
                                 "note": "contrast, glyph coverage and safe areas were not checked (--no-contrast); "
                                         "look at every scene's text before using the video"})
-            checks["audio"] = {"result": "SKIPPED", "detail": "silent video (the default); see voice/ for the script and prompt"}
+            if not job.piece.get("audio"):
+                checks["audio"] = {"result": "SKIPPED", "detail": "silent video (the default); see voice/ for the script and prompt"}
 
             def write(rel: str, text: str) -> None:
                 write_atomic(pub.stage_path(rel), text)
 
-            _, cue_errors, cue_reviews = vd.write_text_outputs(write, pid, job.piece, pl, job.ad, job.p.direction["mood"])
+            cue_list, cue_errors, cue_reviews = vd.write_text_outputs(write, pid, job.piece, pl, job.ad, job.p.direction["mood"],
+                                                                      audio.spans if audio else None)
             reviews += cue_reviews
             if cue_errors:
                 checks["voice-over"] = {"result": "FAIL", "detail": "; ".join(cue_errors)[:2000]}
             elif cue_reviews:
                 checks["voice-over"] = {"result": "REVIEW REQUIRED", "detail": f"{len(cue_reviews)} line(s) longer than their scene"}
             else:
-                checks["voice-over"] = {"result": "PASS", "detail": "the planned voice-over fits its scenes"}
+                checks["voice-over"] = {"result": "PASS", "detail": f"the {'recorded' if audio and audio.spans else 'planned'} "
+                                                                    "voice-over fits its scenes"}
             for name, c in checks.items():
                 print(f"{c['result']:<16} {name}: {c['detail']}")
             failed = [k for k, c in checks.items() if c["result"] == "FAIL"]
@@ -791,14 +952,16 @@ def _render(a: argparse.Namespace, job: Job) -> int:
                         "inputs": {"config": sha256_text(canonical(job.piece)),
                                    "direction": job.gate.concept_gate.direction[0] if job.gate.concept_gate.direction else None,
                                    "concept": job.gate.concept_gate.concept[0] if job.gate.concept_gate.concept else None,
-                                   "assets": sorted({(x["path"], x["sha256"]) for b in builds.values() for x in b.assets})},
-                        "approvals": job.gate.records + job.exceptions(),
+                                   "assets": sorted({(x["path"], x["sha256"]) for b in builds.values() for x in b.assets}
+                                                    | set(job.audio["sha"].items()))},
+                        "approvals": job.gate.records + job.mixgate.records + job.exceptions(),
                         "fonts": [{"family": f["family"], "source": f.get("source", "local"), "weight": f["weight"],
                                    "style": f["style"], **({"sha256": f["sha256"]} if "sha256" in f else {})}
                                   for f in job.ad["faces"]],
                         "seed": None, "outputs": outputs, "checks": checks, "status": status,
                         "piece": {"path": job.rel, "hash": job.gate.hashes[0], "inputs": job.gate.hashes[1],  # type: ignore[index]
-                                  "formats": job.formats, "frames": pl.frames, "fps": pl.fps, "captions": "planned"},
+                                  "formats": job.formats, "frames": pl.frames, "fps": pl.fps,
+                                  "captions": vd.caption_timing(cue_list) if cue_list else "planned"},
                         "reviews": reviews}
             manifest["inputs"]["assets"] = [{"path": p_, "sha256": s_} for p_, s_ in manifest["inputs"]["assets"]]
             path = dl.write_run_manifest(job.root, manifest)  # first: an interrupted publish stays traceable
@@ -826,18 +989,20 @@ def check(a: argparse.Namespace) -> int:
     if a.file:  # a file of your own: judged against the piece's current plan
         job = Job(a, production=False)
         f = Path(a.file)
-        if f.suffix.lower() != ".mp4":
-            raise UsageError(f"{f}: check takes an .mp4 of your own (published GIF, WebP and poster files are "
-                             "checked against their run with no file argument)")
+        prof = job.profiles[job.fmt]
+        if f.suffix.lower() != ffm.PROFILES[prof]["suffix"]:
+            raise UsageError(f"{f}: check takes a {ffm.PROFILES[prof]['suffix']} of your own for {job.fmt} (published GIF, "
+                             "WebP and poster files are checked against their run with no file argument)")
         size = job.specs[job.fmt]["size"]
-        todo = [{"file": f, "label": f.name, "profile": job.specs[job.fmt]["profile"], "frames": job.plan.frames, "size": size,
-                 "fps": job.plan.fps}]
+        todo = [{"file": f, "label": f.name, "profile": prof, "frames": job.plan.frames, "size": size,
+                 "fps": job.plan.fps, "audio": bool(job.piece.get("audio"))}]
     else:  # the published files: judged against the run that made them
         runs = vd.piece_runs(root, a.id)
         if not runs:
             raise UsageError(f"{a.id}: no production run yet (render first, or pass a file)")
         todo = [{"file": root / o["path"], "label": o["path"], "profile": o["profile"], "frames": o.get("frames", 1), "size": tuple(o["size"]),
-                 "fps": o.get("fps", 0), "durationS": o.get("durationS", 0)} for o in runs[-1]["outputs"] if o.get("profile")]
+                 "fps": o.get("fps", 0), "durationS": o.get("durationS", 0), "audio": bool(o.get("audio"))}
+                for o in runs[-1]["outputs"] if o.get("profile")]
         if not todo:
             raise InputError(f"run {runs[-1]['runId']} records no video output")
     bad = 0
@@ -846,7 +1011,7 @@ def check(a: argparse.Namespace) -> int:
         if not f.is_file():
             raise UsageError(f"{f}: no such file (render first, or pass the file)")
         if profile in ffm.PROFILES:
-            problems = ffm.check_profile(ffm.probe(fp, f), f, profile, t["frames"], t["size"], int(t["fps"]))
+            problems = ffm.check_profile(ffm.probe(fp, f), f, profile, t["frames"], t["size"], int(t["fps"]), audio=t["audio"])
             gray, _, _ = ffm.gray_frames(ff, f)
             fl, _ = flash_reviews(gray, int(t["fps"]))
         else:
@@ -932,7 +1097,7 @@ def main() -> int:
     st.add_argument("id", nargs="?")
     for p_ in (i, mt, li, vo, pv, rn, ck, st):
         p_.add_argument("--project", default=argparse.SUPPRESS, help="the project root (holds brand/)")
-    for p_ in (li, pv, rn, ck):
+    for p_ in (li, vo, pv, rn, ck):
         p_.add_argument("--chrome")
         p_.add_argument("--ffmpeg")
     a = ap.parse_args()

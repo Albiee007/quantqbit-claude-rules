@@ -13,7 +13,9 @@ H.264 for the web).
 from __future__ import annotations
 
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -42,7 +44,30 @@ PROFILES = {
                  "-pix_fmt", "yuv420p", "-movflags", "+faststart"],
         "suffix": ".mp4",
     },
+    # App Store app previews: H.264 at 30 fps, 15-30 s, at most 500 MB, with a stereo AAC track
+    # (silent when the piece has no audio). Apple suggests 10-12 Mb/s, so the rate is capped there.
+    "app-preview": {
+        "label": "App Store preview: H.264 High, yuv420p, BT.709, 30 fps, 15-30 s, AAC stereo, at most 500 MB",
+        "args": ["-vf", BT709, "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-maxrate", "12M", "-bufsize", "24M",
+                 "-profile:v", "high", "-pix_fmt", "yuv420p", "-movflags", "+faststart"],
+        "suffix": ".mp4",
+        "audio": "required", "fps": 30, "seconds": (15.0, 30.0), "maxBytes": 500_000_000,
+    },
+    # Transparent overlays (lower thirds, stingers) for an editor: frames arrive as PNG with alpha.
+    "alpha-webm": {
+        "label": "VP9 with alpha (yuva420p) in WebM, for editors and the web",
+        "args": ["-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-b:v", "0", "-crf", "24", "-deadline", "good",
+                 "-auto-alt-ref", "0", "-row-mt", "0"],
+        "suffix": ".webm", "frames": "png", "alpha": True,
+    },
+    "alpha-prores": {
+        "label": "ProRes 4444 with alpha (yuva444p10le) in QuickTime, for editors",
+        "args": ["-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le", "-vendor", "apl0"],
+        "suffix": ".mov", "frames": "png", "alpha": True,
+    },
 }
+H264 = ("h264-web", "h264-draft", "app-preview")
+AUDIO_RATE = 48000
 
 INSTALL_ADVICE = {
     "win32": "install it (for example the gyan.dev 'essentials' build, or 'choco install ffmpeg') and put its bin "
@@ -189,17 +214,54 @@ def faststart(path: Path) -> bool:
     return moov != -1 and (mdat == -1 or moov < mdat)
 
 
-def check_profile(info: dict, path: Path, profile: str, frames: int, size: tuple[int, int], fps: int) -> list[str]:
-    """Problems with an encoded file against its profile (empty = PASS)."""
+def check_profile(info: dict, path: Path, profile: str, frames: int, size: tuple[int, int], fps: int,
+                  audio: bool = False) -> list[str]:
+    """Problems with an encoded file against its profile (empty = PASS). audio: the file should
+    carry the piece's mixed sound (the app-preview profile always wants a track, silent or not)."""
     v = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
     if len(v) != 1:
         return [f"{len(v)} video streams, want 1"]
     s = v[0]
     out = []
-    if profile in ("h264-web", "h264-draft"):
+    spec = PROFILES.get(profile, {})
+    a = [x for x in info.get("streams", []) if x.get("codec_type") == "audio"]
+    if audio or spec.get("audio") == "required":
+        if len(a) != 1:
+            out.append(f"{len(a)} audio streams, want 1")
+        else:
+            x = a[0]
+            if x.get("codec_name") != "aac":
+                out.append(f"audio codec {x.get('codec_name')}, want aac")
+            if x.get("channels") != 2:
+                out.append(f"{x.get('channels')} audio channels, want 2 (stereo)")
+            if str(x.get("sample_rate")) not in ("44100", "48000"):
+                out.append(f"audio at {x.get('sample_rate')} Hz, want 44100 or 48000")
+    elif a:
+        out.append(f"{len(a)} audio stream(s) in a silent video")
+    if "seconds" in spec:
+        lo, hi = spec["seconds"]
+        d = frames / fps if fps else 0
+        if not lo <= d <= hi:
+            out.append(f"lasts {d:.2f} s, want {lo:g}-{hi:g} s")
+    if "fps" in spec and fps != spec["fps"]:
+        out.append(f"{fps} fps, want {spec['fps']}")
+    if "maxBytes" in spec and Path(path).stat().st_size > spec["maxBytes"]:
+        out.append(f"{Path(path).stat().st_size:,} bytes, over {spec['maxBytes']:,}")
+    if profile == "alpha-webm":
+        tags = {k.lower(): str(v) for k, v in (s.get("tags") or {}).items()}
+        if s.get("codec_name") != "vp9":
+            out.append(f"codec {s.get('codec_name')}, want vp9")
+        if tags.get("alpha_mode") != "1":
+            out.append("no alpha channel (the WebM track lacks alpha_mode=1)")
+    if profile == "alpha-prores":
+        if s.get("codec_name") != "prores":
+            out.append(f"codec {s.get('codec_name')}, want prores")
+        if not str(s.get("pix_fmt", "")).startswith("yuva444"):
+            out.append(f"pixel format {s.get('pix_fmt')}, want yuva444 (4444 with alpha)")
+    if profile in H264:
         if s.get("codec_name") != "h264":
             out.append(f"codec {s.get('codec_name')}, want h264")
-        if profile == "h264-web" and s.get("profile") != "High":
+        if profile != "h264-draft" and s.get("profile") != "High":
             out.append(f"profile {s.get('profile')}, want High")
         if s.get("pix_fmt") != "yuv420p":
             out.append(f"pixel format {s.get('pix_fmt')}, want yuv420p")
@@ -216,6 +278,165 @@ def check_profile(info: dict, path: Path, profile: str, frames: int, size: tuple
     if str(got) != str(frames):
         out.append(f"{got} frames, want {frames}")
     return out
+
+
+def recording_frames(ff: str, src: Path, dest: Path, start: float, fps: int, count: int, size: tuple[int, int],
+                     fit: str) -> int:
+    """A screen recording as JPEG frames dest/00000.jpg... at the piece's fps (a variable-rate phone
+    recording becomes one frame per video frame), scaled to cover or fit the format. The page
+    shows frame n of the scene as file n, so seeking never decodes video in the browser. Returns
+    how many frames the recording had (fewer than count: the page holds the last one)."""
+    dest = Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    mode = "increase" if fit == "cover" else "decrease"
+    _run([ff, "-v", "error", "-y", "-ss", f"{max(0.0, start):.3f}", "-i", str(src), "-an", "-vf",
+          f"fps={fps},scale={size[0]}:{size[1]}:force_original_aspect_ratio={mode}:flags=lanczos,format=yuvj420p",
+          "-frames:v", str(count), "-q:v", "2", "-start_number", "0", str(dest / "%05d.jpg")],
+         f"frames of {Path(src).name}")
+    return len(list(dest.glob("*.jpg")))
+
+
+def alpha_range(ff: str, path: Path, profile: str) -> tuple[int, int] | None:
+    """(min, max) alpha of the middle frame of an alpha file, or None when this ffmpeg can't decode
+    the alpha (VP9 alpha needs the libvpx decoder)."""
+    argv = [ff, "-v", "error"]
+    if profile == "alpha-webm":
+        argv += ["-c:v", "libvpx-vp9"]
+    argv += ["-i", str(path), "-vf", "thumbnail=30,format=rgba", "-frames:v", "1", "-f", "rawvideo", "-"]
+    try:
+        data = _run(argv, f"alpha of {Path(path).name}").stdout
+    except OperationalError:
+        return None
+    alpha = data[3::4]
+    return (min(alpha), max(alpha)) if alpha else None
+
+
+# ------------------------------------------------------------------ audio
+
+def audio_info(fp: str, path: Path) -> dict:
+    """{duration, channels, sampleRate, codec} of a file's first audio stream (InputError-free:
+    OperationalError when it has none or can't be read)."""
+    info = probe(fp, path, count_frames=False)
+    a = [s for s in info.get("streams", []) if s.get("codec_type") == "audio"]
+    if not a:
+        raise OperationalError(f"{Path(path).name} has no audio stream")
+    d = a[0].get("duration") or (info.get("format") or {}).get("duration") or 0
+    return {"duration": float(d), "channels": a[0].get("channels"), "sampleRate": int(a[0].get("sample_rate") or 0),
+            "codec": a[0].get("codec_name", "")}
+
+
+def speech_span(ff: str, path: Path, noise_db: float = -40.0, gap: float = 0.15) -> tuple[float, float, float]:
+    """(lead, end, total) seconds of a voice-over take: where the speech starts and ends inside the
+    file (the room tone before and after is not speech), from ffmpeg's silencedetect."""
+    r = _run([ff, "-hide_banner", "-nostats", "-i", str(path), "-af", f"silencedetect=noise={noise_db}dB:d={gap}",
+              "-f", "null", "-"], f"silence in {Path(path).name}")
+    err = r.stderr.decode(errors="replace")
+    starts = [float(x) for x in re.findall(r"silence_start: (-?[0-9.]+)", err)]
+    ends = [float(x) for x in re.findall(r"silence_end: ([0-9.]+)", err)]
+    # the decoded length (a header's duration is an estimate for mp3 and m4a)
+    pcm = _run([ff, "-v", "error", "-i", str(path), "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"],
+               f"length of {Path(path).name}").stdout
+    total = len(pcm) / 16000
+    lead = ends[0] if starts and starts[0] <= 0.01 and ends else 0.0
+    # trailing silence: a silence that starts after the speech and runs to the end of the file
+    trailing = bool(starts) and starts[-1] > lead and (len(starts) > len(ends) or ends[-1] >= total - 0.1)
+    end = starts[-1] if trailing else total
+    if end <= lead:  # all silence: treat the whole take as the line
+        return 0.0, total, total
+    return round(lead, 3), round(end, 3), round(total, 3)
+
+
+def _mix_graph(voices: list[tuple[int, float]], music: tuple[int, float, bool] | None, duration: float) -> tuple[str, str]:
+    """A filtergraph that places each voice take at its delay and lays the music under it (ducked
+    while someone speaks), cut to the video's length. Returns (graph, output label)."""
+    fmt = f"aresample={AUDIO_RATE},aformat=sample_fmts=fltp:channel_layouts=stereo"
+    parts, labels = [], []
+    for k, (idx, delay) in enumerate(voices):
+        # a take whose speech must start before its room tone ends is trimmed, not delayed
+        head = f",atrim=start={-delay:.3f},asetpts=PTS-STARTPTS" if delay < 0 else ""
+        ms = max(0, round(delay * 1000))
+        parts.append(f"[{idx}:a]{fmt}{head},adelay={ms}|{ms}[v{k}]")
+        labels.append(f"[v{k}]")
+    if voices:
+        # the voice bus lasts the whole video: sidechaincompress stops when its sidechain does
+        parts.append("".join(labels) + f"amix=inputs={len(labels)}:normalize=0:duration=longest[vor]" if len(labels) > 1
+                     else f"{labels[0]}anull[vor]")
+        parts.append(f"[vor]apad,atrim=0:{duration:.3f}[vo]")
+    out = "[pre]"
+    if music:
+        idx, gain, duck = music
+        fade = max(0.0, duration - 1.0)
+        parts.append(f"[{idx}:a]{fmt},volume={gain}dB,atrim=0:{duration:.3f},afade=t=out:st={fade:.3f}:d=1[mu]")
+        if voices and duck:
+            parts.append("[vo]asplit=2[vo1][vo2]")
+            parts.append("[mu][vo1]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[ducked]")
+            parts.append(f"[ducked][vo2]amix=inputs=2:normalize=0:duration=first{out}")
+        elif voices:
+            parts.append(f"[mu][vo]amix=inputs=2:normalize=0:duration=first{out}")
+        else:
+            parts.append(f"[mu]anull{out}")
+    elif voices:
+        parts.append(f"[vo]anull{out}")
+    parts.append(f"{out}apad,atrim=0:{duration:.3f}[mixed]")
+    return ";".join(parts), "[mixed]"
+
+
+def mix(ff: str, dest: Path, duration: float, voices: list[tuple[Path, float]], music: tuple[Path, float, bool] | None,
+        lufs: float = -16.0, true_peak: float = -1.5) -> dict:
+    """Mix voice takes (file, start seconds) and music (file, gain dB, duck) into a 48 kHz stereo
+    WAV of exactly duration seconds, normalised in two passes (EBU R128 loudnorm, linear). Returns
+    the first pass's measurement."""
+    inputs: list[str] = []
+    vs = []
+    for i, (f, start) in enumerate(voices):
+        inputs += ["-i", str(f)]
+        vs.append((i, start))
+    mu = None
+    if music:
+        inputs += ["-stream_loop", "-1", "-i", str(music[0])]
+        mu = (len(voices), music[1], music[2])
+    if not inputs:
+        raise ValueError("nothing to mix")
+    graph, label = _mix_graph(vs, mu, duration)
+    target = f"I={lufs}:TP={true_peak}:LRA=11"
+    r = _run([ff, "-hide_banner", "-nostats", *inputs, "-filter_complex", f"{graph};{label}loudnorm={target}:print_format=json[o]",
+              "-map", "[o]", "-f", "null", "-"], "mix (measure)")
+    err = r.stderr.decode(errors="replace")
+    m = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", err)
+    if not m:
+        raise OperationalError("mix: ffmpeg's loudnorm printed no measurement")
+    meas = json.loads(m[0])
+    if not math.isfinite(float(meas.get("input_i", "-inf"))):
+        raise OperationalError("mix: the audio is silent (nothing to normalise)")
+    second = (f"{target}:measured_I={meas['input_i']}:measured_TP={meas['input_tp']}:measured_LRA={meas['input_lra']}"
+              f":measured_thresh={meas['input_thresh']}:offset={meas['target_offset']}:linear=true")
+    Path(dest).parent.mkdir(parents=True, exist_ok=True)
+    _run([ff, "-hide_banner", "-v", "error", "-y", *inputs, "-filter_complex",
+          f"{graph};{label}loudnorm={second},aresample={AUDIO_RATE},atrim=0:{duration:.3f}[o]",
+          "-map", "[o]", "-ac", "2", "-ar", str(AUDIO_RATE), "-c:a", "pcm_s16le", str(dest)], "mix")
+    return meas
+
+
+def mux(ff: str, video: Path, audio: Path | None, dest: Path, duration: float, bitrate: str = "192k") -> None:
+    """The video stream copied with an AAC stereo track: the mix, or silence when audio is None."""
+    src = ["-i", str(audio)] if audio else ["-f", "lavfi", "-t", f"{duration:.3f}", "-i",
+                                           f"anullsrc=r={AUDIO_RATE}:cl=stereo"]
+    _run([ff, "-hide_banner", "-v", "error", "-y", "-i", str(video), *src, "-map", "0:v:0", "-map", "1:a:0",
+          "-c:v", "copy", "-c:a", "aac", "-b:a", bitrate, "-ar", str(AUDIO_RATE), "-ac", "2",
+          "-t", f"{duration:.3f}", "-movflags", "+faststart", str(dest)], f"mux {Path(dest).name}")
+
+
+def loudness(ff: str, path: Path) -> tuple[float, float]:
+    """(integrated loudness LUFS, true peak dBTP) of a file's audio, from ffmpeg's ebur128 filter."""
+    r = _run([ff, "-hide_banner", "-nostats", "-i", str(path), "-map", "0:a:0", "-af", "ebur128=peak=true",
+              "-f", "null", "-"], f"loudness of {Path(path).name}")
+    err = r.stderr.decode(errors="replace")
+    summary = err[err.rfind("Summary:"):] if "Summary:" in err else err
+    i = re.search(r"I:\s+(-?[0-9.]+|-inf)\s+LUFS", summary)
+    tp = re.search(r"Peak:\s+(-?[0-9.]+|-inf)\s+dBFS", summary)
+    if not i:
+        raise OperationalError(f"{Path(path).name}: ffmpeg's ebur128 printed no loudness")
+    return float(i[1]), float(tp[1]) if tp else float("nan")
 
 
 # Animated images and stills made from a format's master video (they have no encoder profile of
