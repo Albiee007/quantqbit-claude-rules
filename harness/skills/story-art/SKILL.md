@@ -1,6 +1,6 @@
 ---
 name: story-art
-description: Story and scenario illustration for a product in its own approved style — illustration concepts from the creative direction (render style from a broad vocabulary, palette from the project's tokens, light, story world), a context pack from the code, listing and brand, one storyboarded scene per real feature pillar, a style bible locked from the approved concept with a negative list, image generation through whichever provider the session has (Canva MCP documented as the default, Figma Weave and API-key providers outlined), a contact-sheet review gate with owner approval, full-resolution retrieval, AVIF/WebP web export within byte budgets merged into the site manifest, integration guidance and recorded provenance. Use when a website, store listing, onboarding flow or campaign needs illustrations, hero or feature-row artwork, or story/scene art that shows people using the product, or when an existing illustration set needs a new or regenerated image.
+description: Story and scenario illustration for a product in its own approved style — illustration concepts from the creative direction (render style from a broad vocabulary, palette from the project's tokens, light, story world), a context pack from the code, listing and brand, one storyboarded scene per real feature pillar, a style bible locked from the approved concept with a negative list, image generation through whichever provider the session has (Canva MCP documented as the default, Figma Weave and API-key providers outlined), a contact-sheet review gate with owner approval, full-resolution retrieval, AVIF/WebP web export within byte budgets merged into the site manifest, integration guidance and recorded provenance; character sheets and full-size masters for video. Use when a website, store listing, onboarding flow or campaign needs illustrations, hero or feature-row artwork, or story/scene art that shows people using the product, or when an existing illustration set needs a new or regenerated image.
 ---
 
 # Story Art
@@ -44,20 +44,31 @@ Make illustrations that tell the product's story: real people (fictional, inclus
    - A tilted phone with negative offsets caused horizontal scroll at 640 and 1100 px: keep offsets inside the gutter and clip the section (`overflow-x: clip`). Check at 360, 640, 1100 and 1440 px.
 10. **Provenance.** Close `plan.md` with one row per shipped image: file, scene, prompt, provider, media ID, date, approved by and when. Images without an approval row don't ship.
 
+## Video and episodic sets
+When the art feeds a video (story cuts, camera moves, layered scenes) or recurs across episodes, follow [video-assets](references/video-assets.md) on top of the workflow above:
+- Start with a pilot shot. Character designs may be provisional there.
+- Approve character sheets and environment plates before the series expands.
+- Keep a shot list with continuity.
+- Review every shot against the character sheet. Reference-image input helps consistency but doesn't guarantee it.
+- Keep full-size masters and cleaned layers under `brand/art/<set>/` (or LFS or external storage), never web exports.
+
+Whether generated art is the right method at all is decided first, in brand-video's `visual-plan.md`.
+
 ## Rules
 - **Owner approval before anything ships,** and before any publish or upload outside the generator. The parent relays the approval; record it.
 - **Truthful scenes.** Every scene maps to a feature that exists. The listing's claims guardrails apply to images too: no implied features, partners or results.
 - **Fictional people only.** No likenesses of real or famous people, no real users' photos, no recognisable staff. Cast inclusively across age, ethnicity, gender and ability.
 - **No brands or trademarks:** no logos, no other apps' UI, no real banknote designs, no crypto glyphs unless the product deals in them.
 - **No text in images.** Captions and headlines stay in HTML, where they can be translated and read by screen readers.
-- **Quota:** 4–8 images per set, one at a time. Ask before a second regeneration round.
+- **Quota:** 4–8 images per web set, one at a time. For an episode the owner sets the count. Ask before a second regeneration round.
 - **Keys from the environment only** for API-key providers. Never write a key to a file, a log or the plan.
-- **Lean output:** `out/story-art/<date>/` holds `plan.md`, the contact sheet and the source PNGs, and stays gitignored. The web files are written once, into the site's public folder. Don't write export, resize or check scripts of your own; `export_art.py` covers them.
+- **Lean output:** `out/story-art/<date>/` holds `plan.md`, the contact sheet and the source PNGs, and stays gitignored. The web files are written once, into the site's public folder. Don't write export, resize or check scripts of your own; `export_art.py` covers them. Video masters and layers are the exception: they are kept durably under `brand/art/<set>/` ([video-assets](references/video-assets.md)).
 - **Never edit the owner's designs** in a design tool. Work in a scratch copy, and tell the owner it exists so they can delete it.
 
 ## Output
 - `out/story-art/<date>/plan.md` (context pack, storyboard, style bible, prompts, provenance), `contact-sheet.png` and the full-size PNGs.
 - `<site public>/art-<scene>-{640,1200}.{avif,webp}` and the merged manifest.
+- For video: `brand/art/<set>/masters/`, `layers/`, the character sheets and plates, and the shot list in `plan.md`.
 - A report: the storyboard table (scene → feature → placement), the style bible, the per-image table (file, provider, media ID, review result, approval), the export summary from `export_art.py`, the integration notes for `implementor`, and the open items (pending approvals, scratch designs to delete).
 
 ## References
@@ -66,5 +77,6 @@ Make illustrations that tell the product's story: real people (fictional, inclus
 - [scenario-patterns](references/scenario-patterns.md): from feature to scene in the project's story world; shot types, placements and aspect ratios.
 - [prompt-template](references/prompt-template.md): the style-bible and scene templates, the negative list, two contrasting worked style bibles.
 - [review-checklist](references/review-checklist.md): reject criteria, accessibility and performance budgets.
+- [video-assets](references/video-assets.md): pilot shot, character sheets, environment plates, continuity, consistency, video-resolution masters and layers.
 - Script: [export_art.py](scripts/export_art.py).
 - Related skills: `creative-direction` (direction, concepts, approvals), `brand-assets` (tokens and palette), `store-mockups` (personas, demo data), `store-listing` (claims guardrails), `ui-ux` (contrast, alt text), `color-science` (palette lock), `seo` (LCP, image weight).

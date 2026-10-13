@@ -69,7 +69,13 @@ How a video piece becomes frames. `render_video.py` and the libraries it uses (`
 ## Custom scenes and libraries
 
 - A `custom` scene is the project's own: `custom.html` (a fragment placed in the scene), `custom.script`, and optionally `custom.lottie` (animation data). The script registers a builder: `window.VideoScenes["<scene id>"] = (el, ctx) => player`.
-- `ctx` gives `width`, `height`, `fps`, `frames`, `seconds`, `safe`, `AD` (the resolved concept), `lottie`, `headPx`, `ms(frames)`, `start` (the scene's start in composition milliseconds, for Web Animation delays) and `rand(key)`.
+- `ctx` gives `width`, `height`, `fps`, `frames`, `seconds`, `safe`, `AD` (the resolved concept), `lottie`, `assets`, `headPx`, `ms(frames)`, `start` (the scene's start in composition milliseconds, for Web Animation delays) and `rand(key)`.
+- **Images** the scene composes (background plates, character layers, a phone insert) are listed in `custom.assets`: `{"plate": {"file": "brand/art/ep4/layers/room/plate.png"}, "hero": {"file": "...", "license": "..."}}`.
+  - Names match `^[a-z][a-z0-9-]{0,31}$`, with at most 16 per scene. Files are PNG, JPEG, WebP or SVG inside the project.
+  - `ctx.assets` maps each name to its page path. Use it in an `<img>`, as a CSS `background`, or drawn on a canvas.
+  - Every asset is decoded before the first capture, so a layer used only as a CSS background is ready too. An asset that fails to decode stops the render and names the asset.
+  - The bytes are part of the storyboard approval, like a still's picture. An asset outside `brand/` with no `license` is a `provenance:<scene>:<name>` review item.
+  - There is no automatic resolution check: the size a layer needs depends on where the script places and scales it. Compose from full-size masters, and look at the frames at full size.
 - The builder may create Web Animations (`el.animate(...)`, with delays from `ctx.start`), which the runtime seeks like ours. It may also return a library player, which the runtime registers (`__hf.register(el, player)`) and positions on every seek at the time relative to the scene. Accepted players:
   - a paused GSAP-style timeline (`totalTime(seconds, true)`);
   - a Lottie animation with `autoplay: false` (`goToAndStop(ms, false)`);
