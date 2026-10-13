@@ -528,6 +528,35 @@
               "format": "relpath",
               "pattern": "\\.json$",
               "description": "Lottie animation data, passed to the script as ctx.lottie"
+            },
+            "assets": {
+              "type": "object",
+              "maxProperties": 16,
+              "description": "the project's images the scene composes (layers, plates, inserts), by name; passed to the script as ctx.assets {name: page path} and decoded before capture",
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "relpath",
+                    "pattern": "\\.([Pp][Nn][Gg]|[Jj][Pp][Ee]?[Gg]|[Ww][Ee][Bb][Pp]|[Ss][Vv][Gg])$"
+                  },
+                  "license": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 300,
+                    "description": "where a picture not made for the project comes from and that the project may use it"
+                  }
+                }
+              }
             }
           }
         },

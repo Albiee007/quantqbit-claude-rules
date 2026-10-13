@@ -83,6 +83,7 @@ INSETS = ("top", "right", "bottom", "left")
 LOOP_MAX_S = 15.0  # GIF and animated WebP outputs: short loops only
 LOOP_DEFAULT = {"outputs": ["gif"], "width": 600, "fps": 15, "maxBytes": 5_000_000}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".svg")
+STILL_ZOOM = 1.08  # a still's push-in, pull-out and pans reach this scale (passed to media/motion.js)
 PLACEHOLDER = re.compile(r"\bREPLACE\b|\{\{[^}]*\}\}|\bTODO\b|lorem ipsum", re.I)
 
 
@@ -244,6 +245,8 @@ def media_refs(piece: dict) -> list[tuple[str, str, str]]:
         for key in ("html", "script", "lottie"):
             if (sc.get("custom") or {}).get(key):
                 out.append((sc["custom"][key], key, f"scene {sc['id']}"))
+        for name, asset in sorted(((sc.get("custom") or {}).get("assets") or {}).items()):
+            out.append((asset["file"], "image", f"scene {sc['id']} asset {name}"))
     for i, lib in enumerate(piece.get("libraries") or []):
         out.append((lib["file"], "library", f"libraries[{i}] ({lib.get('name', '')})"))
     return out
@@ -465,6 +468,38 @@ def _on_screen(template: str, copy: dict, ad: dict) -> str:
     return " ".join(_drawn(template, copy, ad)[0])
 
 
+def _resolution_review(root: Path, sid: str, md: dict, fmt: str, size: tuple[int, int]) -> dict | str | None:
+    """A still scene's picture against the pixels its format shows: a review item when the browser
+    has to upscale it (fit, plus STILL_ZOOM when the picture moves), a warning when its size can't be
+    read, or None. Vector pictures scale without loss. Only still scenes: a custom scene's layers
+    depend on where its script puts them."""
+    rel = md["image"]
+    if rel.lower().endswith(".svg"):
+        return None
+    try:
+        from PIL import Image
+    except ImportError:
+        return f"scene {sid}: Pillow is not installed, so {rel}'s resolution was not checked"
+    try:
+        with Image.open(resolve_inside(root, rel, f"scene {sid} media", must_exist=True)) as im:
+            iw, ih = im.size
+            if im.getexif().get(0x0112, 1) in (5, 6, 7, 8):  # browsers apply EXIF orientation; these turn it 90°
+                iw, ih = ih, iw
+    except (InputError, OSError, ValueError) as e:
+        return f"scene {sid}: {rel}'s size could not be read ({e}), so its resolution was not checked"
+    w, h = size
+    pick = min if md.get("fit", "cover") == "contain" else max
+    zoom = STILL_ZOOM if md.get("motion", "none") != "none" else 1.0
+    scale = pick(w / iw, h / ih) * zoom
+    if scale <= 1 + 1e-9:
+        return None
+    need = (math.ceil(iw * scale - 1e-9), math.ceil(ih * scale - 1e-9))
+    return {"id": f"resolution:{sid}:{fmt}", "check": "picture resolution", "kind": "suitability",
+            "note": f"scene {sid} ({fmt}): {rel} is {iw}x{ih}; at {w}x{h} with fit {md.get('fit', 'cover')}"
+                    + (f" and {md['motion']}" if zoom > 1 else "") + f" it is enlarged {(scale - 1) * 100:.1f} % "
+                    f"(needs {need[0]}x{need[1]}). Use the full-size master, not a web export"}
+
+
 def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, production: bool) -> Plan:
     """Whole-frame timing of every scene, with the problems found on the way (errors block a render;
     warnings and reviews are reported)."""
@@ -529,6 +564,12 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
         if sc["template"] == "custom":
             if not (sc.get("custom") or {}).get("script"):
                 out.errors.append(f"scene {sid}: a custom scene needs custom.script (it registers window.VideoScenes[\"{sid}\"])")
+            for name, asset in sorted(((sc.get("custom") or {}).get("assets") or {}).items()):
+                if not asset["file"].startswith("brand/") and not asset.get("license"):
+                    out.reviews.append({"id": f"provenance:{sid}:{name}", "check": "image provenance", "kind": "suitability",
+                                        "note": f"scene {sid} asset {name} is {asset['file']} with no license: say where "
+                                                "it comes from and that the project may use it (stock, generated or "
+                                                "third-party pictures)"})
             if p is not None:
                 for problem in custom_code_problems(p.root, sc):
                     (out.errors if production else out.warnings).append(f"scene {sid}: {problem}")
@@ -583,6 +624,12 @@ def plan(p: dl.Project | None, pid: str, piece: dict, ad: dict, fmt: str, produc
                 out.reviews.append({"id": f"provenance:{sid}", "check": "image provenance", "kind": "suitability",
                                     "note": f"scene {sid} shows {md['image']} with no media.license: say where it comes from "
                                             "and that the project may use it (stock, generated or third-party pictures)"})
+            if p is not None and md.get("image"):
+                problem = _resolution_review(p.root, sid, md, fmt, format_spec(piece, fmt)["size"])
+                if isinstance(problem, dict):
+                    out.reviews.append(problem)
+                elif problem:
+                    out.warnings.append(problem)
         if sc["template"] == "recording" and sc.get("media"):
             md = sc["media"]
             media = {"video": md.get("video"), "fit": md.get("fit", "cover"), "from": md.get("from", 0),
@@ -1163,6 +1210,13 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
             src = dest / f"scenes/{sc['id']}.lottie.json"
             _copy_checked(p, cu["lottie"], src, media, assets, "lottie")
             data["lottie"] = load_json(src)
+        if cu.get("assets"):
+            # scene ids and asset names are lowercase and unique, so these paths can't collide (even on Windows)
+            data["assets"] = {}
+            for name, asset in sorted(cu["assets"].items()):
+                page = f"scenes/{sc['id']}/{name}{Path(asset['file']).suffix.lower()}"
+                _copy_checked(p, asset["file"], dest / page, media, assets, "scene asset")
+                data["assets"][name] = page
         sc["custom"] = data
     copied: dict[str, str] = {}
     notes: list[str] = []
@@ -1199,6 +1253,7 @@ def compose(p: dl.Project, pid: str, piece: dict, pl: Plan, ad: dict, fmt: str, 
             f.write("html, body { background: transparent !important; }\n")
     safe = spec["safe"][ad.get("safeAreas", "standard")]
     data = {"id": pid, "width": w, "height": h, "fps": pl.fps, "frames": pl.frames, "safe": safe, "draft": draft,
+            "stillZoom": STILL_ZOOM,
             "typeScale": spec["typeScale"], "assets": {k: v for k, v in files.items() if k == "logo"},
             "scenes": scenes}
     if piece.get("transparent"):

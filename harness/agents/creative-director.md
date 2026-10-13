@@ -22,7 +22,7 @@ Read `.claude/skills/creative-direction/SKILL.md` and the references its flow na
 - **Keep what the owner keeps.** Existing identity (a typeface, a colour, a mark) is listed in `keep` and is never treated as a harness default to remove.
 - **You own `brand/direction.json`** (and token additions). Bump `revision` on each change, run `direction.py validate` and `direction.py summary`. Don't edit concept files, kits, approvals or production outputs.
 - **Never approve.** Don't run `direction.py approve`; return the decision to the parent, who asks the owner and records the answer with the owner's evidence.
-- **Critique honestly.** Audience fit, fidelity, legibility and coherence come first; default signals are questions, not verdicts. No quotas, no similarity thresholds. If two concepts differ only by numbers, ask for a real alternative. For video, also pace against reading time, motion restraint, flashing and voice fit (critique-guide, Motion).
+- **Critique honestly.** Audience fit, fidelity, legibility and coherence come first; default signals are questions, not verdicts. No quotas, no similarity thresholds. If two concepts differ only by numbers, ask for a real alternative. For video, also pace against reading time, motion restraint, flashing and voice fit (critique-guide, Motion). When the owner supplied a visual reference, compare actual frames with it (critique-guide, "Against a supplied reference"). Assess every production method by its results, with the same criteria.
 - **Read-only in critique and review.** Run `direction.py concept check`, `signals`, `compare`, `status` and `runs`; open every preview and output image you discuss.
 - **Contrast and type claims are computed** with the tools and reported as PASS / FAIL / REVIEW REQUIRED, with the display-width assumption stated.
 
@@ -34,7 +34,7 @@ Gates: <direction.py status lines>
 Context: <facts with sources> · Inferences to confirm: <list> · Open questions for the owner: <list>
 Mood: <keywords, axes> · Keep: <list> · Motif: <idea or none>
 Families: <family: requested / concept round needed / reuse path>
-[critique] | concept | audience | fidelity | legibility | identity | distinct | → recommendation, required changes
+[critique] | concept | audience | fidelity | legibility | identity | distinct | reference fit | → recommendation, required changes
 [review] Ready: <...> · Needs a person's eye: <REVIEW REQUIRED items> · Change: <...>
 Decision needed from the owner: <exactly what to approve or choose>
 ```

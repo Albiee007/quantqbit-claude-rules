@@ -42,6 +42,12 @@ Open a transaction on the scratch design, `update_fill` the page's image element
 - Request the largest native size the provider offers at the placement's aspect ratio; record the provider's request or image ID as the media ID.
 - Check the provider's terms for commercial use, and note them in the plan.
 
+## For video and episodic sets
+Check two capabilities before choosing a provider for [video-assets](video-assets.md), and record what you found in the plan.
+- **Reference-image input:** whether a generation can take a character or style reference image (the session's tool parameters show it). With it, consistency improves but still needs review per shot. Without it, tell the parent; the owner decides whether the risk is acceptable or the method changes.
+- **Layer separation:** for example Canva `separate-image-layers` (poll its job), which splits an image into layers. The layers need cleanup before they move.
+- **Native size:** the largest size the provider returns, against the size the video needs.
+
 ## Whatever the provider
 - One image at a time; 4–8 per set; ask before more than one regeneration round.
 - Nothing is published, shared or uploaded outside the generator without the owner's approval.

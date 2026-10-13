@@ -565,6 +565,81 @@ def custom_format_checks() -> None:
     check(a != b and a != vd._parts(plain)["visual"], "changing a custom format changes the storyboard's visual hash")
 
 
+def visual_production_checks() -> None:
+    """A still's picture resolution against its format, and custom.assets (1.13)."""
+    import shutil
+    import types
+    from PIL import Image
+    from harnesslib import schema
+    tmp = Path(os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp") / f"m5-{os.getpid()}"
+    (tmp / "a").mkdir(parents=True, exist_ok=True)
+    try:
+        def pic(name: str, w: int, h: int, orientation: int | None = None) -> str:
+            im = Image.new("RGB", (w, h), (120, 140, 90))
+            if orientation:
+                exif = Image.Exif()
+                exif[0x0112] = orientation
+                im.save(tmp / "a" / name, exif=exif)
+            else:
+                im.save(tmp / "a" / name)
+            return f"a/{name}"
+
+        def res(rel: str, size=(1000, 500), **md):
+            return vd._resolution_review(tmp, "s", dict({"image": rel}, **md), "f", size)
+
+        check(vd.STILL_ZOOM == 1.08, "a moving still reaches 108 % (motion.js reads the same value from window.VIDEO)")
+        check(res(pic("edge.png", 1080, 540), motion="push-in") is None,
+              "a picture exactly as large as cover plus the push-in zoom needs is not upscaled")
+        r = res(pic("short.png", 1079, 540), motion="push-in")
+        check(isinstance(r, dict) and r["id"] == "resolution:s:f" and r["kind"] == "suitability" and "needs 1080x541" in r["note"],
+              f"one pixel short of the boundary is a review item naming the size needed ({r})")
+        check(res(pic("flat.png", 1000, 500)) is None and isinstance(res(pic("flat2.png", 999, 500)), dict),
+              "without motion, the boundary is the format itself (no zoom)")
+        tall = pic("tall.png", 900, 1000)
+        check(isinstance(res(tall), dict) and res(tall, fit="contain") is None,
+              "contain fits the picture inside the frame: only cover needs both sides")
+        check(res(pic("turned.jpg", 540, 1080, orientation=6), motion="push-in") is None,
+              "an EXIF-rotated picture is measured as the browser shows it (width and height swapped)")
+        (tmp / "a" / "broken.png").write_bytes(b"not a picture")
+        w = res("a/broken.png")
+        check(isinstance(w, str) and "not checked" in w, f"an unreadable picture is a warning, not a review item ({w})")
+        (tmp / "a" / "v.svg").write_text("<svg xmlns='http://www.w3.org/2000/svg'/>", encoding="utf-8")
+        check(res("a/v.svg") is None, "a vector picture scales without loss")
+        ad = dict(AD, sceneTemplates=AD["sceneTemplates"] + ["still", "custom"])
+        st = [{"id": "s", "template": "still", "duration": 3, "media": {"image": "a/short.png", "motion": "push-in"}}]
+        pl = vd.plan(types.SimpleNamespace(root=tmp), "t", piece(st), ad, "social-9x16", False)
+        check(any(r["id"] == "resolution:s:social-9x16" for r in pl.reviews), "plan lists the resolution item per format")
+        check(not any(r["id"].startswith("resolution:") for r in vd.plan(None, "t", piece(st), ad, "social-9x16", False).reviews),
+              "a static plan (no project) skips the resolution check")
+
+        video = schema.load("video")
+
+        def assets(a: dict) -> list[str]:
+            return schema.validate(piece([{"id": "c", "template": "custom", "duration": 3,
+                                           "custom": {"script": "s/x.js", "assets": a}}]), video)
+        check(not assets({"plate": {"file": "brand/art/plate.png"}, "figure-2": {"file": "a/b.JPG", "license": "CC0, from x"}}),
+              "valid custom.assets pass the schema")
+        for bad, why in (({"Plate": {"file": "a/x.png"}}, "an uppercase name"), ({"2nd": {"file": "a/x.png"}}, "a leading digit"),
+                         ({"a" * 33: {"file": "a/x.png"}}, "a name over 32 characters"),
+                         ({"plate": {"file": "a/x.gif"}}, "a non-image suffix"), ({"plate": {"file": "../x.png"}}, "a path escape"),
+                         ({"plate": {"file": "a/x.png", "extra": 1}}, "an unknown key"),
+                         ({f"l{i}": {"file": "a/x.png"} for i in range(17)}, "more than 16 assets")):
+            check(bool(assets(bad)), f"custom.assets refuses {why}")
+        cu = piece([{"id": "c", "template": "custom", "duration": 3,
+                     "custom": {"script": "s/x.js", "assets": {"plate": {"file": "brand/art/plate.png"},
+                                                               "stock": {"file": "a/stock.png"},
+                                                               "lic": {"file": "a/lic.png", "license": "CC0"}}}}])
+        refs = {(r, k) for r, k, _ in vd.media_refs(cu)}
+        check({("brand/art/plate.png", "image"), ("a/stock.png", "image")} <= refs,
+              "custom assets are part of the storyboard's media (their bytes are approved)")
+        prov = {r["id"] for r in vd.plan(None, "t", cu, ad, "social-9x16", False).reviews if r["id"].startswith("provenance:")}
+        check(prov == {"provenance:c:stock"}, f"an asset outside brand/ with no licence is a provenance item ({prov})")
+        _, errs = vd.media_files(tmp, cu)
+        check(any("plate" in e or "brand/art/plate.png" in e for e in errs), f"a missing asset is reported ({errs})")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main() -> int:
     websocket_checks()
     plan_checks()
@@ -573,6 +648,7 @@ def main() -> int:
     loop_checks()
     m3_checks()
     m4_checks()
+    visual_production_checks()
     caption_checks()
     signal_checks()
     token_checks()

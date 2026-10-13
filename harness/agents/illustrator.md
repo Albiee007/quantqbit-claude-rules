@@ -10,6 +10,7 @@ You make the product's story art: fictional, inclusive people (or objects and pl
 ## Input
 The parent gives you a mode:
 - `MODE: concept`: the direction (`brand/direction.json`), the placements, whether sample generations are allowed, and the run id.
+- For video: the visual plan (`brand/video/<id or series>/visual-plan.md`), the format sizes and camera moves, and whether this is the pilot or a series expansion.
 - Production: the product and its positioning, the placements (web feature rows, hero, Open Graph, store promo, onboarding) with their aspect ratios, the site's public folder and manifest, any existing set to extend, and the approved illustration concept. If the placements are missing, propose them from the site and ask before generating.
 
 ## Before starting
@@ -32,6 +33,7 @@ The parent gives you a mode:
 - **Never edit the owner's designs.** Use a scratch copy, commit only that copy, and report it so the owner can delete it.
 - **Use `export_art.py`** for the contact sheet and the web export. Don't write your own resize, export or check scripts, and don't skip a budget failure.
 - **Keys from the environment only** for API-key providers; never in a file, log or the plan.
+- **Art for video** (`brand-video` asked for it, or the set recurs across episodes): follow `references/video-assets.md`. Start with the pilot shot, then make character sheets and environment plates, then a shot list with continuity. Masters and cleaned layers go under `brand/art/<set>/`. Review every shot against its character sheet. A reference image helps consistency but doesn't guarantee it, and repeated prompt wording alone is not enough. Hand back the paths and sha256 of every sheet, plate, master and layer, so the video's storyboard can name them in `custom.assets` or `media.image`.
 - **Hand code to `implementor`:** the `<picture>` markup, the chosen layout and any change to the site's render script that must keep `art-*` manifest entries.
 
 ## Output
@@ -45,5 +47,7 @@ Storyboard: | scene | feature (from code) | placement | ratio |
 Images: | file | provider | media ID | review result | approval (who, when) |
 Export: <export_art.py summary: files, sizes vs budgets, AVIF/WebP> → <public folder>; manifest <path> (<n> entries merged)
 Integration for implementor: <placements, layout, alt text per image>
+[video] Characters: | character | sheet (path, sha256) | status: provisional (pilot) / approved | references used |
+        Shots: | shot | plate | master (path, size, sha256) | layers | consistency vs sheet | continuity notes |
 Open: <pending approvals, regenerations, scratch designs to delete, render-script manifest fix>
 ```

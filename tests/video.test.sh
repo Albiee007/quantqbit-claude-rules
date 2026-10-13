@@ -201,6 +201,8 @@ for c in technical:og-card technical:social-1x1 workers:og-card gif:og-card webp
   check "render reports $c as PASS" has "PASS             $c"
 done
 check "a loop that does not return to its opening picture is a seam review item" has "REVIEW REQUIRED  loop-seam:og-card"
+check "a picture the 1:1 push-in has to enlarge is a resolution review item" has "REVIEW REQUIRED  scene art (social-1x1): brand/art/garden.png is 1600x1000"
+check "and the og-card, which it covers at full size, is not" bash -c "! grep -q 'scene art (og-card)' '$W/out'"
 CO="$P/brand/video/card/out"
 check "each format has its video, GIF, WebP, poster and sheet" bash -c "for f in og-card social-1x1; do for x in card.mp4 card.gif card.webp card-poster.png card-sheet.png; do [[ -f '$CO/'\$f/\$x ]] || exit 1; done; done"
 CRUN="$(ls -t "$P/brand/runs/video" | head -1)"
@@ -213,6 +215,8 @@ assert by['social-1x1/card.mp4']['frames'] == m['piece']['frames'] and by['socia
 assert m['piece']['formats'] == ['og-card', 'social-1x1'] and m['engine']['workers'] == 2
 assert any(a['path'] == 'brand/art/garden.png' for a in m['inputs']['assets'])
 assert any(r['id'] == 'loop-seam:og-card' for r in m['reviews'])
+assert any(r['id'] == 'resolution:art:social-1x1' for r in m['reviews'])
+assert not any(r['id'] == 'resolution:art:og-card' for r in m['reviews'])
 " "$P/brand/runs/video/$CRUN" > "$W/out" 2>&1
 check "the manifest records each format's outputs, the workers and the picture it used" test $? -eq 0
 runin "$P" "$VIDEO" check card --ffmpeg "$FF"
@@ -336,6 +340,30 @@ cp "$P/brand/video/motion/scenes/orbit.js" "$W/orbit.bak"; echo "// a comment" >
 runin "$P" "$DIR" status
 check "editing a scene script makes the storyboard stale" has "Gate 3 storyboard motion: NOT MET.*a picture or recording it shows"
 cp "$W/orbit.bak" "$P/brand/video/motion/scenes/orbit.js"
+
+echo "== 7b. custom.assets: a layered scene composing project images, one as a CSS background"
+runin "$P" "$VIDEO" lint layers
+check "a custom scene with assets lints" rc 0
+runin "$P" "$DIR" approve --gate storyboard --piece layers --by Owner --evidence "watched the draft"
+runin "$P" "$VIDEO" render layers --ffmpeg "$FF"
+check "the layered scene renders" rc 0
+LRUN="$(ls -t "$P/brand/runs/video" | head -1)"
+hc_py - "$P/brand/runs/video/$LRUN" "$P/brand/video/layers/out/social-1x1/layers.mp4" "$FF" > "$W/out" 2>&1 <<'PY'
+import json, subprocess, sys
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+paths = {a["path"] for a in m["inputs"]["assets"]}
+assert {"brand/art/layers/plate.png", "brand/art/layers/figure.png"} <= paths, paths
+px = subprocess.run([sys.argv[3], "-v", "error", "-i", sys.argv[2], "-vf", "select=eq(n\\,0),scale=1:1", "-frames:v", "1",
+                     "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True, check=True).stdout
+assert px[0] > 150 and px[1] < 90 and px[2] < 90, f"the CSS-background plate is not in the first frame: {tuple(px)}"
+PY
+check "the manifest lists both assets, and the background plate is drawn from the first frame" test $? -eq 0
+cp "$P/brand/art/layers/plate.png" "$W/plate.bak"
+hc_py -c "from PIL import Image; import sys; Image.new('RGB', (1200, 1200), (40, 160, 60)).save(sys.argv[1])" "$P/brand/art/layers/plate.png"
+runin "$P" "$DIR" status
+check "repainting an asset makes the storyboard stale" has "Gate 3 storyboard layers: NOT MET.*a picture or recording it shows"
+cp "$W/plate.bak" "$P/brand/art/layers/plate.png"
+runin "$P" "$DIR" status; check "restoring the asset restores the approval" has "Gate 3 storyboard layers: approved"
 
 echo "== 8. providers: voice, alignment and b-roll from the project's own commands"
 hc_py "$FIX/m4_talk.py" "$P" > "$W/out" 2>&1

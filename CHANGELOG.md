@@ -8,7 +8,39 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
-## [1.12.1] - 2026-10-12
+## [1.13.0] - 2026-10-13
+
+Choosing how a video's artwork is made. The renderer can only compose what it is given, so a piece with a premium visual reference now starts by recording what the reference requires and which production method can reach it. Code illustration, procedural or modelled 3D, generated art composed in code and supplied footage are all options. The method is shown on one pilot sample before a series is made, and methods can be compared on the same shot. Custom scenes can now compose project images, and a still the format has to enlarge is flagged.
+
+### Added
+- **`brand-video` `references/visual-production.md`:**
+  - the reference assessment (`brand/video/<id or series>/visual-plan.md`): appearance, character actions, owner constraints, method and limits;
+  - the method table, and when the result is an animatic or a performance;
+  - a matched comparison of methods (still, detail crops and motion sample per candidate);
+  - the pilot sample before scaling, using the existing approvals (no new gate);
+  - the cleanup checklist for layered compositions.
+- **`custom.assets`:** a custom scene can compose up to 16 project images (`{name: {file, license?}}`), read as `ctx.assets`.
+  - Their bytes are part of the storyboard approval.
+  - They are decoded before the first capture, including layers used only as CSS backgrounds.
+  - An asset outside `brand/` with no licence is a `provenance:<scene>:<name>` review item.
+- **Picture resolution:** `lint` and `render` list `resolution:<scene>:<format>` when a still's picture is smaller than its fit, plus the 108 % zoom when it moves, needs. EXIF orientation is applied, and SVG is exempt. Custom scene layers are not checked automatically.
+- **`story-art` `references/video-assets.md`:**
+  - the pilot shot, then character sheets (provisional in the pilot, approved before a series expands) and environment plates;
+  - a shot list with continuity, and per-shot consistency review against the sheets (reference-image input helps but doesn't guarantee);
+  - masters and layers at video resolution under `brand/art/<set>/`, with Git LFS or external storage as options.
+- **Critique "Against a supplied reference":** judge frames against the reference for form, materials and light, depth, expression, compositing and consistency through motion. Every method is judged by its results. The critique table has a `Reference fit` column.
+
+### Changed
+- `video-creative`: missing artwork is a method decision, never an automatic choice of generation or code. With a reference, it drafts or follows the visual plan, runs comparisons on request, and reports Method and Reference fit.
+- `illustrator`: a video handoff returning character sheets, plates, masters and layers with their paths and hashes.
+- `story-art`: the 4–8 quota is per web set (the owner sets an episode's count). Video masters are kept durably, not in `out/`. `providers.md` covers reference-image input, layer separation and native size.
+- `creative-director`: compares frames with a supplied reference.
+- `motion.js` reads a still's zoom from `window.VIDEO.stillZoom` (video.py's `STILL_ZOOM`), so the value has one source. Frames are unchanged.
+- The schema validator supports `maxProperties`.
+
+### Upgrade notes
+- Run harness sync.
+- Still scenes whose picture the format has to enlarge now show a `resolution:<scene>:<format>` review item. Use a larger master, or acknowledge the item.
 
 A go-live checklist for websites and webapps, and SEO references brought up to date with Google's 2025–2026 documentation changes.
 

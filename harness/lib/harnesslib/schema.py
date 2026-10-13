@@ -2,7 +2,7 @@
 
 Supported keywords: type, properties, required, additionalProperties, propertyNames, enum, const,
 pattern, minLength, maxLength, minimum, maximum, exclusiveMinimum, exclusiveMaximum, items,
-minItems, maxItems, uniqueItems, $ref (local "#/$defs/..."), anyOf, oneOf, allOf, format.
+minItems, maxItems, uniqueItems, maxProperties, $ref (local "#/$defs/..."), anyOf, oneOf, allOf, format.
 Extensions: format "relpath" (a project-relative path, see fsutil.safe_rel) and "x-uniqueKey"
 (array items must not repeat that property). Any other keyword in a schema is an error, so a
 constraint can never be silently ignored. Numbers must be finite (fsutil.load_json enforces it).
@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent / "schemas"
 ANNOTATIONS = {"$schema", "$id", "title", "description", "$defs", "$comment", "examples", "default"}
 KEYWORDS = {"type", "properties", "required", "additionalProperties", "propertyNames", "enum", "const",
             "pattern", "minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum",
-            "exclusiveMaximum", "items", "minItems", "maxItems", "uniqueItems", "$ref", "anyOf", "oneOf",
+            "exclusiveMaximum", "items", "minItems", "maxItems", "uniqueItems", "maxProperties", "$ref", "anyOf", "oneOf",
             "allOf", "format", "x-uniqueKey"}
 TYPES = {"object": dict, "array": list, "string": str, "boolean": bool, "null": type(None)}
 
@@ -146,6 +146,8 @@ def validate(data: Any, schema: dict, root: dict | None = None, path: str = "$")
         for r in schema.get("required", []):
             if r not in data:
                 errs.append(f"{path}: missing {r!r}")
+        if "maxProperties" in schema and len(data) > schema["maxProperties"]:
+            errs.append(f"{path}: {len(data)} entries, at most {schema['maxProperties']}")
         for k, v in data.items():
             if "propertyNames" in schema:
                 errs += [e.replace(f"{path}.{{name}}", f"{path} key {k!r}")

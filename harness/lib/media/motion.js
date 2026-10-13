@@ -7,6 +7,7 @@
    in whole frames and are turned into milliseconds here: ms(n) = n * 1000 / fps.
 
    VIDEO = { id, width, height, fps, frames, safe: {top, right, bottom, left}, typeScale, draft, assets: {logo?},
+             stillZoom (the scale a moving still reaches, from video.py's STILL_ZOOM),
              scenes: [{ id, template, start, frames, overlap, enter, transition, layout, background, copy,
                         media?: {src, fit, motion, focus} }] }
    Type is sized from the format's short side (times typeScale), so a 9:16, 1:1 or 16:9 frame of
@@ -18,6 +19,7 @@
   const M = AD.motion;
   const ms = (n) => (n * 1000) / V.fps;
   const animations = [];
+  const decodedAssets = []; // custom scenes' images, kept so the decoded bitmaps stay cached
 
   function anim(el, keyframes, delayMs, durationMs, easing, fill) {
     if (!el || durationMs <= 0) return null;
@@ -230,7 +232,7 @@
       img.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${H}px;object-fit:${m.fit};` +
         `object-position:${fx * 100}% ${fy * 100}%;transform-origin:${fx * 100}% ${fy * 100}%;`;
       el.appendChild(img);
-      const z = 1.08, dx = W * 0.03;
+      const z = V.stillZoom, dx = W * 0.03;
       const MOVES = {
         'push-in': [{ transform: 'scale(1)' }, { transform: `scale(${z})` }],
         'pull-out': [{ transform: `scale(${z})` }, { transform: 'scale(1)' }],
@@ -246,14 +248,24 @@
        window.VideoScenes[id] = (el, ctx) => player?. The builder draws into el and may create Web
        Animations (positioned like ours) or return a library player (a paused GSAP timeline, a
        Lottie animation built from ctx.lottie) that __hf.register seeks. It must not read the clock,
-       schedule timers or use Math.random (lint refuses them); ctx.rand(key) is deterministic. */
+       schedule timers or use Math.random (lint refuses them); ctx.rand(key) is deterministic.
+       ctx.assets maps the scene's custom.assets names to their page paths; each is decoded before
+       the first capture, so a layer used as a CSS background is ready too. */
     custom(el, sc) {
       el.insertAdjacentHTML('beforeend', sc.custom.html || '');
       const build = (window.VideoScenes || {})[sc.id];
       if (!build) throw new Error(`custom scene ${sc.id}: its script did not register window.VideoScenes["${sc.id}"]`);
+      const assets = sc.custom.assets || {};
+      for (const [name, src] of Object.entries(assets)) {
+        const img = new Image();
+        img.src = src;
+        const decoded = img.decode().catch(() => { throw new Error(`custom scene ${sc.id}: asset ${name} failed to decode: ${src}`); });
+        if (window.__hf && window.__hf.waitFor) window.__hf.waitFor(decoded, `custom scene ${sc.id} asset ${name}`);
+        decodedAssets.push(img);
+      }
       const ctx = {
         width: W, height: H, fps: V.fps, frames: sc.frames, seconds: sc.frames / V.fps, safe: S, AD,
-        lottie: sc.custom.lottie || null, headPx: headPx(), ms,
+        lottie: sc.custom.lottie || null, assets, headPx: headPx(), ms,
         rand: (key) => window.__hf ? window.__hf.rand(sc.id + ':' + key) : 0.5,
         start: ms(sc.start), // Web Animations created here use composition time: delay from ctx.start
       };

@@ -17,6 +17,10 @@
 | Length outside the format's range; a loop over 15 s; a loop rate that does not divide the fps; an unknown poster scene | FAIL |
 | A still scene with no picture, or a picture that is missing or not an image | FAIL |
 | A picture outside `brand/` with no `media.license` | REVIEW REQUIRED (`provenance:<scene>`) |
+| A still's picture the format has to enlarge: its fit (`cover` fills, `contain` fits inside), plus the 108 % zoom when it moves. EXIF orientation is applied; SVG is exempt | REVIEW REQUIRED (`resolution:<scene>:<format>`, naming the size needed) |
+| A still's picture whose size can't be read, or no Pillow | warning (resolution not checked) |
+| A custom scene asset that is missing, outside the project or not an image; a bad asset name; more than 16 | FAIL |
+| A custom scene asset outside `brand/` with no `license` | REVIEW REQUIRED (`provenance:<scene>:<asset>`) |
 | A recording scene with no recording, or a recording that is missing or not a video | FAIL |
 | A recording shorter than its scene | warning (its last frame holds) |
 | An App Store preview not at 30 fps, outside 15–30 s, or transparent | FAIL |
