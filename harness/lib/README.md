@@ -3,7 +3,7 @@
 Shared code for the media skills: colour maths, design tokens, type scales, schemas, creative
 direction and approvals, contrast findings, browser rendering, the art-direction runtime and the
 video renderer's parts (DevTools session, seek runtime, ffmpeg).
-It ships with the web and mobile profiles to `.claude/harness/lib/` and is managed by the harness,
+It ships with the web and mobile profiles to `.agents/harness/lib/` and is managed by the harness,
 so edit nothing here; projects change behaviour through `brand/` files instead.
 
 ## Interface
@@ -44,14 +44,15 @@ A skill script imports the library with exactly this bootstrap and nothing else 
 every consumer):
 
 ```python
-# harness lib bootstrap (see .claude/harness/lib/README.md)
+# harness lib bootstrap (see .agents/harness/lib/README.md)
 sys.dont_write_bytecode = True
 _root = Path(__file__).resolve().parents[3]
-sys.path[:0] = [str(d) for d in (_root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]
+sys.path[:0] = [str(d) for d in (_root.parent / ".agents" / "harness" / "lib", _root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]
 ```
 
-It finds `.claude/harness/lib` in an installed project (`.claude/skills/<skill>/scripts/x.py`)
-and `harness/lib` in the harness source.
+It finds `.agents/harness/lib` in an installed project, whichever skills folder the script was
+installed in (`.claude/skills/<skill>/scripts/x.py` for Claude Code, `.agents/skills/…` for the
+other agents), and `harness/lib` in the harness source.
 
 ## Exit codes (every media command)
 

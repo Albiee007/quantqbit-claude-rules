@@ -166,9 +166,9 @@ def self_ignoring_dir(path: Path, note: str) -> Path:
 
 
 def harness_config(root: Path) -> dict[str, str]:
-    """KEY=VALUE lines of .claude/harness.config (comments and blank lines skipped, CRLF safe,
+    """KEY=VALUE lines of .agents/harness.config (comments and blank lines skipped, CRLF safe,
     surrounding quotes removed). Missing file: {}."""
-    f = Path(root) / ".claude" / "harness.config"
+    f = Path(root) / ".agents" / "harness.config"
     out: dict[str, str] = {}
     if not f.is_file():
         return out

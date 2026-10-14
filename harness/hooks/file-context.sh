@@ -6,7 +6,7 @@
 #   * ui / seo (topics with mandatory skills): the first write is DENIED once
 #     with the checklist and "load the skills, then retry" — the retry is allowed.
 #     ui names ui-ux, typography and color-science together in that one deny.
-#     Set checklists=inform in .claude/harness.config to only inform instead.
+#     Set checklists=inform in .agents/harness.config to only inform instead.
 #   * media (brand/ direction, tokens, concepts, canvases, logos; mockup-kit config;
 #     story-art plans): gated like ui, naming creative-direction with typography,
 #     color-science and ui-ux. The direction and brief can be drafted before any
@@ -23,11 +23,11 @@ set -uo pipefail
 # shellcheck source=_lib.sh
 _hd="${BASH_SOURCE[0]%/*}"; [[ "$_hd" == "${BASH_SOURCE[0]}" ]] && _hd=.
 source "$_hd/_lib.sh"
-hh_read_payload
-
-hh_get file_path "$HH_TI"; p="$HH_V"
-[[ -z "$p" ]] && exit 0
-p="${p//\\//}"
+hh_read_payload "$@"
+# Only writes (an edit, a patch, a move) are checked; VS Code runs Claude hooks
+# without their matcher, so the hook filters on the operation itself.
+[[ "$HH_OP" == write || "$HH_OP" == rename ]] || exit 0
+[[ ${#HH_PATHS[@]} -gt 0 ]] || exit 0
 shopt -s nocasematch
 
 # hh_gate <topic> <skill>... — first write for this topic in this agent context:
@@ -39,7 +39,7 @@ enforce=(); gate_text=""
 hh_gate() {
   local topic="$1" s have=()
   shift
-  for s in "$@"; do [[ -f "$HH_ROOT/.claude/skills/$s/SKILL.md" ]] && have+=("$s"); done
+  for s in "$@"; do [[ -f "$HH_SKILLS/$s/SKILL.md" ]] && have+=("$s"); done
   [[ ${#have[@]} -gt 0 ]] || return 0
   hh_topic_marker "gate-$topic"
   [[ -e "$HH_V" ]] && return 0
@@ -48,12 +48,30 @@ hh_gate() {
   hh_snippet_text "$topic"; gate_text+="$HH_V"$'\n'
 }
 
+# protect <message> — refuse a write to a file only the production commands
+# write. Where the event can no longer stop it (an after-edit hook), report the
+# violation instead so the agent reverts it.
+violations=""
+protect() {
+  [[ "$HH_CAN_BLOCK" == 1 ]] && hh_deny "$1"
+  violations+="$1 This write already happened: revert it now."$'\n'
+}
+
 hh_config checklists; mode="$HH_V"
+# A gate can only deny before the write; afterwards it can only inform.
+[[ "$HH_CAN_BLOCK" == 1 ]] || mode="inform"
+
+# Every path of the operation: a protected file anywhere in a multi-file patch,
+# or as the target of a move, refuses the whole operation.
+for p in "${HH_PATHS[@]}"; do
+p="${p//\\//}"
+# Patch paths are relative to the project; anchor them so the */dir/ patterns match.
+[[ "$p" == /* || "$p" == [A-Za-z]:/* ]] || p="/$p"
 case "$p" in
   */brand/approvals.json)
-    hh_deny "Harness: brand/approvals.json records the owner's decisions and is written only by direction.py approve, run by the main session after the owner decides (skill creative-direction). Don't edit it by hand." ;;
+    protect "Harness: brand/approvals.json records the owner's decisions and is written only by direction.py approve, run by the main session after the owner decides (skill creative-direction). Don't edit it by hand." ;;
   */brand/runs/*.json)
-    hh_deny "Harness: brand/runs/ holds the immutable run manifests the production commands write (the audit record, including video and motion review items). Don't edit them; render or verify again instead." ;;
+    protect "Harness: brand/runs/ holds the immutable run manifests the production commands write (the audit record, including video and motion review items). Don't edit them; render or verify again instead." ;;
 esac
 case "$p" in
   */brand/direction.json|*/brand/BRIEF.md|*/brand/canvas.json|*/brand/exports.json|*/brand/tokens.json|*/brand/concepts/*|\
@@ -95,17 +113,22 @@ case "$p" in
   *.sh|*.bash|*.ps1|*.psm1|*.tf|*docker-compose*|*/compose*.y*ml|*Dockerfile*|*/ansible/*|*/playbooks/*|*/roles/*|*/.github/workflows/*)
     hh_add_snippet infra ;;
 esac
+done
 
 if [[ ${#enforce[@]} -gt 0 ]]; then
-  skills=""
+  skills=""; n=0
   for s in "${enforce[@]}"; do
-    skills+="${skills:+, }.claude/skills/$s/SKILL.md"
+    [[ ", $skills," == *", $HH_SKILLS_REL/$s/SKILL.md,"* ]] && continue
+    skills+="${skills:+, }$HH_SKILLS_REL/$s/SKILL.md"; n=$((n + 1))
   done
-  what="a mandatory skill"; [[ ${#enforce[@]} -gt 1 ]] && what="mandatory skills"
-  hh_deny "Harness: ${p##*/} falls under ${what}. Before writing it, load ${skills} (Read tool or Skill tool) and apply this checklist, then retry the same write (it will be allowed):
+  what="a mandatory skill"; [[ $n -gt 1 ]] && what="mandatory skills"
+  name="${HH_PATHS[0]##*/}"; [[ ${#HH_PATHS[@]} -gt 1 ]] && name="this change"
+  hh_deny "Harness: ${name} falls under ${what}. Before writing it, load ${skills} (Read tool or Skill tool) and apply this checklist, then retry the same write (it will be allowed):
 $gate_text"
 fi
-[[ -z "$HH_OUT" ]] && exit 0
-hh_emit_context PreToolUse "Harness: this file falls under a mandatory checklist:
+out="$violations$HH_OUT"
+[[ -z "$out" ]] && exit 0
+[[ -n "$violations" ]] && hh_emit_context "${HH_EVENT:-PostToolUse}" "$out"
+[[ -z "$violations" ]] && hh_emit_context "${HH_EVENT:-PreToolUse}" "Harness: this file falls under a mandatory checklist:
 $HH_OUT"
 exit 0

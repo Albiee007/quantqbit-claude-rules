@@ -29,11 +29,11 @@ Harness content (under `harness/` in this repo) is **vendored into each project'
 | `.claude/rules/harness/*.md` | Path-scoped rules: coding, tests, security, ui-ux, seo, bash, powershell, ansible, compose, terraform |
 | `.claude/skills/{coding-standards,design-patterns,ui-ux,typography,color-science,seo,harness}/` | Mandatory knowledge skills, with progressive-disclosure references |
 | `.claude/agents/{explorer,implementor,infra-implementor,verifier,reviewer}.md` | The coordinated agent roster. All run on Opus. |
-| `.claude/agents/creative-director.md`, `.claude/skills/creative-direction/` and `.claude/harness/lib/` | Project-specific creative direction, concept rounds and owner approvals for every media asset, plus the shared media library (colour, tokens, type, schemas, art-direction runtime). Web and mobile profiles |
+| `.claude/agents/creative-director.md`, `.claude/skills/creative-direction/` and `.agents/harness/lib/` | Project-specific creative direction, concept rounds and owner approvals for every media asset, plus the shared media library (colour, tokens, type, schemas, art-direction runtime). Web and mobile profiles |
 | `.claude/agents/{screen-capturer,store-creative,listing-copywriter,store-precheck-auditor,icon-creator,brand-asset-creator,illustrator}.md` and their skills `.claude/skills/{mobile-screen-capture,store-mockups,store-listing,store-submission-precheck,app-icons,brand-assets,story-art}/` | Mobile store, brand and story-art personas (mobile profile; `brand-*`, `illustrator` and `story-art` also web). Scripts need Python 3.9+ with Pillow, and Chrome/Edge for rendering |
-| `.claude/harness/hooks/*.sh` | `guard` (Opus + `.env` enforcement), `prompt-router` and `file-context` (mandatory checklists), `session-start`, `post-edit-lint` |
+| `.agents/harness/hooks/*.sh` | `guard` (Opus + `.env` enforcement), `prompt-router` and `file-context` (mandatory checklists), `session-start`, `post-edit-lint` |
 | `.claude/settings.json` | **Generated**: harness base settings merged with `.claude/settings.project.json` |
-| `.claude/harness/lock` | Version and content hash of every harness file |
+| `.agents/harness/lock` | Version and content hash of every harness file |
 
 ## Install into a project
 
@@ -55,10 +55,40 @@ PowerShell: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scaffold\sync
 Never add the marketplace from your working copy of this repo: a local-path marketplace copies untracked and gitignored files into the plugin cache. Use the GitHub form, or a clean clone.
 
 On first install, sync:
-- auto-detects **profiles** (see below) and writes them to `.claude/harness.config`.
+- auto-detects **profiles** (see below) and writes them to `.agents/harness.config`.
 - seeds `.claude/rules/project/README.md` and, only if **no** `CLAUDE.md` or `AGENTS.md` exists, a `CLAUDE.md` stub.
 - moves an existing `.claude/settings.json` into the project-owned `.claude/settings.project.json`, so nothing is lost.
-- never modifies `CLAUDE.md`, `AGENTS.md` or `AI_RULES.md`.
+- never modifies `CLAUDE.md` or `AI_RULES.md`. `AGENTS.md` and `GEMINI.md` are touched only for the Codex and Gemini CLI targets, and only inside a marked harness block (see "Other coding agents").
+
+## Other coding agents (2.0)
+
+The same rules, skills, sub-agents and hooks also install for **OpenAI Codex CLI**, **Gemini CLI**, **Google Antigravity**, **Cursor** and **GitHub Copilot**. Choose the agents with `--targets`:
+
+```bash
+sync.sh --target . --targets claude,cursor,copilot     # replace the installed set
+sync.sh --target . --add-target codex                  # add one
+sync.sh --target . --remove-target cursor              # remove one (its files go; shared files stay)
+sync.sh --target . --detect-targets                    # only print what the project shows signs of
+```
+
+The set used by a plain sync is: `--targets` if given, else `targets=` in `.agents/harness.config`, else the lock, else `claude`. Detection is never applied on its own, so an existing `.cursor/` folder does not change an upgrade.
+
+What each agent gets (details and sources: [scaffold/targets/SPEC.md](scaffold/targets/SPEC.md)):
+
+| | Rules | Skills | Sub-agents | Hooks | Blocking |
+|---|---|---|---|---|---|
+| Claude Code | `.claude/rules/harness/` | `.claude/skills/` | `.claude/agents/` (Opus) | `.claude/settings.json` | enforced |
+| Codex CLI | block in `AGENTS.md` + rule index | `.agents/skills/` | `.codex/agents/*.toml` | `.codex/hooks.json` | enforced once the project is trusted and the hooks are reviewed (`/hooks`) |
+| Gemini CLI | `GEMINI.md` block (imports the core) + rule index | `.agents/skills/` | `.gemini/agents/` | `.gemini/settings.json` | enforced in a trusted folder; untrusted folders load no hooks |
+| Antigravity | `.agents/rules/harness-*.md` (glob triggers) | `.agents/skills/` | `.agents/agents/` | `.agents/hooks.json` | enforced; context only at session start |
+| Cursor | `.cursor/rules/harness/*.mdc` | `.agents/skills/` | `.cursor/agents/` | `.cursor/hooks.json` (also runs the Claude hooks) | enforced in a trusted workspace |
+| Copilot (CLI, VS Code) | `.github/instructions/harness/` | `.agents/skills/` | `.github/agents/*.agent.md` | `.github/hooks/harness.json` | enforced after folder trust; the cloud agent is not covered |
+
+- **Models:** only Claude Code is pinned (Opus). Other agents' sub-agents use the model you configured.
+- **Shared runtime:** `.agents/harness/` (hooks, snippets, scripts' library, lock) and `.agents/skills/` belong to the install and stay until the last target is removed.
+- **Files you own:** the harness writes only its own entries into `.cursor/hooks.json`, `.codex/hooks.json`, `.gemini/settings.json` and `.agents/hooks.json`, and only its marked block into `AGENTS.md` / `GEMINI.md`. Your entries and text are kept (JSON is rewritten with 2-space indentation). Removing the target or uninstalling takes out only the harness part, and deletes the file only if the harness created it. A hand edit inside the block is a `CONFLICT-BLOCK`; edit outside it.
+- **Active, not just configured:** after every sync, and in `harness doctor`, each agent's hooks are reported as `active`, `configured-untrusted`, `disabled` or `unknown`. The harness never sets trust for you.
+- **Limits:** a sub-agent can be told apart from the main session only in Claude Code and Codex, so "only the main session approves" is enforced there and documented elsewhere. No agent's ignore file (`.cursorignore`, `.geminiignore`, Copilot content exclusion) covers the shell, and no hook sees indirect reads such as `grep -r .`; keep `.env*` gitignored.
 
 ## Profiles
 
@@ -70,16 +100,16 @@ On first install, sync:
 | `backend` | compose/Dockerfile rule |
 | `infra` | ansible, terraform, compose rules |
 
-To change profiles, edit `profiles=` in `.claude/harness.config` and re-sync, or pass `--profiles`. That also rewrites `profiles=` in `harness.config`, in the same transaction. Files that are no longer selected are removed if unmodified, and kept as project-owned if you had edited them.
+To change profiles, edit `profiles=` in `.agents/harness.config` and re-sync, or pass `--profiles`. That also rewrites `profiles=` in `harness.config`, in the same transaction. Files that are no longer selected are removed if unmodified, and kept as project-owned if you had edited them.
 
 ## Updating
 
 ```bash
-bash .claude/harness/bin/harness-sync.sh --dry-run          # preview
-bash .claude/harness/bin/harness-sync.sh --diff             # preview with diffs
-bash .claude/harness/bin/harness-sync.sh --commit           # apply + commit on the current branch
-bash .claude/harness/bin/harness-sync.sh --ref vX.Y.Z       # pin a pushed release tag (clones upstream)
-bash .claude/harness/bin/harness-sync.sh --remote            # latest upstream default branch
+bash .agents/harness/bin/harness-sync.sh --dry-run          # preview
+bash .agents/harness/bin/harness-sync.sh --diff             # preview with diffs
+bash .agents/harness/bin/harness-sync.sh --commit           # apply + commit on the current branch
+bash .agents/harness/bin/harness-sync.sh --ref vX.Y.Z       # pin a pushed release tag (clones upstream)
+bash .agents/harness/bin/harness-sync.sh --remote            # latest upstream default branch
 ```
 
 The bootstrap picks its source in this order:
@@ -94,7 +124,7 @@ A source older than the installed harness is refused (exit 1). Pass `--allow-dow
 
 | Guarantee | How |
 |---|---|
-| All-or-nothing | New state is built and validated in `.claude/harness/.tmp/`, then applied with a journal. Any failure rolls every file back (exit 2). The lock is written last. |
+| All-or-nothing | New state is built and validated in `.agents/harness/.tmp/`, then applied with a journal. Any failure rolls every file back (exit 2). The lock is written last. |
 | Never clobbers local work | A harness file whose hash differs from the lock → `CONFLICT-MODIFIED`. A pre-existing file at a harness path → `CONFLICT-UNMANAGED`. Both abort with nothing written (exit 1). |
 | Safe to repeat | Unchanged files are no-ops. Re-running the same version changes 0 files. |
 | Merge-conflict safe | Harness and project files never share a file. The lock is deterministic (sorted, no timestamps), so the same version produces identical bytes on every machine. Hashes ignore CRLF differences. |
@@ -103,10 +133,10 @@ A source older than the installed harness is refused (exit 1). Pass `--allow-dow
 
 Resolving conflicts:
 - **`--keep`** (CONFLICT-MODIFIED only): keep your local version. It is marked `kept-local` in the lock, and the doctor keeps reporting it.
-- **`--theirs`:** take the harness version. Your previous copy is saved under `.claude/harness/.backup/<time>/` (gitignored).
+- **`--theirs`:** take the harness version. Your previous copy is saved under `.agents/harness/.backup/<time>/` (gitignored).
 - **CONFLICT-UNMANAGED:** one of your files uses a reserved harness name. The agents are `explorer`, `implementor`, `infra-implementor`, `verifier` and `reviewer`, plus `screen-capturer`, `store-creative`, `listing-copywriter`, `store-precheck-auditor`, `icon-creator`, `brand-asset-creator`, `illustrator`, `creative-director`, `video-creative` and `motion-designer`. The skills are `coding-standards`, `design-patterns`, `ui-ux`, `typography`, `color-science`, `seo` and `harness`, plus `mobile-screen-capture`, `store-mockups`, `store-listing`, `store-submission-precheck`, `app-icons`, `brand-assets`, `story-art`, `creative-direction`, `brand-video` and `motion-ui`. The other reserved paths are `.claude/.gitattributes` and `.claude/skills/.gitignore`. Rename yours, or use `--theirs`; `--keep` does not apply.
 - **Recommended:** move the intent of your edit into `.claude/rules/project/`, then use `--theirs`.
-- **Git merge conflict inside `.claude/harness/lock` or `.claude/settings.json`:** take either side of those files, `git add` them and finish the merge commit, then run `harness-sync.sh --commit`.
+- **Git merge conflict inside `.agents/harness/lock` or `.claude/settings.json`:** take either side of those files, `git add` them and finish the merge commit, then run `harness-sync.sh --commit`.
 
 ## Customising (without conflicts)
 
@@ -114,7 +144,7 @@ Resolving conflicts:
 |---|---|
 | Add or override rules | `.claude/rules/project/*.md` (add `paths:` frontmatter to scope a rule) |
 | Team permissions, env, extra hooks | `.claude/settings.project.json`, then re-sync |
-| Profiles, lint/test commands, staging branch | `.claude/harness.config` |
+| Profiles, lint/test commands, staging branch | `.agents/harness.config` |
 | Project overview and conventions | `CLAUDE.md` / `AGENTS.md` |
 | Your own agents or skills | New names under `.claude/agents/` and `.claude/skills/` |
 | Personal preferences | `CLAUDE.local.md`, `.claude/settings.local.json` (gitignore both) |
@@ -129,7 +159,7 @@ Resolving conflicts:
 ## Health check
 
 ```bash
-bash .claude/harness/bin/harness-doctor.sh     # exit 0 healthy, 1 warnings, 2 errors
+bash .agents/harness/bin/harness-doctor.sh     # exit 0 healthy, 1 warnings, 2 errors
 ```
 
 It reports:
@@ -153,6 +183,10 @@ It reports:
    - **Limit:** all of this is project-level policy. A personal `.claude/settings.local.json` or `~/.claude/settings.json` can still set `disableAllHooks` or relax permissions; `harness doctor` reports `disableAllHooks` wherever it finds it. Enforcement nobody can override needs [managed settings](https://code.claude.com/docs/en/settings#settings-files) deployed by an administrator.
 
 > **Note:** project settings use `defaultMode: "plan"`, which takes precedence over a personal `bypassPermissions` default. Override it in `.claude/settings.project.json` if your team prefers another mode.
+
+## Upgrading from 1.x
+
+2.0 moves the shared runtime from `.claude/harness/` to `.agents/harness/` and `harness.config` to `.agents/harness.config`. The first 2.0 sync does the move in one transaction: unedited 1.x runtime files are removed, edited ones are kept and reported, the config keeps your edits, and the 1.x lock is replaced. Commit the result. Until then `harness doctor` reports the 1.x layout.
 
 ## Uninstall
 

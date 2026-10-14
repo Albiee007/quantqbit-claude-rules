@@ -34,11 +34,11 @@ for row in 'x\ta\tbogus\t-' 'x\ta\toverwritten\t../out' 'x\ta\tcreated\t-\textra
   if manifest_rows "$P/.claude/m" 2>/dev/null; then echo "[FAIL] accepted manifest row $row"; exit 1; fi
 done
 printf 'managed\t../../outside\t1.0.0\tx\tclean\n' > "$W/project/.claude/lock"
-mkdir -p "$W/project/.claude/harness"
-mv "$W/project/.claude/lock" "$W/project/.claude/harness/lock"
+mkdir -p "$W/project/.agents/harness"
+mv "$W/project/.claude/lock" "$W/project/.agents/harness/lock"
 if bash "$ROOT/scaffold/sync.sh" --target "$W/project" --uninstall > "$W/sync.log" 2>&1; then
   echo '[FAIL] unsafe sync lock accepted'; exit 1
 fi
 grep -q 'unsafe lock path' "$W/sync.log"
-[[ -f "$W/outside" && ! -d "$W/project/.claude/harness/.tmp" ]]
+[[ -f "$W/outside" && ! -d "$W/project/.agents/harness/.tmp" ]]
 echo 'helper tests passed'

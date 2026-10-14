@@ -8,6 +8,45 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [2.0.0] - 2026-10-15
+
+The harness now installs for **OpenAI Codex CLI, Gemini CLI, Google Antigravity, Cursor and GitHub Copilot**, as well as Claude Code. The same rules, skills, sub-agents and hooks are rendered into each agent's own format from the one Claude-format source. What each agent reads, and how its hooks block, trust and report sub-agents, was checked against its docs and its installed source code ([scaffold/targets/SPEC.md](scaffold/targets/SPEC.md)).
+
+### Added
+- **Targets.** `sync.sh --targets LIST` (replaces the set), `--add-target`, `--remove-target`, and `--detect-targets` (prints a proposal, never applies it).
+  - The set is chosen as: the flag, else `targets=` in `harness.config`, else the lock, else `claude`.
+  - Each target is a map in `scaffold/targets/<target>.map`. Renderers (`render.py`) produce Cursor `.mdc` rules, Copilot `applyTo` instructions, Antigravity `trigger`/`globs` rules, and each agent's sub-agent format (Codex TOML, Copilot `.agent.md`, Gemini, Cursor, Antigravity).
+  - The renderers expand brace globs into comma lists and rewrite Claude Code paths to the shared ones.
+- **Files the project owns** are written into, never replaced:
+  - Hook entries are merged into `.cursor/hooks.json`, `.codex/hooks.json`, `.gemini/settings.json` and `.agents/hooks.json` (`hooks_merge.py`).
+  - A marked block goes into `AGENTS.md` (Codex: the core rules plus an index of the path rules) and `GEMINI.md` (an `@import`) (`blocks.py`).
+  - Removing a target or uninstalling takes out only the harness part. A hand edit inside a block is a `CONFLICT-BLOCK`.
+- **Hooks for every agent.** The hooks now check a normalised operation:
+  - It covers every path of a multi-file patch, both sides of a move, and Gemini's `read_many_files`.
+  - It carries the event phase and whether the event can still block. After-edit events report a violation instead of denying.
+  - Each agent gets its own deny and context output. Cursor's payload is recognised even when it runs the Claude hooks of `.claude/settings.json`.
+- **Activation report.** After a sync, and in `harness doctor`, every agent's hooks are reported as `active`, `configured-untrusted` (for example Codex's `/hooks` review or Gemini's folder trust), `disabled` or `unknown` (`harness-activation.py`). Trust is never set for the user.
+- `tests/targets.test.sh` renders every target and checks frontmatter, TOML, JSON, hook paths, and that no Claude Code path is left in another agent's files.
+
+### Changed
+- **Layout.** The shared runtime (hooks, snippets, scripts' library, lock) moved from `.claude/harness/` to `.agents/harness/`, and `harness.config` to `.agents/harness.config`. Claude Code's rules, skills, agents and settings stay in `.claude/`.
+- **Lock format 2:** a `targets` header row, plus `targets` and `owner` (`file`, `entries`, `block`) columns. The first five columns are unchanged.
+- **Manifest:** destinations are logical (`skill:seo/SKILL.md`), and each target's map turns them into paths.
+- **Core rules:** the Opus, Agent-tool and settings lines are Claude Code only. Other agents get a section on using their own models, skills and sub-agents.
+- **Models:** only Claude Code is pinned to Opus. Sub-agents of other agents use the model the user configured.
+- The sub-agent approval checks (`direction.py approve`, `render_video.py generate`) now trust only the sub-agent marker before `tool_input`. They run for Claude Code and Codex, the two agents that mark sub-agents.
+
+### Upgrade notes
+- **Run harness sync once and commit the result.** It moves `.claude/harness/` and `.claude/harness.config` to `.agents/` in one transaction. Edited 1.x runtime files are kept and reported, and the config keeps your edits.
+- **Gitignore:** if your `.gitignore` hides `.agents/`, sync refuses until it doesn't. The harness is meant to be committed.
+- **AGENTS.md:** with the `codex` target, sync appends a marked block to `AGENTS.md`. Keep your own text outside the block.
+- **Other agents need trust before their hooks run.** Codex needs a trusted project and each hook reviewed with `/hooks` (again after an update changes them). Gemini CLI loads no hooks in an untrusted folder. Cursor and Copilot run project hooks in a trusted workspace or folder. See the activation report.
+- **Known gaps:**
+  - The Copilot cloud agent is not covered.
+  - Sub-agents can't be told apart in Gemini, Antigravity, Cursor or Copilot, so the main-session-only approval checks are not enforced there.
+  - Antigravity takes added context only at session start.
+  - No ignore file covers the shell, and no hook sees indirect reads such as `grep -r .`.
+
 ## [1.15.0] - 2026-10-14
 
 Fewer questions before any image or video appears. Before this release, a video on a fresh project could stop about nine times before the first output: brief, direction, its open questions, visual method, concept, storyboard, mix, provider and review items. A still image could stop about eight times. None of these stops came from the code; the prose told every agent to turn gaps into questions. Media work now follows one rhythm. The agents research the project, take documented fallbacks where it is silent, draft everything on the director's recommended concept, then stop **once**. The approvals are still the owner's, still bound to hashes, and still enforced by the production commands.

@@ -20,7 +20,7 @@ set -uo pipefail
 # shellcheck source=_lib.sh
 _hd="${BASH_SOURCE[0]%/*}"; [[ "$_hd" == "${BASH_SOURCE[0]}" ]] && _hd=.
 source "$_hd/_lib.sh"
-hh_read_payload
+hh_read_payload "$@"
 shopt -s nocasematch
 
 ENV_OK_RE='^\.env\.(example|template|sample|dist|defaults|schema)$|\.example$|\.template$|\.sample$'
@@ -46,35 +46,32 @@ deny_path() { # path, tool label
   fi
 }
 
-hh_get tool_name; tool="$HH_V"
-
-case "$tool" in
-  Agent|Task)
-    hh_get model "$HH_TI"; model="$HH_V"
-    if [[ -n "$model" && "$model" != "inherit" && ! "$model" =~ opus ]]; then
-      hh_deny "Harness policy: sub-agents must run on Opus. Re-issue this Agent call with model \"opus\" (requested: \"$model\")."
+# The checks run on the normalised operation (_lib.sh hh_normalize): every path
+# of a multi-file patch or a move is checked, and a deny on any one denies all.
+case "$HH_OP" in
+  spawn)
+    # The Opus policy is Claude Code's; other agents keep the model their user chose.
+    if [[ "$HH_AGENT" == claude ]]; then
+      hh_get model "$HH_TI"; model="$HH_V"
+      if [[ -n "$model" && "$model" != "inherit" && ! "$model" =~ opus ]]; then
+        hh_deny "Harness policy: sub-agents must run on Opus. Re-issue this Agent call with model \"opus\" (requested: \"$model\")."
+      fi
     fi
     ;;
-  Read|Edit|Write|MultiEdit|NotebookEdit)
-    hh_get file_path "$HH_TI"; p="$HH_V"
-    if [[ -z "$p" ]]; then hh_get notebook_path "$HH_TI"; p="$HH_V"; fi
-    deny_path "$p" "$tool"
+  read|write|rename)
+    for p in ${HH_PATHS[@]+"${HH_PATHS[@]}"}; do deny_path "$p" "$HH_TOOL"; done
     ;;
-  Grep)
-    hh_get path "$HH_TI"; deny_path "$HH_V" "Grep path"
-    hh_get glob "$HH_TI"; deny_path "$HH_V" "Grep glob"
-    ;;
-  Bash|PowerShell)
-    hh_get command "$HH_TI"; cmd="$HH_V"
+  exec)
+    cmd="$HH_CMD"
+    # Only a known sub-agent is refused; where the agent can't say (unknown), the
+    # check is a documented gap (scaffold/targets/SPEC.md), not a guess.
     approve_re='direction\.py[^|;&]*[[:space:]]approve([[:space:]]|$)'
-    if [[ "$cmd" =~ $approve_re ]]; then
-      hh_get agent_id
-      [[ -n "$HH_V" ]] && hh_deny "Harness: only the main session records owner approvals (direction.py approve), after the owner has decided. Return the decision you need to your parent instead."
+    if [[ "$cmd" =~ $approve_re && "$HH_SUBAGENT" == 1 ]]; then
+      hh_deny "Harness: only the main session records owner approvals (direction.py approve), after the owner has decided. Return the decision you need to your parent instead."
     fi
     generate_re="render_video\\.py[^|;&]*[[:space:]][\"']?generate[\"']?([[:space:]]|\$)"
-    if [[ "$cmd" =~ $generate_re ]]; then
-      hh_get agent_id
-      [[ -n "$HH_V" ]] && hh_deny "Harness: only the main session runs a generation provider (render_video.py generate: voice, alignment, b-roll), after the owner has asked for it; it may cost money and sends the script or prompt to the provider. Return the request to your parent instead."
+    if [[ "$cmd" =~ $generate_re && "$HH_SUBAGENT" == 1 ]]; then
+      hh_deny "Harness: only the main session runs a generation provider (render_video.py generate: voice, alignment, b-roll), after the owner has asked for it; it may cost money and sends the script or prompt to the provider. Return the request to your parent instead."
     fi
     cmd="${cmd//\\//}"
     # Read-only metadata commands (ls, stat, test, git status/check-ignore/ls-files,

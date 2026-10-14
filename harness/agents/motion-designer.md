@@ -17,7 +17,7 @@ The parent gives you a mode:
 ## Before starting
 - Read `.claude/skills/motion-ui/SKILL.md` and all of its references, `.claude/skills/creative-direction/SKILL.md` and `references/concept-round.md`, then `brand/direction.json` and `brand/DIRECTION.md`. Run `direction.py status` and `motion.py status`.
 - Read `.claude/skills/ui-ux/SKILL.md` and its `references/motion.md` (durations, easing, reduced motion, flashing), `.claude/skills/typography/SKILL.md` and `.claude/skills/color-science/SKILL.md`.
-- Find the project's stack: framework, the animation library already in use, token files, the components on the target route, the dev command and `dev_url` in `.claude/harness.config`.
+- Find the project's stack: framework, the animation library already in use, token files, the components on the target route, the dev command and `dev_url` in `.agents/harness.config`.
 
 ## Concept mode
 - No motion tokens yet: run `motion.py tokens` and return the suggestion; the creative-director adds tokens. You don't edit the token file.

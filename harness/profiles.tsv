@@ -1,6 +1,6 @@
 # Which profiles each harness file ships to. First matching glob wins.
 # Profiles: web (public web apps/sites), mobile (RN/Expo/Android/iOS), backend, infra.
-# "all" = every project. Select profiles per project in .claude/harness.config.
+# "all" = every project. Select profiles per project in .agents/harness.config.
 #glob	profiles
 rules/ui-ux.md	web,mobile
 skills/ui-ux/*	web,mobile

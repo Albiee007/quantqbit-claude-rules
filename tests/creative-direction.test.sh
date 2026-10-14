@@ -310,9 +310,9 @@ run "$CK" "$DIR" status
 check "the chained approvals meet Gates 1-3 for the video" gates "Gate 2 video: approved" "Gate 3 storyboard launch: approved"
 run "$CK" "$DIR" approve --gate direction,concept --family video --concept "$VC" --by Owner --evidence "again"
 check "a chain re-records current gates (a single gate does too)" rc 0
-mkdir -p "$CK/.claude"; printf 'media_approvals=delegated\n' > "$CK/.claude/harness.config"
+mkdir -p "$CK/.claude"; printf 'media_approvals=delegated\n' > "$CK/.agents/harness.config"
 run "$CK" "$DIR" status; check "status names the delegated mode from harness.config" has "Approvals: delegated (harness.config media_approvals=delegated)"
-printf 'media_approvals=yolo\n' > "$CK/.claude/harness.config"
+printf 'media_approvals=yolo\n' > "$CK/.agents/harness.config"
 run "$CK" "$DIR" status; check "an unknown mode falls back to the checkpoint and says why" has "Approvals: checkpoint (media_approvals=yolo is not"
 mkdir -p "$W/fresh"; run "$W/fresh" "$DIR" init --name Fresh
 check "init drafts a direction" rc 0

@@ -1,6 +1,6 @@
 # Direction files
 
-All of these are project-owned and committed. The machine-readable schemas ship in `.claude/harness/lib/harnesslib/schemas/`; `direction.py validate` applies them and rejects unknown schema versions, unknown keys, bad enums, duplicate IDs, unsafe paths (absolute, `..`, backslashes) and non-finite numbers.
+All of these are project-owned and committed. The machine-readable schemas ship in `.agents/harness/lib/harnesslib/schemas/`; `direction.py validate` applies them and rejects unknown schema versions, unknown keys, bad enums, duplicate IDs, unsafe paths (absolute, `..`, backslashes) and non-finite numbers.
 
 ## `brand/direction.json` (schemaVersion 1)
 ```jsonc

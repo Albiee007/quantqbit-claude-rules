@@ -12,7 +12,7 @@ The harness core rules, skills and agents load automatically from `.claude/rules
 ## Commands
 - **Install:** <!-- -->
 - **Dev:** <!-- -->
-- **Lint / typecheck / test:** <!-- also set lint_cmd / test_cmd in .claude/harness.config -->
+- **Lint / typecheck / test:** <!-- also set lint_cmd / test_cmd in .agents/harness.config -->
 
 ## Conventions specific to this project
 <!-- Keep this short. Put longer or path-specific rules in .claude/rules/project/*.md -->

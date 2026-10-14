@@ -1,0 +1,7 @@
+# Claude Code: rules, skills and agents under .claude/ (see SPEC.md and lib.sh).
+#key	dest	renderer
+core	.claude/rules/harness/	claude-core
+rule	.claude/rules/harness/	-
+skill	.claude/skills/	-
+agent	.claude/agents/	-
+dot:gitattributes	.claude/.gitattributes	-

@@ -24,7 +24,7 @@ You implement one well-defined change to application code.
 - Obey the project rules in `.claude/rules/project/`. They override harness defaults.
 
 ## Before reporting
-1. Run the project lint, typecheck and tests for the touched area (`lint_cmd` in `.claude/harness.config` if it is set).
+1. Run the project lint, typecheck and tests for the touched area (`lint_cmd` in `.agents/harness.config` if it is set).
 2. Self-review the diff against the `coding-standards` review checklist, plus the ui-ux, typography, color-science or seo checklists if you used those skills.
 
 ## Report

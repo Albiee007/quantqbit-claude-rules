@@ -31,16 +31,16 @@ import argparse
 import sys
 from pathlib import Path
 
-# harness lib bootstrap (see .claude/harness/lib/README.md)
+# harness lib bootstrap (see .agents/harness/lib/README.md)
 sys.dont_write_bytecode = True
 _root = Path(__file__).resolve().parents[3]
-sys.path[:0] = [str(d) for d in (_root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]
+sys.path[:0] = [str(d) for d in (_root.parent / ".agents" / "harness" / "lib", _root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]
 try:
     from harnesslib import color as col
     from harnesslib import dtcg
     from harnesslib.fsutil import InputError, UsageError, load_json
 except ImportError:
-    print("the harness media library is missing (.claude/harness/lib); re-run harness sync", file=sys.stderr)
+    print("the harness media library is missing (.agents/harness/lib); re-run harness sync", file=sys.stderr)
     raise SystemExit(2)
 
 ASSUME = "Assumptions: sRGB IEC 61966-2-1, D65, gamma-encoded; WCAG 2.x luminance (0.04045); ratios truncated for display."

@@ -1,0 +1,4 @@
+# Shared by every selected target: the hook runtime, snippets, scripts' library.
+#key	dest	renderer
+runtime	.agents/harness/	-
+dot:gitattributes	.agents/.gitattributes	-

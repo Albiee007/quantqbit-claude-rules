@@ -12,7 +12,7 @@ Screenshots and a passing build can't prove animation fidelity. A run checks pre
 | `compare <id> --run R` | – | none (draft) | `.preview/<run>/compare/` |
 | `verify <id>` | all | Gate 3 and every planned asset | `out/` (complete runs), `brand/runs/motion/<run>.json` |
 
-`motion.py` never starts a dev server. Give it a base URL (`--base-url`, `$MOTION_BASE_URL` or `dev_url=` in `.claude/harness.config`), or point `capture.page` at a project HTML file. Prefer a production preview build for `verify`: dev servers add error overlays, hot reload and cold compiles. Stop the server yourself when you are done. Every browser, ffmpeg or adb process a command starts is stopped when it ends, fails, is interrupted or reaches `--timeout`.
+`motion.py` never starts a dev server. Give it a base URL (`--base-url`, `$MOTION_BASE_URL` or `dev_url=` in `.agents/harness.config`), or point `capture.page` at a project HTML file. Prefer a production preview build for `verify`: dev servers add error overlays, hot reload and cold compiles. Stop the server yourself when you are done. Every browser, ffmpeg or adb process a command starts is stopped when it ends, fails, is interrupted or reaches `--timeout`.
 
 ## Checks
 

@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/session-start.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.agents/harness/hooks/session-start.sh\"",
             "timeout": 10
           }
         ]
@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/prompt-router.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.agents/harness/hooks/prompt-router.sh\"",
             "timeout": 10
           }
         ]
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/guard.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.agents/harness/hooks/guard.sh\"",
             "timeout": 10
           }
         ]
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/file-context.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.agents/harness/hooks/file-context.sh\"",
             "timeout": 10
           }
         ]
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/harness/hooks/post-edit-lint.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.agents/harness/hooks/post-edit-lint.sh\"",
             "timeout": 60
           }
         ]

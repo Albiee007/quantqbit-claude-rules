@@ -1,0 +1,8 @@
+# OpenAI Codex CLI: see SPEC.md. AGENTS.md gets the harness block; hooks need project trust and /hooks review.
+#key	dest	renderer	ext
+core	.agents/harness/rules/	core
+rule	.agents/harness/rules/	paths
+skill	.agents/skills/	paths
+agent	.codex/agents/	codex-agent	.toml
+@block	AGENTS.md	agents-md
+@hooks	.codex/hooks.json	codex

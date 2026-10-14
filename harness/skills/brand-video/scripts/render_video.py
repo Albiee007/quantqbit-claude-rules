@@ -46,10 +46,10 @@ import tempfile
 import threading
 from pathlib import Path
 
-# harness lib bootstrap (see .claude/harness/lib/README.md)
+# harness lib bootstrap (see .agents/harness/lib/README.md)
 sys.dont_write_bytecode = True
 _root = Path(__file__).resolve().parents[3]
-sys.path[:0] = [str(d) for d in (_root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]
+sys.path[:0] = [str(d) for d in (_root.parent / ".agents" / "harness" / "lib", _root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]
 try:
     import harnesslib
     from harnesslib import browser, cdp, pagecheck, schema
@@ -66,7 +66,7 @@ try:
                                    dumps_pretty, run_id, self_ignoring_dir, sha256_file, sha256_text,
                                    write_atomic)
 except ImportError:
-    print("the harness media library is missing (.claude/harness/lib); re-run harness sync", file=sys.stderr)
+    print("the harness media library is missing (.agents/harness/lib); re-run harness sync", file=sys.stderr)
     raise SystemExit(2)
 
 QUALITY = 92  # JPEG frames into the encoder (M0: indistinguishable from PNG after H.264, faster)

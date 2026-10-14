@@ -30,7 +30,7 @@ The source skill's seven brief inputs, and where each lives:
 Approvals: Gate 1 (direction) and Gate 2 (a motion concept) from creative-direction, then Gate 3 per piece (the spec), then a review acknowledgement per verified run.
 
 ## Workflow
-1. **Discover.** Read the direction, tokens and existing motion ([context-discovery](../creative-direction/references/context-discovery.md); `ui-ux` step 1 for components and the animation library). Note the framework, the dev command and URL (`dev_url=` in `.claude/harness.config`), and what already animates.
+1. **Discover.** Read the direction, tokens and existing motion ([context-discovery](../creative-direction/references/context-discovery.md); `ui-ux` step 1 for components and the animation library). Note the framework, the dev command and URL (`dev_url=` in `.agents/harness.config`), and what already animates.
 2. **Direction.** No motion family requested, or no motion tokens: the creative-director adds `families.motion` with a brief and runs `motion.py tokens --write` (or `render_video.py motion-tokens --write`). Requesting the family leaves every other approval current.
 3. **Concept round.** `motion-designer` (concept mode) proposes 2–3 motion languages (`direction.py concept new --family motion`): durations and easing tokens, allowed mediums, palette and type roles for overlays, reduced-motion default, imagery source. The creative-director recommends one and the spec is written on it; the owner sees both at the one owner checkpoint ([autonomy](../creative-direction/references/autonomy.md)). Reuse a current approved concept instead of a new round.
 4. **Analyse the reference** ([reference-analysis](references/reference-analysis.md)):

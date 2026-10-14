@@ -1,0 +1,9 @@
+# GitHub Copilot (CLI and VS Code agent mode; the cloud agent is a documented gap): see SPEC.md.
+#key	dest	renderer	ext
+core	.github/instructions/harness/	instructions	.instructions.md
+rule	.github/instructions/harness/	instructions	.instructions.md
+core	.agents/harness/rules/	core
+rule	.agents/harness/rules/	paths
+skill	.agents/skills/	paths
+agent	.github/agents/	copilot-agent	.agent.md
+@hooks	.github/hooks/harness.json	copilot

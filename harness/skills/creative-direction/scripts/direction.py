@@ -6,7 +6,7 @@
             and each concept's declared caption/background pairs (computed contrast)
   status    which gates are met: the direction (Gate 1), each requested family's concept (Gate 2) and
             each video storyboard and motion spec (Gate 3), and the approval mode (media_approvals=
-            checkpoint|delegated in .claude/harness.config); --next prints the chained approve to record
+            checkpoint|delegated in .agents/harness.config); --next prints the chained approve to record
   approve   record an owner decision bound to the current content and resolved inputs. Run only by
             the main session after the owner has decided; --by and --evidence are required
   summary   regenerate brand/DIRECTION.md from brand/direction.json (never edit the .md by hand)
@@ -49,10 +49,10 @@ import os
 import sys
 from pathlib import Path
 
-# harness lib bootstrap (see .claude/harness/lib/README.md)
+# harness lib bootstrap (see .agents/harness/lib/README.md)
 sys.dont_write_bytecode = True
 _root = Path(__file__).resolve().parents[3]
-sys.path[:0] = [str(d) for d in (_root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]
+sys.path[:0] = [str(d) for d in (_root.parent / ".agents" / "harness" / "lib", _root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]
 try:
     from harnesslib import contrast as con
     from harnesslib import direction as dl
@@ -61,7 +61,7 @@ try:
     from harnesslib.fsutil import (InputError, OperationalError, UsageError, dumps_pretty, harness_config, load_json,
                                    run_id, write_atomic)
 except ImportError:
-    print("the harness media library is missing (.claude/harness/lib); re-run harness sync", file=sys.stderr)
+    print("the harness media library is missing (.agents/harness/lib); re-run harness sync", file=sys.stderr)
     raise SystemExit(2)
 
 
@@ -274,7 +274,7 @@ APPROVAL_MODES = ("checkpoint", "delegated")
 
 
 def approval_mode(root: Path) -> tuple[str, str]:
-    """(mode, note): how the owner decides, from media_approvals= in .claude/harness.config."""
+    """(mode, note): how the owner decides, from media_approvals= in .agents/harness.config."""
     v = harness_config(root).get("media_approvals", "").strip()
     if not v:
         return "checkpoint", "the default"

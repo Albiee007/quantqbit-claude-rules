@@ -9,7 +9,7 @@
 #   hooks off  a settings file sets "disableAllHooks": true
 #   ignore     CLAUDE.local.md / settings.local.json not gitignored, or harness files gitignored
 #   behind     a newer harness version is available (if the source is found)
-# Usage: bash .claude/harness/bin/harness-doctor.sh [--quiet]
+# Usage: bash .agents/harness/bin/harness-doctor.sh [--quiet]
 # Exit: 0 healthy, 1 warnings, 2 errors.
 set -euo pipefail
 unset MSYS_NO_PATHCONV MSYS2_ARG_CONV_EXCL
@@ -18,14 +18,17 @@ BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$BIN/../../.." && pwd)"
 # shellcheck source=harness-lib.sh
 source "$BIN/harness-lib.sh"
-LOCK="$ROOT/.claude/harness/lock"
+LOCK="$ROOT/.agents/harness/lock"
 quiet=0; [[ "${1:-}" == "--quiet" ]] && quiet=1
 
 errors=0; warns=0
 err()  { hc_fail "$*"; errors=$((errors + 1)); }
 warn() { hc_warn "$*"; warns=$((warns + 1)); }
 
-[[ -f "$LOCK" ]] || { err "no .claude/harness/lock — the harness is not installed (run harness sync)"; exit 2; }
+if [[ ! -f "$LOCK" && -f "$ROOT/.claude/harness/lock" ]]; then
+  err "harness 1.x layout (.claude/harness/lock): re-run harness sync to move the runtime to .agents/harness/"; exit 2
+fi
+[[ -f "$LOCK" ]] || { err "no .agents/harness/lock — the harness is not installed (run harness sync)"; exit 2; }
 
 if grep -qE '^(<<<<<<<|=======|>>>>>>>)' "$LOCK"; then
   err "lock has git merge-conflict markers — keep either side, then re-run harness sync"
@@ -45,6 +48,9 @@ awk -F'\t' '
     c = cur[$2]
     if (c == "-")            print "missing\t" $2
     else if ($5 == "kept-local") print "kept-local\t" $2
+    # A project file the harness only writes into (hook entries, an AGENTS.md
+    # block) is the project'"'"'s to edit; sync re-merges it.
+    else if ($7 == "entries" || $7 == "block") next
     else if (c != $4)        print "modified\t" $2
   }' "$rows.cur" "$rows" > "$rows.issues"
 
@@ -61,7 +67,7 @@ while IFS=$'\t' read -r kind p; do
 done < "$rows.issues"
 
 # Unmanaged files inside wholly harness-owned directories.
-for d in .claude/rules/harness .claude/harness/hooks .claude/harness/snippets .claude/harness/bin; do
+for d in .claude/rules/harness .agents/harness/hooks .agents/harness/snippets .agents/harness/bin; do
   [[ -d "$ROOT/$d" ]] || continue
   while IFS= read -r f; do
     rel="${f#"$ROOT"/}"
@@ -82,6 +88,18 @@ for f in "$ROOT/.claude/settings.json" "$ROOT/.claude/settings.local.json" "${HO
   fi
 done
 
+# Agents other than Claude Code run the hooks only once they trust them.
+targets="$(awk -F'\t' '{ sub(/\r$/, "") } $1 == "targets" { t = $2 } END { print t }' "$LOCK")"
+if [[ -n "$targets" && "$targets" != claude ]] && hc_python >/dev/null 2>&1; then
+  while IFS=$'\t' read -r t state what; do
+    case "$state" in
+      active) [[ $quiet -eq 1 ]] || hc_ok "$t hooks: active ($what)" ;;
+      disabled) err "$t hooks: disabled — $what" ;;
+      *) warn "$t hooks: $state — $what" ;;
+    esac
+  done < <(hc_py "$BIN/harness-activation.py" "$ROOT" "$targets" 2>/dev/null)
+fi
+
 # Personal files must stay out of git.
 if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   for f in CLAUDE.local.md .claude/settings.local.json; do
@@ -91,7 +109,7 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   done
   # Harness files hidden by a .gitignore rule never reach teammates.
   # -v also reports paths re-included by a !negation rule; those are not hidden.
-  hidden="$( { cut -f2 "$rows"; echo ".claude/harness/lock"; } | git -C "$ROOT" check-ignore -v --stdin 2>/dev/null \
+  hidden="$( { cut -f2 "$rows"; echo ".agents/harness/lock"; } | git -C "$ROOT" check-ignore -v --stdin 2>/dev/null \
              | grep -vE ':[0-9]+:!' || true)"
   if [[ -n "$hidden" ]]; then
     err "harness files are gitignored, so teammates never get them — narrow the rule (see harness sync's message):"
@@ -101,8 +119,9 @@ fi
 
 # Scripts must have LF endings, or non-MSYS bash (Linux, WSL, containers) fails.
 while IFS= read -r f; do
-  warn "CRLF line endings in $f: commit or stash .claude edits, then re-checkout (git rm -r --cached -q .claude && git checkout HEAD -- .claude); the shipped .claude/.gitattributes keeps them LF"
-done < <(find "$ROOT/.claude/harness" "$ROOT/.claude/skills" -name '*.sh' -type f 2>/dev/null \
+  d="${f%%/*}"
+  warn "CRLF line endings in $f: commit or stash $d edits, then re-checkout (git rm -r --cached -q $d && git checkout HEAD -- $d); the shipped $d/.gitattributes keeps them LF"
+done < <(find "$ROOT/.agents/harness" "$ROOT/.agents/skills" "$ROOT/.claude/skills" -name '*.sh' -type f 2>/dev/null \
            | while IFS= read -r f; do awk -v BINMODE=3 -v r="${f#"$ROOT"/}" '/\r$/ { print r; exit }' "$f"; done)
 
 # v0.x leftovers superseded by the harness.
@@ -116,7 +135,7 @@ best="$(hc_find_sources | head -n 1 || true)"
 if [[ -n "$best" ]]; then
   up="${best%%$'\t'*}"; src="${best#*$'\t'}"
   if hc_ver_lt "$ver" "$up"; then
-    warn "installed harness v$ver, a newer v$up is available at $src - run: bash .claude/harness/bin/harness-sync.sh --dry-run"
+    warn "installed harness v$ver, a newer v$up is available at $src - run: bash .agents/harness/bin/harness-sync.sh --dry-run"
   elif hc_ver_lt "$up" "$ver"; then
     hc_info "local source at $src is v$up, older than the installed v$ver - update that source before syncing from it"
   fi

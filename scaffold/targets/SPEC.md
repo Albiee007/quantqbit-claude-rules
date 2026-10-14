@@ -23,6 +23,55 @@ This file records how each target agent works, for the harness adapters in `scaf
 10. **Blocking that works everywhere is exit 2 with a reason on stderr.** It works on every surface except Antigravity (UNCONFIRMED). The emitter should print the JSON deny *and* exit 2 where the target accepts both.
 11. **Ignore files never cover the shell** (`.cursorignore`, Copilot content exclusion, `.geminiignore`), and Copilot content exclusion does not apply to VS Code agent mode. Hooks and permission deny rules are the only enforcement.
 
+## Confirmed from source code (2026-10-15)
+These findings come from the installed bundles: Gemini CLI 0.64.0, Codex `rust-v0.162.1` source, and the Antigravity language server's strings and built-in docs. They overrule the docs rows below.
+
+**Codex**
+- **`apply_patch`:** PreToolUse sends `tool_name:"apply_patch"`, with `tool_input.command` holding the **raw patch text** (`*** Begin Patch`, `*** Move to:`). An `apply_patch` run through the shell arrives as `Bash` with the shell command instead.
+- **Sub-agent marker:** sub-agents (thread spawn) carry `agent_id` and `agent_type` before `tool_input`. `session_id` is shared with the parent, and there is no parent field. PreToolUse fires in sub-agents, so `HH_SUBAGENT` is reliable for spawned agents.
+- **Hook trust:**
+  - Trust is stored only in the **user** `config.toml`, as `[hooks.state."<abs source path>:<event_snake>:<group>:<handler>"] trusted_hash = "sha256:…"`. A project cannot pre-trust its own hooks.
+  - The hash covers the event, the matcher and the whole handler (command, commandWindows, timeout, …), so any edit makes the hook Modified, and it is skipped until the user re-trusts it with `/hooks`.
+  - `--dangerously-bypass-hook-trust` skips the check.
+- **Environment:**
+  - No project-dir variable. The hook's cwd is the session cwd.
+  - On Windows, hooks run through `pwsh -NoProfile -Command`, and `commandWindows` replaces `command`.
+  - The whole hook system is behind `Feature::CodexHooks`, which is on by default.
+- **Skills roots:** `.codex/skills`, `.agents/skills` (from the project root down to the cwd), `~/.agents/skills`, `$CODEX_HOME/skills` (deprecated). **Not `.claude/skills`.**
+
+**Gemini CLI**
+- **Folder trust:**
+  - It is **on by default**. Untrusted is the default when no rule matches.
+  - In an untrusted folder **no settings hooks load at all, user-level hooks included**, and headless runs fail.
+  - `~/.gemini/trustedFolders.json` maps `{"<abs path>": "TRUST_FOLDER"|"TRUST_PARENT"|"DO_NOT_TRUST"}`, and the longest match wins. `GEMINI_CLI_TRUST_WORKSPACE=true` and `--skip-trust` force trust.
+- **Hook review:** `~/.gemini/trusted_hooks.json` maps `{"<projectRoot>": ["<name>:<command>", …]}`. It only *warns* and then auto-trusts, so it is not a gate.
+- **Hook environment:** hooks inherit the environment; redaction is off by default. `GEMINI_PROJECT_DIR`, `CLAUDE_PROJECT_DIR`, `GEMINI_CWD` and `GEMINI_SESSION_ID` are set. Hooks are spawned with `shell:false` and `cwd` = the session cwd, and `$VAR` references in the command string are substituted.
+- **Sub-agents:** they fire BeforeTool through the same hook system, with **no sub-agent marker** and the parent's `session_id`.
+- **`.geminiignore`:** blocks `read_file`, but `read_many_files` and `ls` let the model turn it off (`respect_gemini_ignore:false`). It is not a boundary.
+
+**Antigravity**
+- **Payload:** stdin is camelCase: `conversationId`, `workspacePaths[]`, `toolCall{name,args}`, `stepIdx`. Tool names are lowercase step types (`run_command`, `view_file`, …).
+- **Running hooks:**
+  - The hook's cwd is the directory holding `hooks.json` (for example `<repo>/.agents`).
+  - Commands run through `sh -c` on Unix and `cmd /c` on Windows.
+  - The only variable is `ANTIGRAVITY_CONVERSATION_ID`; there is **no project-dir variable**, so the project root comes from `workspacePaths`.
+- **Blocking:** PreToolUse blocks with `{"decision":"deny","reason":"…"}`. **No exit code has a special meaning.** Whether a failing hook is fail-open or fail-closed is unknown, though the changelog says fail-open.
+- **Where hooks load from:** `.agents/hooks.json`, also found under `.agent/`, `_agents/` or `_agent/`, searched from the cwd up to the repo root. A `SessionStart` event exists in code. An `enableJsonHooks` switch exists (its default is unknown). No trust or approval step for hooks was found.
+
+**Cursor CLI (2026.10.12)**
+- **Claude hooks get Cursor's payload.** Cursor runs the hooks in `.claude/settings.json` with the **Cursor-native payload**: `cursor_version`, `hook_event_name:"preToolUse"`, `tool_name` Shell/Read/Write/Delete/Grep/Task, `workspace_roots`. Only the config is translated (matcher `Edit|Write` becomes `Write`; `Glob` is dropped). The output is mapped back: `permissionDecision` becomes `permission`.
+  - So today's Claude installs already run in Cursor, and `_lib.sh` recognises the Cursor payload by `cursor_version`.
+- **`Write` input:** `tool_input = {file_path, content}`, where content is the whole new file. There is no separate Edit tool. `afterFileEdit` sends `{file_path, edits[]}`.
+- **Environment:** `CURSOR_PROJECT_DIR` and `CLAUDE_PROJECT_DIR` are set for every hook.
+- **Sub-agent marker:** sub-agent tool events relayed over RPC carry `parent_tool_call_id`. Whether locally run tool hooks carry it is unknown.
+
+**Copilot CLI (1.0.97)**
+- **Payload shape:** PascalCase config gets a snake_case Claude-style payload with Claude tool names (Bash, Read, Write, …), but **native arguments**: `path`, `file_text`, `old_str`/`new_str`, and an `apply_patch` body. `_lib.sh` reads `path` as a fallback.
+- **Matchers** are honoured.
+- **Trust:** repo hooks load only after folder trust. In `-p` mode they also need `COPILOT_ALLOW_ALL` or `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true` (or an already-trusted folder).
+- **`.claude/settings.json`:** it is read as a repo config source, but whether its `hooks` are used is unconfirmed.
+- **Sub-agent marker:** none on tool hooks. The child session gets a different `session_id`.
+
 ## Codex CLI (0.162.1, docs: learn.chatgpt.com/docs)
 | Area | Spec | Run |
 |---|---|---|

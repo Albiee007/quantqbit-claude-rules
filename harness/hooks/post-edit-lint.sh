@@ -6,7 +6,7 @@ set -uo pipefail
 # shellcheck source=_lib.sh
 _hd="${BASH_SOURCE[0]%/*}"; [[ "$_hd" == "${BASH_SOURCE[0]}" ]] && _hd=.
 source "$_hd/_lib.sh"
-hh_read_payload
+hh_read_payload "$@"
 
 hh_get file_path "$HH_TI"; p="$HH_V"
 p="${p//\\//}"

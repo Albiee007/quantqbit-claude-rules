@@ -1,0 +1,8 @@
+# Google Gemini CLI: see SPEC.md. GEMINI.md imports the core rules; hooks need a trusted folder.
+#key	dest	renderer	ext
+core	.agents/harness/rules/	core
+rule	.agents/harness/rules/	paths
+skill	.agents/skills/	paths
+agent	.gemini/agents/	gemini-agent
+@block	GEMINI.md	gemini-md
+@hooks	.gemini/settings.json	gemini

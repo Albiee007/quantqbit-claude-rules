@@ -1,0 +1,9 @@
+# Cursor (IDE agent and the cursor-agent CLI): see SPEC.md and lib.sh.
+#key	dest	renderer	ext
+core	.cursor/rules/harness/	mdc	.mdc
+rule	.cursor/rules/harness/	mdc	.mdc
+core	.agents/harness/rules/	core
+rule	.agents/harness/rules/	paths
+skill	.agents/skills/	paths
+agent	.cursor/agents/	cursor-agent
+@hooks	.cursor/hooks.json	cursor

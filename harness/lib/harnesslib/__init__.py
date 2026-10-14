@@ -1,7 +1,7 @@
 """Shared library for the harness media tools (colour, tokens, type, schemas, art direction).
 
-Installed at .claude/harness/lib/harnesslib/ (web and mobile profiles). Skill scripts import it
-with the one bootstrap documented in .claude/harness/lib/README.md; nothing else may import it.
+Installed at .agents/harness/lib/harnesslib/ (web and mobile profiles). Skill scripts import it
+with the one bootstrap documented in .agents/harness/lib/README.md; nothing else may import it.
 Every module is stdlib only, except harnesslib.imaging, which needs Pillow.
 """
 
