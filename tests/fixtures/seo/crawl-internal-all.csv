@@ -1,0 +1,17 @@
+Address,Content Type,Status Code,Status,Indexability,Indexability Status,Title 1,Meta Robots 1,Canonical Link Element 1,Crawl Depth,Inlinks,Unique Inlinks,Redirect URL
+https://ex.com/,text/html; charset=utf-8,200,OK,Indexable,,Home - Ex,,https://ex.com/,0,50,40,
+https://ex.com/pricing,text/html; charset=utf-8,200,OK,Indexable,,Pricing - Ex,,https://ex.com/pricing,1,45,40,
+https://ex.com/old,text/html,301,Moved Permanently,Non-Indexable,Redirected,,,,1,35,30,https://ex.com/older
+https://ex.com/older,text/html,301,Moved Permanently,Non-Indexable,Redirected,,,,2,0,0,https://ex.com/new
+https://ex.com/new,text/html; charset=utf-8,200,OK,Indexable,,New - Ex,,https://ex.com/new,2,6,5,
+https://ex.com/gone,text/html,404,Not Found,Non-Indexable,Client Error,,,,1,30,25,
+https://ex.com/err,text/html,500,Internal Server Error,Non-Indexable,Server Error,,,,2,3,3,
+https://ex.com/dup1,text/html; charset=utf-8,200,OK,Indexable,,Same Title,,https://ex.com/dup1,2,2,2,
+https://ex.com/dup2,text/html; charset=utf-8,200,OK,Indexable,,Same Title,,https://ex.com/dup2,2,2,2,
+https://ex.com/notitle,text/html; charset=utf-8,200,OK,Indexable,,,,https://ex.com/notitle,2,1,1,
+https://ex.com/noindex,text/html; charset=utf-8,200,OK,Non-Indexable,noindex,Noindex - Ex,noindex,https://ex.com/noindex,1,20,15,
+https://ex.com/canon-bad,text/html; charset=utf-8,200,OK,Non-Indexable,Canonicalised,Canon - Ex,,https://staging.ex.com/canon-bad,2,4,4,
+https://ex.com/deep,text/html; charset=utf-8,200,OK,Indexable,,Deep - Ex,,https://ex.com/deep,5,1,1,
+https://ex.com/orphan,text/html; charset=utf-8,200,OK,Indexable,,Orphan - Ex,,https://ex.com/orphan,,0,0,
+https://ex.com/loop1,text/html,301,Moved Permanently,Non-Indexable,Redirected,,,,2,1,1,https://ex.com/loop2
+https://ex.com/loop2,text/html,301,Moved Permanently,Non-Indexable,Redirected,,,,3,1,1,https://ex.com/loop1

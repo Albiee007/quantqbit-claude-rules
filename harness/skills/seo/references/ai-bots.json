@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "verified": "2026-09",
+  "note": "User-agent tokens from operator documentation; the table in geo-ai-search.md is generated from the same facts. purpose: search = index for search/answers, training = model training, user = fetch on a user's request, control = robots.txt token only (never appears as a user agent). Re-verify quarterly.",
+  "bots": [
+    {"token": "Googlebot", "operator": "Google", "purpose": "search", "robots": "yes", "note": "Search, including AI Overviews and AI Mode"},
+    {"token": "Google-Extended", "operator": "Google", "purpose": "control", "robots": "yes", "note": "Gemini training/grounding outside Search; not a crawler"},
+    {"token": "bingbot", "operator": "Microsoft", "purpose": "search", "robots": "yes", "note": "Bing index, also used by Copilot"},
+    {"token": "OAI-SearchBot", "operator": "OpenAI", "purpose": "search", "robots": "yes", "note": "ChatGPT search results"},
+    {"token": "GPTBot", "operator": "OpenAI", "purpose": "training", "robots": "yes", "note": "Model training"},
+    {"token": "ChatGPT-User", "operator": "OpenAI", "purpose": "user", "robots": "partial", "note": "User-initiated fetches; robots.txt may not apply"},
+    {"token": "Claude-SearchBot", "operator": "Anthropic", "purpose": "search", "robots": "yes", "note": "Search indexing for Claude"},
+    {"token": "ClaudeBot", "operator": "Anthropic", "purpose": "training", "robots": "yes", "note": "Model training"},
+    {"token": "Claude-User", "operator": "Anthropic", "purpose": "user", "robots": "yes", "note": "User-initiated fetches"},
+    {"token": "PerplexityBot", "operator": "Perplexity", "purpose": "search", "robots": "yes", "note": "Perplexity search index, not training"},
+    {"token": "Perplexity-User", "operator": "Perplexity", "purpose": "user", "robots": "no", "note": "User-initiated fetches; generally ignores robots.txt"},
+    {"token": "CCBot", "operator": "Common Crawl", "purpose": "training", "robots": "yes", "note": "Open crawl dataset widely used for training"},
+    {"token": "Applebot", "operator": "Apple", "purpose": "search", "robots": "yes", "note": "Spotlight, Siri and Safari search"},
+    {"token": "Applebot-Extended", "operator": "Apple", "purpose": "control", "robots": "yes", "note": "Apple model training; not a crawler"}
+  ]
+}

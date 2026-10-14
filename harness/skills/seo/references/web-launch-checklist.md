@@ -1,6 +1,6 @@
 # Website and webapp launch checklist
 
-Use this before a public website or web product goes live, after a migration or redesign, and as the recurring health check in section 18. It covers indexing, sitemaps, performance, accessibility, security, privacy, measurement and webapp concerns. Where a topic has a deep reference, the item links to it instead of repeating it. Facts checked against official sources as of 2026-10-12; re-verify the items marked *(changes often)* every quarter.
+Use this before a public website or web product goes live, after a migration or redesign (full playbook: [migration.md](migration.md)), and as the recurring health check in section 18. It covers indexing, sitemaps, performance, accessibility, security, privacy, measurement and webapp concerns. Where a topic has a deep reference, the item links to it instead of repeating it. Facts checked against official sources as of 2026-10-12; re-verify the items marked *(changes often)* every quarter.
 
 **How to grade.** Each item says **how to verify** it. Mark every item PASS, FAIL, NOT-VERIFIABLE or N/A, with evidence (URL, header, report screenshot, tool output).
 

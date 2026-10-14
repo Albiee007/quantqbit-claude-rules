@@ -1,0 +1,8 @@
+old,new
+/a,/b
+/b,/c
+/x,/y
+/y,/x
+/self,/self
+/ok,/final
+/lost,/missing

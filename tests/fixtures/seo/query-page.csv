@@ -1,0 +1,13 @@
+query,page,clicks,impressions,ctr,position
+acme crm,https://ex.com/,300,1000,30%,1.0
+acme crm,https://ex.com/about,5,100,5%,3.0
+crm software,https://ex.com/crm,150,1000,15%,2.0
+crm software,https://ex.com/features,1,50,2%,15.0
+best crm,https://ex.com/blog/best-crm,100,1000,10%,3.0
+crm pricing,https://ex.com/pricing,60,1000,6%,4.0
+crm for startups,https://ex.com/crm-startups,10,600,1.67%,5.2
+crm demo,https://ex.com/demo,40,600,6.67%,5.0
+crm comparison,https://ex.com/blog/crm-vs,20,400,5%,6.0
+crm comparison,https://ex.com/compare,18,350,5.14%,7.0
+crm reports,https://ex.com/reports,5,300,1.67%,8.0
+crm integrations,https://ex.com/integrations,2,400,0.5%,12.0

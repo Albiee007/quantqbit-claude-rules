@@ -8,6 +8,42 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.14.0] - 2026-10-14
+
+The `seo` skill can now analyse a project's own data. Six local scripts read Search Console, crawl, server-log and Bing AI exports and turn them into ranked fixes. New references cover site migrations, AI-visibility measurement, decision-stage page types and SaaS/B2B sites. The scope came from a review of 67 published third-party SEO skills against this harness. About 20 were already covered and 35 filled real gaps; speculative ones ("leaked ranking factors", proprietary scores) and marketing-analytics ones were left out.
+
+### Added
+- **`seo` scripts** (Python 3 stdlib, local files only, `--json`, `--map canonical=Header` for other tools' headers, exit 2 on bad input):
+  - `gsc_analyze.py` has five modes over Search Console exports (UI, API or BigQuery bulk export):
+    - `striking`: positions 4–15, with a title, on-page or links action per query.
+    - `ctr`: gaps against the site's own CTR curve.
+    - `decay`: with a diagnosis and one action: refresh, rewrite title/meta, rewrite, consolidate, leave or investigate.
+    - `cannibal`: true splits vs harmless overlap, the page to keep, and a fix.
+    - `update`: core-update winners and losers, and the section the losers share.
+  - `crawl_triage.py`: Screaming Frog or other crawl exports. Ranks broken links, redirect chains and loops, broken canonicals, linked noindex pages, orphans, title issues and deep pages by the internal links they waste. Gives the top three fixes, with effort, and a this-week list.
+  - `redirect_map.py`: builds an old-to-new map (exact, normalised, slug, title), lists unmapped URLs (never redirected to home), checks for chains, loops, self-redirects and dead targets, and writes CSV, nginx, Netlify or Next.js output.
+  - `bot_log_audit.py`: reads combined, W3C, CDN JSON-lines logs or a Clarity Bot Activity CSV. Gives each search or AI bot a status (blocked, throttled, erroring, robots violations, over-scraping or healthy) and one fix. Optionally checks identity against the operator's IP ranges.
+  - `ai_citations.py`: sorts queries and prompts into owned, contested, under-represented and absent, using Bing Webmaster Tools AI Performance exports, a search export and a prompt-library CSV kept by hand. It never queries an AI service.
+  - `lint_html.py`: the build-time checklist over built HTML for CI. Errors exit 1.
+- **`seo` references:**
+  - `migration.md`: inventory, mapping, staging, launch day (including Change of Address for every variant), dated checks from T+1 to T+365, and rollback criteria.
+  - `ai-visibility.md`: bot access, Bing AI Performance (grounding queries, citation share), prompt-library method and template, entity audit (Wikidata only where notability is genuine), and a scorecard.
+  - `page-types.md`: comparison, alternatives, best-for, buyer's guide, category, product, listicle and calculator pages, plus a persona-fit review.
+  - `saas-b2b.md`: page inventory, the docs and app split, product-led content, B2B services, and an audit checklist.
+  - `ai-bots.json`: the crawler list in machine-readable form, tested against the table in `geo-ai-search.md`.
+- `tests/seo.test.sh` (67 checks on fixtures with known answers), run in CI on all three operating systems.
+
+### Changed
+- `content-eeat.md`: information-gain review, and a statistics rule (figure, year, primary source and link, or the statistic isn't used).
+- `ecommerce.md`: Merchant Center feed triage, and agentic-commerce readiness (UCP, ACP, operable HTML controls). Marked as changing often.
+- `local.md`: review programme (asking, drafting replies for approval, Google's removal-policy categories, proof quotes per page).
+- `content-playbooks.md`: Search Console audit points to `gsc_analyze.py`; striking distance is now positions 4–15; competitor backlink shortlist method.
+- `technical.md`, `geo-ai-search.md`, `web-launch-checklist.md` and `SKILL.md`: routing, shortcuts (`gsc`, `crawl`, `migrate`, `bots`, `citations`, `lint`), SaaS/B2B as a business type and audit lens.
+
+### Upgrade notes
+- None required. Run harness sync to get the scripts and references. The scripts need Python 3.10 or later and no packages.
+- The Bing AI Performance and Clarity column names are matched by alias. Check them against your first real export and use `--map` if a header differs.
+
 ## [1.13.0] - 2026-10-13
 
 Choosing how a video's artwork is made. The renderer can only compose what it is given, so a piece with a premium visual reference now starts by recording what the reference requires and which production method can reach it. Code illustration, procedural or modelled 3D, generated art composed in code and supplied footage are all options. The method is shown on one pilot sample before a series is made, and methods can be compared on the same shot. Custom scenes can now compose project images, and a still the format has to enlarge is flagged.
