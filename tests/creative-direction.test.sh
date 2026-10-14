@@ -283,6 +283,41 @@ else
   echo "  [SKIP] 1.7 adapter cases: commit $LEGACY_REF not in this clone"
 fi
 
+echo "== one owner checkpoint: chained approvals, --next, approval mode (1.15)"
+CK="$W/ckpt"; hc_py "$MAKE" "$CK" kestrel --video > "$W/out" 2>&1
+check "an unapproved video fixture builds" test $? -eq 0
+VC="brand/concepts/video/$RUNID/a.json"; SC="brand/concepts/store/$RUNID/a.json"
+run "$CK" "$DIR" status --next
+check "status --next reports the checkpoint mode by default" has "Approvals: checkpoint (the default)"
+check "status --next prints one chained command per family, the direction joining the first" \
+  has "approve --gate direction,concept --family store --concept $SC "
+check "a video piece's chain carries its concept and storyboard" \
+  has "approve --gate concept,storyboard --family video --concept $VC --piece launch "
+cp "$CK/brand/direction.json" "$W/ck-direction.bak"
+run "$CK" "$DIR" approve --gate direction,concept,storyboard --family video --concept "$SC" --piece launch --by Owner --evidence "checkpoint: ok"
+check "a chain that fails part-way is refused" rc 1
+check "and says nothing was recorded" has "nothing recorded: the chain stopped at --gate concept"
+check "no approvals file is left behind" test ! -e "$CK/brand/approvals.json"
+check "direction.json is byte-identical" cmp -s "$CK/brand/direction.json" "$W/ck-direction.bak"
+run "$CK" "$DIR" approve --gate concept,direction --family video --concept "$VC" --by Owner --evidence "checkpoint: ok"
+check "a chain out of order is refused" rc 2
+run "$CK" "$DIR" approve --gate direction,review --run "$RUNID" --items all --by Owner --evidence "checkpoint: ok"
+check "review and exception are not chained" rc 2
+run "$CK" "$DIR" approve --gate direction,concept,storyboard --family video --concept "$VC" --piece launch --by Owner --evidence "checkpoint 2026-10-14: 'ok, go'"
+check "one owner decision records the direction, the concept and the storyboard" rc 0
+check "three records with the same evidence" bash -c "[[ \$(grep -c \"checkpoint 2026-10-14\" '$CK/brand/approvals.json') == 3 ]]"
+run "$CK" "$DIR" status
+check "the chained approvals meet Gates 1-3 for the video" gates "Gate 2 video: approved" "Gate 3 storyboard launch: approved"
+run "$CK" "$DIR" approve --gate direction,concept --family video --concept "$VC" --by Owner --evidence "again"
+check "a chain re-records current gates (a single gate does too)" rc 0
+mkdir -p "$CK/.claude"; printf 'media_approvals=delegated\n' > "$CK/.claude/harness.config"
+run "$CK" "$DIR" status; check "status names the delegated mode from harness.config" has "Approvals: delegated (harness.config media_approvals=delegated)"
+printf 'media_approvals=yolo\n' > "$CK/.claude/harness.config"
+run "$CK" "$DIR" status; check "an unknown mode falls back to the checkpoint and says why" has "Approvals: checkpoint (media_approvals=yolo is not"
+mkdir -p "$W/fresh"; run "$W/fresh" "$DIR" init --name Fresh
+check "init drafts a direction" rc 0
+check "init seeds no open question, only the keep-identity inference" bash -c "grep -q '\"openQuestions\": \[\]' '$W/fresh/brand/direction.json' && grep -q 'Keep the existing tokens' '$W/fresh/brand/direction.json'"
+
 echo "== signals, migrate, same brand"
 run "$W/same" "$DIR" concept check "$STORE"
 check "a kept 1.6-like look still passes its checks" rc 0

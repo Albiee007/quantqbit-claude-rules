@@ -11,7 +11,7 @@ References: <file: what it shows, what it is for>   (one reference may set chara
 Appearance required: anatomy and proportions · materials and surfaces · lighting · depth (foreground, background softness) · expression
 Actions required: <per shot: what a character must do: turn, take off headphones, walk, speak> or none
 Keep from the project: <identity in force: palette roles, type, motif>   (borrow the reference's quality, not its brand)
-Owner constraints: <code-only | generated art allowed | footage or 3D available | budget, tools, deadline>
+Owner constraints: <code-only | generated art allowed | footage or 3D available | budget, tools, deadline>   (none stated: assumed no paid generation)
 Assets available: <approved art, masters, layers, recordings, models>
 Method: <from the table below> · Why: <how it reaches the appearance and the actions>
 Known limits: <what this method won't do, and which shots that affects>
@@ -40,7 +40,7 @@ When the owner asks to compare methods (for example code-only against generated 
 - The creative-director assesses the actual results against the reference ([critique-guide](../../creative-direction/references/critique-guide.md), "Against a supplied reference"). Nothing is ranked or labelled before it exists. Report what each method reached and what it missed.
 
 ## Representative sample before scaling
-This is not a separate technical gate. The sample is a pilot piece (for example `brand/video/<series>-pilot/`): one finished frame and a short motion sample. It goes through the usual concept and storyboard approvals before a whole episode or series is made.
+This is not a separate technical gate. The sample is a pilot piece (for example `brand/video/<series>-pilot/`): one finished frame and a short motion sample. It is the draft shown at the one owner checkpoint ([autonomy](../../creative-direction/references/autonomy.md)), with the concept and storyboard approvals recorded together, before a whole episode or series is made.
 - Character designs may be provisional in the pilot.
 - Before the series expands, the reusable character sheets and environments are approved (story-art [video-assets](../../story-art/references/video-assets.md)).
 - If the sample misses the reference, change the method or the target with the owner. Don't scale a method that hasn't reached the look.

@@ -1,6 +1,6 @@
 # Concept round
 
-Sub-agents can't talk to each other, so the main session runs the round: it briefs each creator in concept mode, collects their concepts, asks the creative-director to critique them, and puts the result to the owner.
+Sub-agents can't talk to each other, so the main session runs the round: it briefs each creator in concept mode, collects their concepts, asks the creative-director to critique them, and puts the result to the owner at the one checkpoint, together with the drafts.
 
 ## Who takes part
 Only the families the request needs, and only families the direction requests:
@@ -50,7 +50,8 @@ File: brand/concepts/<family>/<run>/<id>.json
 ```
 
 ## After the round
-1. The creative-director critiques ([critique-guide](critique-guide.md)) and recommends, with required changes.
-2. The main session shows the owner the previews and the critique. **The owner picks.**
-3. The main session records it: `direction.py approve --gate concept --family <f> --concept <file> --by <owner> --evidence <where>`.
-4. Production runs with the family skill.
+1. The creative-director critiques ([critique-guide](critique-guide.md)) and recommends **one**, with required changes.
+2. The creator applies the required changes and drafts the pieces on the recommended concept (storyboard, spec, preview frames).
+3. The one checkpoint ([autonomy](autonomy.md)): the drafts, the alternatives as thumbnails and the critique. **The owner picks**: a yes takes the recommendation; "use B" switches before production.
+4. The main session records it, chained with the other gates: `direction.py approve --gate direction,concept[,storyboard] --family <f> --concept <file> --by <owner> --evidence <where>`.
+5. Production runs with the family skill.

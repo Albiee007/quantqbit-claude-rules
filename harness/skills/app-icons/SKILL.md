@@ -27,7 +27,7 @@ Make one mark work everywhere, from a 1024 px store tile to a 24 dp status-bar s
    - enough contrast with the background to survive small sizes (reported every run; a project target, if set, is enforced).
 
    Preview it: `python .claude/skills/app-icons/scripts/make_icon_set.py preview --master <glyph.png> --from-direction . -o <sheet.png>` (16–180 px, light and dark wallpapers, circle and squircle masks, the monochrome silhouette).
-   When the icon concept isn't approved yet, propose 2–3 compositions in concept mode ([concept-round](../creative-direction/references/concept-round.md), [composition](references/composition.md)); the owner picks.
+   When the icon concept isn't approved yet, propose 2–3 compositions in concept mode ([concept-round](../creative-direction/references/concept-round.md), [composition](references/composition.md)); the director recommends one and the owner picks at the checkpoint, seeing its before and after preview.
 3. **Generate the set:**
    `python .claude/skills/app-icons/scripts/make_icon_set.py generate --master <glyph.png> --from-direction . --out assets/icons`
    (a project without a direction: `--bg "#RRGGBB"`, or `--bg-style linear --bg A --bg2 B`)
@@ -50,7 +50,7 @@ Make one mark work everywhere, from a 1024 px store tile to a 24 dp status-bar s
 - **Never overwrite existing icon files in place** without the owner's go-ahead. Generate into a new folder, then switch the config.
 - **The iOS icon is always opaque, and the notification icon is always white on transparency.** These aren't style choices.
 - **Keep third-party logos out** of icons and UI icon sets (store IP rules).
-- **Changing the app icon changes the brand:** show the owner a before and after preview (`make_icon_set.py preview`) before switching the config.
+- **Changing the app icon changes the brand:** show the owner a before and after preview (`make_icon_set.py preview`) before switching the config, in the same checkpoint as the concept. A request that asks for a new icon is the go-ahead to generate into a new folder; switching the config still needs the owner's yes, even when delegated.
 - **The look is the project's:** the background and composition come from the approved icon concept. No harness default colour or scale is a style choice.
 - **Store listing icons** (Play 512, App Store 1024) must match the launcher icon. `store-precheck-auditor` checks them against [store-specs](../store-submission-precheck/references/store-specs.md).
 

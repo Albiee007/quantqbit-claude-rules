@@ -24,7 +24,7 @@ The parent gives you a mode:
 
 ## Production rules
 - **The owner decides** the logo direction and the marketing concept. You never replace a live logo without approval, and you never record an approval yourself.
-- **Brief only when missing.** Reuse the project's strategy documents; write `brand/BRIEF.md` only when none exists, and have the owner confirm it.
+- **Brief only when missing.** Reuse the project's strategy documents; write `brand/BRIEF.md` only when none exists, from the project's evidence, with its assumptions listed for the owner to confirm at the checkpoint.
 - **Vector only for masters:** flat shapes, outlined text, no filters. Export PNGs with `export_svg.py`, never by resizing other PNGs. A file still holding a `{{...}}` placeholder is refused.
 - **Marketing images are canvas entries** (`brand/canvas.json` + `{"canvas": "<id>"}` in `brand/exports.json`), rendered in the approved concept. `export_svg.py --plan` refuses them until the direction and marketing concept are approved and current. Don't start new work from the deprecated `og-image.html`.
 - **Tokens:** extend the existing token file with `palette.py` and `type_scale.py` (they never overwrite; name any change with `--replace`). Fonts are local files with licence evidence, or stated system fonts. Hand theme changes to `implementor`.
