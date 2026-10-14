@@ -5,7 +5,8 @@
   validate  the direction and every concept: schema, token references, font records and licences,
             and each concept's declared caption/background pairs (computed contrast)
   status    which gates are met: the direction (Gate 1), each requested family's concept (Gate 2) and
-            each video storyboard and motion spec (Gate 3)
+            each video storyboard and motion spec (Gate 3), and the approval mode (media_approvals=
+            checkpoint|delegated in .claude/harness.config); --next prints the chained approve to record
   approve   record an owner decision bound to the current content and resolved inputs. Run only by
             the main session after the owner has decided; --by and --evidence are required
   summary   regenerate brand/DIRECTION.md from brand/direction.json (never edit the .md by hand)
@@ -21,7 +22,7 @@
 Usage:
   python direction.py init --name "Fernway" [--project .] [--tokens brand/tokens.json]
   python direction.py validate [--project .]
-  python direction.py status [--project .]
+  python direction.py status [--next] [--project .]
   python direction.py approve --gate direction --by "Owner Name" --evidence "chat 2026-10-02: 'approved'"
   python direction.py approve --gate concept --family store --concept brand/concepts/store/<run>/b.json --by ... --evidence ...
   python direction.py approve --gate exception --scope "store:frame:05-brand:layout=inset" --by ... --evidence ...
@@ -29,6 +30,8 @@ Usage:
   python direction.py approve --gate storyboard --family motion --piece hero --by ... --evidence ...
   python direction.py approve --gate mix --piece launch-teaser --by ... --evidence ...   (a video with audio)
   python direction.py approve --gate review --run <run id> --items all --by ... --evidence ...   (video or motion run)
+  python direction.py approve --gate direction,concept,storyboard,mix --family video --concept <file> --piece launch-teaser --by ... --evidence ...
+            (one owner checkpoint: an ordered chain, all recorded or none)
   python direction.py concept new --family store --id b --name "Field notes" [--run <run id>]
   python direction.py concept check brand/concepts/store/<run>/b.json
   python direction.py resolve store [--concept <file>]
@@ -55,8 +58,8 @@ try:
     from harnesslib import direction as dl
     from harnesslib import fingerprint, schema
     from harnesslib.dtcg import TokenError
-    from harnesslib.fsutil import (InputError, OperationalError, UsageError, dumps_pretty, load_json, run_id,
-                                   write_atomic)
+    from harnesslib.fsutil import (InputError, OperationalError, UsageError, dumps_pretty, harness_config, load_json,
+                                   run_id, write_atomic)
 except ImportError:
     print("the harness media library is missing (.claude/harness/lib); re-run harness sync", file=sys.stderr)
     raise SystemExit(2)
@@ -79,8 +82,10 @@ def skeleton(name: str, tokens: str) -> dict:
                    "roles": {"canvas": "{color.canvas}", "ink": "{color.ink}", "inkMuted": "{color.inkMuted}",
                              "accent": "{color.accent}"},
                    "fonts": {"display": "{font.display}", "text": "{font.text}"}},
-        "context": {"facts": [], "preferences": [], "inferences": [],
-                    "openQuestions": ["Which existing brand choices must be kept?"]},
+        "context": {"facts": [], "preferences": [],
+                    "inferences": [{"text": "Keep the existing tokens, fonts and logo",
+                                    "basis": "existing identity comes first (creative-direction rules)"}],
+                    "openQuestions": []},
         "mood": {"keywords": [], "axes": {}},
         "references": [], "antiReferences": [], "keep": [],
         "families": {f: {"requested": False} for f in dl.FAMILIES},
@@ -265,11 +270,31 @@ def validate(a: argparse.Namespace) -> int:
     return 1 if errors else 0
 
 
+APPROVAL_MODES = ("checkpoint", "delegated")
+
+
+def approval_mode(root: Path) -> tuple[str, str]:
+    """(mode, note): how the owner decides, from media_approvals= in .claude/harness.config."""
+    v = harness_config(root).get("media_approvals", "").strip()
+    if not v:
+        return "checkpoint", "the default"
+    if v not in APPROVAL_MODES:
+        return "checkpoint", f"media_approvals={v} is not checkpoint or delegated"
+    return v, "harness.config media_approvals=" + v
+
+
 def status(a: argparse.Namespace) -> int:
     p = dl.load_project(root_of(a))
+    mode, why = approval_mode(p.root)
+    print(f"Approvals: {mode} ({why}). " + (
+        "The owner delegated the decisions: record them quoting this setting, go straight to production and "
+        "report every assumption and review item afterwards. Paid generation still needs the owner's go-ahead."
+        if mode == "delegated" else
+        "Research and draft first, then one owner checkpoint records every gate below in one chained approve."))
     g = dl.gate(p, None)
     print(f"Gate 1 direction: {'approved' if g.ok else 'NOT MET: ' + '; '.join(g.problems)}")
     ok = g.ok
+    unmet: dict[str, dict] = {}  # family -> {"concept": bool, "selected": str|None, "pieces": [(pid, [gates])]}
     for fam in dl.FAMILIES:
         f = p.direction["families"].get(fam) or {}
         if not f.get("requested"):
@@ -278,6 +303,9 @@ def status(a: argparse.Namespace) -> int:
         own = [x for x in gg.problems if x not in g.problems]
         print(f"Gate 2 {fam}: {'approved (' + gg.concept_rel + ')' if gg.ok else 'NOT MET: ' + '; '.join(own or gg.problems)}")
         ok = ok and gg.ok
+        found = sorted((p.root / dl.CONCEPTS / fam).glob("*/*.json"))  # one candidate: name it in --next
+        only = found[0].relative_to(p.root).as_posix() if len(found) == 1 else None
+        unmet[fam] = {"concept": bool(own), "selected": f.get("selected") or only, "pieces": []}
         legacy = [x for x in gg.legacy if x not in g.legacy]
         if legacy:
             print(f"       note: {', '.join(legacy)} still uses the 1.7 hashing (any family's brief makes it stale); "
@@ -298,6 +326,8 @@ def status(a: argparse.Namespace) -> int:
             own = [x for x in pg.problems if x not in motion_problems] or pg.problems
             print(f"Gate 3 motion spec {pid}: {'approved' if pg.ok else 'NOT MET: ' + '; '.join(own)}")
             ok = ok and pg.ok
+            if not pg.ok:
+                unmet["motion"]["pieces"].append((pid, ["storyboard"]))
     if (p.direction["families"].get("video") or {}).get("requested"):
         from harnesslib import video as vd
         video_problems = dl.gate(p, "video").problems
@@ -315,12 +345,90 @@ def status(a: argparse.Namespace) -> int:
             if mg.needed:
                 print(f"Gate 3 mix {pid}: {'approved' if mg.ok else 'NOT MET: ' + '; '.join(mg.problems)}")
                 ok = ok and mg.ok
+            todo = ([] if pg.ok else ["storyboard"]) + (["mix"] if mg.needed and not mg.ok else [])
+            if todo:
+                unmet["video"]["pieces"].append((pid, todo))
+    if getattr(a, "next", False):
+        cmds = next_commands(not g.ok, unmet)
+        print("Next: " + ("nothing to approve" if not cmds else
+                          "after the owner's decision (or with delegation as the evidence), record:"))
+        for c in cmds:
+            print("  " + c)
     return 0 if ok else 1
 
 
+def next_commands(direction_unmet: bool, unmet: dict[str, dict]) -> list[str]:
+    """One chained approve per family or piece; the direction joins the first chain."""
+    def fmt(gates: list[str], fam: str | None, info: dict | None, pid: str | None) -> str:
+        c = f"direction.py approve --gate {','.join(gates)}"
+        if fam and ("concept" in gates or fam == "motion"):
+            c += f" --family {fam}"
+        if "concept" in gates:
+            c += f" --concept {(info or {}).get('selected') or '<recommended concept file>'}"
+        if pid:
+            c += f" --piece {pid}"
+        return c + ' --by "<owner>" --evidence "<where they decided or delegated>"'
+
+    cmds: list[str] = []
+    lead = ["direction"] if direction_unmet else []
+    for fam, info in unmet.items():
+        gates = lead + (["concept"] if info["concept"] else [])
+        lead = []
+        if not info["pieces"]:
+            if gates:
+                cmds.append(fmt(gates, fam, info, None))
+            continue
+        for pid, piece_gates in info["pieces"]:
+            cmds.append(fmt(gates + piece_gates, fam, info, pid))
+            gates = []
+    if lead:
+        cmds.append(fmt(lead, None, None, None))
+    return cmds
+
+
+CHAIN_ORDER = ("direction", "concept", "storyboard", "mix")
+
+
 def approve(a: argparse.Namespace) -> int:
+    """One gate, or an ordered chain (direction,concept,storyboard,mix) recorded from one owner decision.
+    A chain is all or nothing: if any gate refuses, approvals.json and direction.json are put back."""
     root = root_of(a)
-    p = dl.load_project(root)
+    gates = [x.strip() for x in a.gate.split(",") if x.strip()]
+    if len(gates) == 1:
+        rec = _approve_one(root, gates[0], a)
+        print(f"recorded {rec['gate']} approval {rec['id']} for {rec['subject']} by {rec['by']}")
+        write_summary(root)
+        return 0
+    bad = [g for g in gates if g not in CHAIN_ORDER]
+    if bad:
+        raise UsageError(f"--gate {a.gate}: a chain takes {', '.join(CHAIN_ORDER)} only "
+                         f"(record {', '.join(bad)} on its own)")
+    if len(set(gates)) != len(gates) or gates != sorted(gates, key=CHAIN_ORDER.index):
+        raise UsageError(f"--gate {a.gate}: list each gate once, in the order {','.join(CHAIN_ORDER)}")
+    saved = {rel: (root / rel).read_bytes() if (root / rel).is_file() else None for rel in (dl.APPROVALS, dl.DIRECTION)}
+    recs = []
+    try:
+        for g in gates:
+            recs.append(_approve_one(root, g, a))
+    except Exception:
+        for rel, data in saved.items():
+            if data is None:
+                (root / rel).unlink(missing_ok=True)
+            else:
+                (root / rel).write_bytes(data)
+        print(f"nothing recorded: the chain stopped at --gate {gates[len(recs)]}", file=sys.stderr)
+        raise
+    for rec in recs:
+        print(f"recorded {rec['gate']} approval {rec['id']} for {rec['subject']} by {rec['by']}")
+    write_summary(root)
+    return 0
+
+
+def _approve_one(root: Path, gate: str, a: argparse.Namespace) -> dict:
+    if gate not in ("direction", "concept", "exception", "storyboard", "mix", "review"):
+        raise UsageError(f"--gate {gate}: unknown gate (direction, concept, exception, storyboard, mix or review)")
+    p = dl.load_project(root)  # reloaded per gate: a concept approval updates direction.json
+    a = argparse.Namespace(**{**vars(a), "gate": gate})
     if a.gate == "mix":
         from harnesslib import video as vd
         if not a.piece:
@@ -351,9 +459,7 @@ def approve(a: argparse.Namespace) -> int:
                 rec = vd.approve_review(p, a.run, items, a.by, a.evidence, a.recorded_by)
     else:
         rec = dl.approve(p, a.gate, a.by, a.evidence, a.recorded_by, a.family, a.concept, a.scope)
-    print(f"recorded {rec['gate']} approval {rec['id']} for {rec['subject']} by {rec['by']}")
-    write_summary(root)
-    return 0
+    return rec
 
 
 # ------------------------------------------------------------------ concepts
@@ -561,10 +667,14 @@ def main() -> int:
     i.add_argument("--name", required=True)
     i.add_argument("--tokens", default="brand/tokens.json")
     sub.add_parser("validate")
-    sub.add_parser("status")
+    st = sub.add_parser("status")
+    st.add_argument("--next", action="store_true",
+                    help="also print the chained approve command(s) that would record every unmet gate")
     sub.add_parser("summary")
     ap_ = sub.add_parser("approve")
-    ap_.add_argument("--gate", required=True, choices=["direction", "concept", "exception", "storyboard", "mix", "review"])
+    ap_.add_argument("--gate", required=True,
+                     help="direction, concept, exception, storyboard, mix or review; or an ordered chain recorded "
+                          "from one owner decision, e.g. direction,concept,storyboard,mix")
     ap_.add_argument("--family", choices=dl.FAMILIES)
     ap_.add_argument("--concept")
     ap_.add_argument("--scope")

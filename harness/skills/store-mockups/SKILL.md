@@ -21,12 +21,12 @@ Not from this skill. The project's creative direction (`brand/direction.json`, s
 - Reference captures, e.g. from `mobile-screen-capture`. If there are none, read the screen components and the theme directly.
 - The feature inventory and truth table (from `store-listing`, or build one quickly from the code).
 - The app's theme tokens, e.g. `src/theme/index.ts`, its UI fonts, and the icon family it uses (Ionicons, Material Symbols).
-- The positioning, and which features to lead with. Ask the owner if they aren't given.
+- The positioning, and which features to lead with. If they aren't given, take them from `LISTING.md` (its first claims and claims table), the README and the existing kit's captions; state them as assumptions.
 - `brand/direction.json` and the store concept (`direction.py status` tells whether they are approved).
 
 ## Workflow
-0. **Concepts** (only when the store concept isn't approved, or the owner wants a new look): in concept mode, propose 2–3 store concepts per [concept-round](../creative-direction/references/concept-round.md), each previewed with `render_frames.py preview <kit> --concept <file>`. Classic or continuous is part of a concept ([continuous-panorama](references/continuous-panorama.md)); ask the owner if they already have a preference. The owner picks; the main session records it.
-1. **Storyboard** with [storyboard-and-captions](references/storyboard-and-captions.md): the frames, a headline (at most 6 words) and sub-caption (at most 12 words) each, the screen it shows, and its `layout` and `background` from the concept. Show it to the owner if the positioning is new.
+0. **Concepts** (only when the store concept isn't approved, or the owner wants a new look): in concept mode, propose 2–3 store concepts per [concept-round](../creative-direction/references/concept-round.md), each previewed with `render_frames.py preview <kit> --concept <file>`. Classic or continuous is part of a concept ([continuous-panorama](references/continuous-panorama.md)); an existing kit's `frames.json` `style` settles it, otherwise propose both. The creative-director recommends one; the owner sees it at the one owner checkpoint ([autonomy](../creative-direction/references/autonomy.md)).
+1. **Storyboard** with [storyboard-and-captions](references/storyboard-and-captions.md): the frames, a headline (at most 6 words) and sub-caption (at most 12 words) each, the screen it shows, and its `layout` and `background` from the concept. It goes to the owner with the preview frames at the checkpoint, never as a separate stop.
 2. **Ledger.** Write the demo-data ledger first: every figure that appears twice, and how it's derived. Then write `demo-data.js` from it.
 3. **Kit: one per project, reused on every run.**
    - Look for an existing kit first (a folder with `frames.json` next to `screens.js`) and work in it. A refresh edits that kit; it never starts a second one or copies the sources into an output folder.
@@ -44,7 +44,7 @@ Not from this skill. The project's creative direction (`brand/direction.json`, s
    - Contrast is judged at the concept's `displayWidth` (default 320 CSS px wide). Captions on a known solid or gradient background get a computed PASS/FAIL; captions over photos, objects or a gradient that fails somewhere are sampled: a low sample fails, a passing one is REVIEW REQUIRED.
    - The sizes follow [store-specs](../store-submission-precheck/references/store-specs.md). With a `store-assets.json` in the kit, its parent or the project, the store check is the `--release` gate; without one it only inspects.
 9. **Visual QA.** Open **every** rendered frame: no clipped headline or figure; FABs, badges and toasts don't cover the numbers the frame is about; the ledger holds across frames; currency and dates are right; iOS frames have no Android-only UI; captions read at thumbnail size; every REVIEW REQUIRED caption looked at. Fix, re-render, look again.
-10. **Sign-off.** Send the owner `<out>/contact-sheet.png` (and the strips for continuous sets).
+10. **Sign-off.** Send the owner `<out>/contact-sheet.png` (and the strips for continuous sets) in the final report. With the preview contact sheet already approved at the checkpoint, this is a look, not another round.
 
 ## Rules
 - **Production follows the approved concept.** Frame layouts and backgrounds come from it; anything else needs the owner's exception (the error prints the command).

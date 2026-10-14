@@ -28,8 +28,8 @@ App icon, splash, store page, website, social, email, print, at which sizes and 
 ## Fixed
 What must not change (a name, a colour, a mark), and why.
 
-## Open questions
-What the owner still has to decide.
+## Assumptions
+What the evidence didn't settle, the fallback taken and its basis.
 ```
 
-Keep it under a page. Confirm it with the owner before the direction is drafted from it.
+Keep it under a page. Don't stop to confirm it: the direction and drafts are made from it, and the owner confirms or corrects it at the checkpoint ([autonomy](autonomy.md)).

@@ -43,7 +43,7 @@ AI systems reason about **entities** (organisations, people, products, places). 
 
 ## AI crawler controls (robots.txt)
 
-Decide per business goal: **search/answer visibility** vs **training use**. Tokens verified from operator docs (Sept 2026):
+Decide per business goal: **search/answer visibility** vs **training use**. Tokens verified from operator docs (Sept 2026). The same list, machine-readable, is [ai-bots.json](ai-bots.json) (used by `bot_log_audit.py`); change both together:
 
 | Operator | Token | Purpose | Honours robots.txt |
 |---|---|---|---|
@@ -104,6 +104,7 @@ Policy here: **optional, low priority.** Don't score its absence as a defect or 
 - Analytics referrals from `chatgpt.com`, `perplexity.ai`, `copilot.microsoft.com`, `gemini.google.com`, `claude.ai` (referrers are often stripped; treat as a lower bound).
 - Manual/prompt panel checks: a fixed list of priority questions run periodically in each engine, recording whether and how the brand is cited. Label results as samples (answers vary by user, location, and time). Do not automate queries against Google Search (machine-generated traffic policy).
 - Server logs: hits from search-oriented AI bots on key pages.
+- Bing Webmaster Tools AI Performance (Copilot citations, grounding queries, citation share) and a recorded prompt library: the method, templates and scripts are in [ai-visibility.md](ai-visibility.md).
 
 ## GEO readiness score (AI-search category, 0–100)
 

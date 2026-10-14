@@ -8,6 +8,78 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [1.15.0] - 2026-10-14
+
+Fewer questions before any image or video appears. Before this release, a video on a fresh project could stop about nine times before the first output: brief, direction, its open questions, visual method, concept, storyboard, mix, provider and review items. A still image could stop about eight times. None of these stops came from the code; the prose told every agent to turn gaps into questions. Media work now follows one rhythm. The agents research the project, take documented fallbacks where it is silent, draft everything on the director's recommended concept, then stop **once**. The approvals are still the owner's, still bound to hashes, and still enforced by the production commands.
+
+### Added
+- **`creative-direction` `references/autonomy.md`:**
+  - the research-first rhythm;
+  - a table of where each question is answered (keep, audience, markets, video platform/length/CTA, voice-over, visual method, placements, store positioning and layout, sizes, icon replace or audit), with the fallback used when the evidence is silent;
+  - the only two things that may stop work before drafts: an unevidenced legal or regulated sensitivity, and a destructive change the request doesn't cover;
+  - the checkpoint message format;
+  - delegated mode;
+  - paid generation, which always needs the owner's go-ahead.
+- **Chained approvals:** `direction.py approve --gate direction,concept,storyboard,mix ...` records an ordered chain from one owner decision.
+  - It is all or nothing: if any gate refuses, `approvals.json` and `direction.json` are restored and nothing is recorded.
+  - `exception` and `review` stay single-gate.
+  - A single `--gate` behaves exactly as before.
+- **`direction.py status --next`** prints the chained approve command for each family or piece that has unmet gates. The direction joins the first chain, and the concept file is filled in when only one candidate exists.
+- **Approval mode:** `media_approvals=checkpoint|delegated` in `.claude/harness.config`, which `direction.py status` shows. In delegated mode, or when the request says "you decide" or "just make it", the main session records the chain quoting that evidence, goes straight to production and reports every assumption and review item afterwards. Delegation never covers paid generation, a destructive change, publishing or uploading.
+
+### Changed
+- `direction.py init` no longer seeds an open question. It seeds the inference "Keep the existing tokens, fonts and logo".
+- Core orchestration rows, the media, motion and art checklists, and the `creative-direction` flow now use one owner checkpoint (`SKILL.md`, `context-discovery`, `brief-template`, `concept-round`).
+- `brand-video` and `video-creative`:
+  - Platform, length, call to action and voice-over now come from the request, then the brief, then the listing, with stated fallbacks (9:16, 15 s, silent plus script).
+  - Without a visual plan, the method is chosen from what exists (masters, footage, then code), never returned as a question.
+  - The storyboard and mix are approved at the checkpoint.
+- `motion-ui` and `motion-designer`: the concept and spec are approved together, after draft captures.
+- `story-art` and `illustrator`: placements are inferred from the site, and drafts come from the recommended concept. When there is no generator, the agent reports the options instead of stopping.
+- `store-mockups` and `store-creative`: positioning comes from `LISTING.md`, and classic or continuous from the existing kit.
+- `brand-assets`, `brand-asset-creator`, `app-icons` and `icon-creator`: the brief, the logo directions and the icon before/after preview go to the checkpoint. Switching a live icon config still needs the owner's yes.
+- Agent reports replace "Decision needed from the owner" with "Assumptions made" and "For the checkpoint".
+
+### Upgrade notes
+- None required. Existing approvals stay current, and the single-gate commands are unchanged.
+- To skip the checkpoint by default, add `media_approvals=delegated` to `.claude/harness.config`.
+
+## [1.14.0] - 2026-10-14
+
+The `seo` skill can now analyse a project's own data. Six local scripts read Search Console, crawl, server-log and Bing AI exports and turn them into ranked fixes. New references cover site migrations, AI-visibility measurement, decision-stage page types and SaaS/B2B sites. The scope came from a review of 67 published third-party SEO skills against this harness. About 20 were already covered and 35 filled real gaps; speculative ones ("leaked ranking factors", proprietary scores) and marketing-analytics ones were left out.
+
+### Added
+- **`seo` scripts** (Python 3 stdlib, local files only, `--json`, `--map canonical=Header` for other tools' headers, exit 2 on bad input):
+  - `gsc_analyze.py` has five modes over Search Console exports (UI, API or BigQuery bulk export):
+    - `striking`: positions 4–15, with a title, on-page or links action per query.
+    - `ctr`: gaps against the site's own CTR curve.
+    - `decay`: with a diagnosis and one action: refresh, rewrite title/meta, rewrite, consolidate, leave or investigate.
+    - `cannibal`: true splits vs harmless overlap, the page to keep, and a fix.
+    - `update`: core-update winners and losers, and the section the losers share.
+  - `crawl_triage.py`: Screaming Frog or other crawl exports. Ranks broken links, redirect chains and loops, broken canonicals, linked noindex pages, orphans, title issues and deep pages by the internal links they waste. Gives the top three fixes, with effort, and a this-week list.
+  - `redirect_map.py`: builds an old-to-new map (exact, normalised, slug, title), lists unmapped URLs (never redirected to home), checks for chains, loops, self-redirects and dead targets, and writes CSV, nginx, Netlify or Next.js output.
+  - `bot_log_audit.py`: reads combined, W3C, CDN JSON-lines logs or a Clarity Bot Activity CSV. Gives each search or AI bot a status (blocked, throttled, erroring, robots violations, over-scraping or healthy) and one fix. Optionally checks identity against the operator's IP ranges.
+  - `ai_citations.py`: sorts queries and prompts into owned, contested, under-represented and absent, using Bing Webmaster Tools AI Performance exports, a search export and a prompt-library CSV kept by hand. It never queries an AI service.
+  - `lint_html.py`: the build-time checklist over built HTML for CI. Errors exit 1.
+- **`seo` references:**
+  - `migration.md`: inventory, mapping, staging, launch day (including Change of Address for every variant), dated checks from T+1 to T+365, and rollback criteria.
+  - `ai-visibility.md`: bot access, Bing AI Performance (grounding queries, citation share), prompt-library method and template, entity audit (Wikidata only where notability is genuine), and a scorecard.
+  - `page-types.md`: comparison, alternatives, best-for, buyer's guide, category, product, listicle and calculator pages, plus a persona-fit review.
+  - `saas-b2b.md`: page inventory, the docs and app split, product-led content, B2B services, and an audit checklist.
+  - `ai-bots.json`: the crawler list in machine-readable form, tested against the table in `geo-ai-search.md`.
+- `tests/seo.test.sh` (67 checks on fixtures with known answers), run in CI on all three operating systems.
+
+### Changed
+- `content-eeat.md`: information-gain review, and a statistics rule (figure, year, primary source and link, or the statistic isn't used).
+- `ecommerce.md`: Merchant Center feed triage, and agentic-commerce readiness (UCP, ACP, operable HTML controls). Marked as changing often.
+- `local.md`: review programme (asking, drafting replies for approval, Google's removal-policy categories, proof quotes per page).
+- `content-playbooks.md`: Search Console audit points to `gsc_analyze.py`; striking distance is now positions 4–15; competitor backlink shortlist method.
+- `technical.md`, `geo-ai-search.md`, `web-launch-checklist.md` and `SKILL.md`: routing, shortcuts (`gsc`, `crawl`, `migrate`, `bots`, `citations`, `lint`), SaaS/B2B as a business type and audit lens.
+
+### Upgrade notes
+- None required. Run harness sync to get the scripts and references. The scripts need Python 3.10 or later and no packages.
+- The Bing AI Performance and Clarity column names are matched by alias. Check them against your first real export and use `--map` if a header differs.
+
 ## [1.13.0] - 2026-10-13
 
 Choosing how a video's artwork is made. The renderer can only compose what it is given, so a piece with a premium visual reference now starts by recording what the reference requires and which production method can reach it. Code illustration, procedural or modelled 3D, generated art composed in code and supplied footage are all options. The method is shown on one pilot sample before a series is made, and methods can be compared on the same shot. Custom scenes can now compose project images, and a still the format has to enlarge is flagged.

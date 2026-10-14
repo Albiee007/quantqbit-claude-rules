@@ -143,8 +143,8 @@ check "the draft has captures and sheets per viewport" bash -c "ls '$P'/brand/mo
 check "nothing was published by the draft" test ! -e "$P/brand/motion/hero/out"
 runin "$P" "$DIR" approve --gate storyboard --piece hero --by "Fixture Owner" --evidence "test approval"
 check "approve without --family points at the motion piece" bash -c "rc() { [[ \$(cat '$W/rc') == 2 ]]; }; rc && grep -q 'add --family motion' '$W/out'"
-runin "$P" "$DIR" approve --gate storyboard --family motion --piece hero --by "Fixture Owner" --evidence "test approval"
-check "the owner's spec approval is recorded" rc 0
+runin "$P" "$DIR" approve --gate concept,storyboard --family motion --concept "brand/concepts/motion/20261002-120000-0a0b0c/a.json" --piece hero --by "Fixture Owner" --evidence "test approval"
+check "the owner's spec approval is recorded (chained with the concept at one checkpoint)" rc 0
 runin "$P" "$DIR" status
 check "direction.py status shows Gate 3 for the motion spec" has "Gate 3 motion spec hero: approved"
 export MOTION_PID_LOG="$W/pids.log"
