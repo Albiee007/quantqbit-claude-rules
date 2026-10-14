@@ -1,6 +1,6 @@
 # Context discovery
 
-The direction rests on the project's own evidence. Read only what the project has, cite it, and turn every gap into a question for the owner.
+The direction rests on the project's own evidence. Read only what the project has and cite it. Fill a gap with the fallback in [autonomy](autonomy.md), labelled as an inference; ask only what that page says may block.
 
 ## What to read (in this order, skipping what doesn't exist)
 | Source | What it tells you |
@@ -20,15 +20,16 @@ Don't read secrets or `.env` files. Don't browse competitors' sites unless the o
 - **facts**: `{text, source}`. The source is a path (`README.md`, `src/theme/index.ts:12`) or a URL the docs give. If you can't point at it, it isn't a fact.
 - **preferences**: `{text, by, evidence}` for things the owner said ("keep the green", owner, "chat 2026-10-02").
 - **inferences**: `{text, basis}` for your reading of the evidence ("audience skews 35+ from the listing's tone", basis "LISTING.md vocabulary"). Gate 1 confirms or corrects them.
-- **openQuestions**: what you could not establish. Ask them at Gate 1 instead of guessing.
+- **openQuestions**: only what neither the evidence nor a sensible fallback settles (taste references, legal sensitivities). They are listed at the checkpoint and never hold up the drafts.
 - **keep**: existing identity the owner wants to keep (a typeface, a colour, a mark). Kept choices are never "defaults to avoid".
 
-## Questions worth asking at Gate 1
-- Which existing brand choices are fixed, and which are open?
-- Who must this convince first (one audience), and where will they see it (store search, a feed, an email)?
-- Two or three products or publications whose look the owner admires, and why; one they never want to resemble.
-- Markets and languages (script coverage, RTL, cultural colour meaning).
-- Anything legally or commercially sensitive (claims, people, regulated imagery).
+## Answer before you ask
+Each of these has a source and a fallback in [autonomy](autonomy.md). Record the answer as a fact or an inference and show it at the checkpoint:
+- What is fixed: everything that exists (tokens, fonts, mark) unless the owner says otherwise.
+- The first audience and where they see it: the listing, README and store copy.
+- Markets and languages: locale folders and config.
+- Admired products and an anti-reference: the docs, else none (the checkpoint invites them; never a blocker).
+- Legal or commercial sensitivities: the listing's guardrails; with no evidence on a regulated subject, the one question asked before drafting.
 
 ## Tokens
 Map the direction's roles (`canvas`, `ink`, `inkMuted`, `accent`, `onAccent`, `surface`, ...) to the project's existing tokens. When a role has no token yet, add one to the existing token file with `palette.py ramp ... --out <file>` (it never overwrites; `--replace` names any change) and record fonts with `type_scale.py font` (source, files and their hashes, licence evidence). Never create a second palette next to the project's own.

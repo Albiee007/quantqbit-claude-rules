@@ -383,8 +383,8 @@ runin "$P" "$VIDEO" generate talk --what broll
 check "the b-roll provider writes the scene's picture" test -f "$P/brand/video/talk/media/broll/intro.png"
 check "provenance records every generated file, never the key" bash -c "grep -q 'fake image model' '$P/brand/video/talk/media/provenance.json' && ! grep -rq 'test-only' '$P/brand'"
 unset FAKE_TTS_KEY
-runin "$P" "$DIR" approve --gate storyboard --piece talk --by Owner --evidence "watched the draft"
-runin "$P" "$DIR" approve --gate mix --piece talk --by Owner --evidence "listened"
+runin "$P" "$DIR" approve --gate storyboard,mix --piece talk --by Owner --evidence "watched and listened to the draft"
+check "one checkpoint records the storyboard and the mix together" bash -c "[[ \$(cat '$W/rc') == 0 ]] && grep -q 'recorded storyboard' '$W/out' && grep -q 'recorded mix' '$W/out'"
 runin "$P" "$VIDEO" render talk --ffmpeg "$FF"
 check "the explainer renders with generated voice and b-roll" rc 0
 check "generated voice is an AI-disclosure review item" has "REVIEW REQUIRED  2 voice take(s) were generated (fake TTS (tests))"

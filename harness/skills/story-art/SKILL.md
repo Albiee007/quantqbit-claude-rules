@@ -11,12 +11,12 @@ Make illustrations that tell the product's story: real people (fictional, inclus
 - The product: the feature inventory (read it from the code), the store listing (e.g. `store-assets/*/LISTING.md`) and its claims guardrails file, and the positioning in one sentence.
 - The cast: demo-data personas and names (e.g. the `store-mockups` kit's `demo-data.js`), and the markets the product serves.
 - The direction: `brand/direction.json` and the approved illustration concept (`direction.py status`; `direction.py resolve illustration`). Without a direction, ask the parent to run the `creative-director`; the theme tokens alone don't settle a style.
-- The placements: where each image goes (web feature row, hero backdrop, Open Graph, store promo, onboarding) and its aspect ratio. Ask the parent if no placement is named.
+- The placements: where each image goes (web feature row, hero backdrop, Open Graph, store promo, onboarding) and its aspect ratio. If none is named, take them from the site: its feature rows and hero, existing `art-*` manifest entries, OG tags; list them as assumptions.
 - The generator available in this session (see [providers](references/providers.md)).
 
 ## Workflow
 0. **Context pack.** Gather the inputs above, read-only, and write them to `out/story-art/<date>/plan.md`. This one file is the set's record: context, storyboard, style bible, prompts, the per-image provenance table and the approvals. Add `out/` to the project's `.gitignore` if it isn't there.
-1. **Concept** (only when the illustration concept isn't approved, or the owner wants a new style): in concept mode, 2–3 style bibles from different families in [style-vocabulary](references/style-vocabulary.md), each with one sample scene prompt, per [concept-round](../creative-direction/references/concept-round.md). The owner picks; the main session records it.
+1. **Concept** (only when the illustration concept isn't approved, or the owner wants a new style): in concept mode, 2–3 style bibles from different families in [style-vocabulary](references/style-vocabulary.md), each with one sample scene prompt, per [concept-round](../creative-direction/references/concept-round.md). The creative-director recommends one; the owner sees it with the first contact sheet at the one owner checkpoint ([autonomy](../creative-direction/references/autonomy.md)).
 2. **Storyboard.** One scene per feature pillar, 4–8 scenes per set. Write each as:
    - **who** (fictional, a cast that reflects the markets), **where**, **the moment of need**, **the emotion**, **what the app does in that moment**;
    - the real feature it maps to, by name from the code. A scene the product can't back is cut, not softened.
@@ -29,8 +29,8 @@ Make illustrations that tell the product's story: real people (fictional, inclus
 6. **Review gate.**
    - Save the images (preview size is fine here) and run `python .claude/skills/story-art/scripts/export_art.py sheet <dir> out/story-art/<date>/contact-sheet.png --glob '*.png'`.
    - Open **every** image and check it against [review-checklist](references/review-checklist.md): symbols and glyphs, hands and faces, stray text, brand fit, contrast with the page behind it.
-   - Hand the contact sheet and your findings to the parent for **owner approval**. A sub-agent cannot ask the owner itself.
-   - Regenerate rejected images with a corrected prompt. One regeneration round is included; ask before any more.
+   - Hand the contact sheet and your findings to the parent for **owner approval** at the checkpoint, with the concept and placements in the same message. A sub-agent cannot ask the owner itself.
+   - Regenerate rejected images with a corrected prompt. One regeneration round is included; a second round needs the owner's go-ahead (in the same checkpoint reply where possible).
 7. **Full resolution.** Previews are often thumbnails. Retrieve the approved images at native size by the provider's route in [providers](references/providers.md). For Canva: a scratch copy of a design only, never the owner's own designs; commit only that copy; export PNG at "pro" quality; download the signed URLs at once.
 8. **Web export.**
    - Put the full-size PNGs in one source folder, named by scene (`trip.png`, `roommates.png`).

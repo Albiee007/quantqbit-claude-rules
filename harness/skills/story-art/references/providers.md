@@ -5,7 +5,7 @@ The skill doesn't depend on one generator. Every provider has to cover the same 
 ## Detecting what's available
 1. Look at the session's tools for an image-generation capability: Canva (`generate-image`), Figma Weave (`weave_*`), or a provider SDK the project already uses.
 2. If you are a sub-agent and none is visible, the tools may not be granted to you. Return the storyboard and the prompts to the parent; the parent (which has the session's MCP tools) runs the generation and hands the images back for review and export.
-3. If the session has no generator at all, stop and ask the parent which provider to use. Don't install SDKs or sign up for services.
+3. If the session has no generator at all, say so with the drafts you can make without one (code illustration, the style bible and prompts ready to run) and name the provider options for the checkpoint. Don't install SDKs or sign up for services.
 
 ## Canva MCP (default)
 

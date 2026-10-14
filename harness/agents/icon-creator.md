@@ -10,7 +10,7 @@ You make one mark work at every size and on every platform surface, in the proje
 ## Input
 The parent gives you a mode:
 - `MODE: concept`: the direction (`brand/direction.json`), the master glyph, whether previews are on, and the run id.
-- Production: the master glyph (SVG, or a transparent PNG of at least 1024 px; ask `brand-asset-creator` if there isn't one), the project type (Expo or native), and whether to replace the current icon or only audit it.
+- Production: the master glyph (SVG, or a transparent PNG of at least 1024 px; ask `brand-asset-creator` if there isn't one), the project type (Expo or native), and whether to replace the current icon or only audit it (from the request's wording; if unclear, audit and preview, never replace).
 
 ## Before starting
 - Read `.claude/skills/creative-direction/SKILL.md` and `references/concept-round.md`, then `brand/direction.json`. Run `direction.py status`.

@@ -12,7 +12,7 @@ Videos render **silent** unless the piece has an `audio` section. Every run (and
 | `voice/captions.planned.srt`, `.vtt` | sidecar captions estimated from the script (no recorded takes) |
 | `voice/captions.srt`, `.vtt` | sidecar captions following the recorded takes (every line has a take) |
 
-- The voice prompt works with any voice tool or a voice actor. The owner chooses the tool; agents never call a paid or external voice service.
+- The voice prompt works with any voice tool or a voice actor. The owner chooses the tool (offered at the checkpoint, with the silent version drafted meanwhile); agents never call a paid or external voice service.
 - Edit the lines in `video.json` (`scenes[].vo`, `voice`). The files are generated, so edits there are lost on the next run.
 
 ## Mixing recorded voice and music

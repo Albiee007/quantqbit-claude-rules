@@ -32,13 +32,13 @@ Approvals: Gate 1 (direction) and Gate 2 (a motion concept) from creative-direct
 ## Workflow
 1. **Discover.** Read the direction, tokens and existing motion ([context-discovery](../creative-direction/references/context-discovery.md); `ui-ux` step 1 for components and the animation library). Note the framework, the dev command and URL (`dev_url=` in `.claude/harness.config`), and what already animates.
 2. **Direction.** No motion family requested, or no motion tokens: the creative-director adds `families.motion` with a brief and runs `motion.py tokens --write` (or `render_video.py motion-tokens --write`). Requesting the family leaves every other approval current.
-3. **Concept round.** `motion-designer` (concept mode) proposes 2–3 motion languages (`direction.py concept new --family motion`): durations and easing tokens, allowed mediums, palette and type roles for overlays, reduced-motion default, imagery source. The owner picks; the main session records Gate 2. Reuse a current approved concept instead of a new round.
+3. **Concept round.** `motion-designer` (concept mode) proposes 2–3 motion languages (`direction.py concept new --family motion`): durations and easing tokens, allowed mediums, palette and type roles for overlays, reduced-motion default, imagery source. The creative-director recommends one and the spec is written on it; the owner sees both at the one owner checkpoint ([autonomy](../creative-direction/references/autonomy.md)). Reuse a current approved concept instead of a new round.
 4. **Analyse the reference** ([reference-analysis](references/reference-analysis.md)):
    - `motion.py init <id> --reference <file>`, fill `source` and `license`, then `probe <id> --record`.
    - `frames <id> --every 250` (or `--all` when every frame matters), `sheet <id>`, `cuts <id>`.
    - Inspect transitions densely at full size. Record what you actually looked at: `inspect <id> --range A-B --mode every-frame|sampled --by <who>`. A sheet is not a review.
 5. **Write the spec** ([motion-spec](references/motion-spec.md)): scenes, rows per track with confidence and evidence, viewports, the medium (table below), the **asset plan** (ids, roles, origins, briefs or prompts, licences), reduced motion, the pause/stop/hide control, hidden-tab policy, and the capture block. `motion.py lint <id>` until clean, then `motion.py spec <id>` writes `SPEC.md`.
-6. **Gate 3: the owner approves the intent** after reading `SPEC.md` and the reference sheets: `direction.py approve --gate storyboard --family motion --piece <id> --by ... --evidence ...` (main session only). Assets are approved as a plan; their files bind at review.
+6. **Gate 3 at the checkpoint: the owner approves the intent** after reading `SPEC.md`, the reference sheets and the draft captures (`capture <id> --draft`), together with the concept: `direction.py approve --gate concept,storyboard --family motion --concept <file> --piece <id> --by ... --evidence ...` (main session only; with `direction` first on a new project). When the owner delegated, the main session records it with that evidence. Assets are approved as a plan; their files bind at review.
 7. **Assets.** Generated imagery comes from `illustrator` with story-art's illustration concept and approvals (prompts and provenance in its plan). Licensed footage needs its licence. Set each asset's `path` when the file exists; `lint --stage verify` checks them.
 8. **Build** ([motion-techniques](references/motion-techniques.md); [platform-mobile](references/platform-mobile.md) for native):
    - Scenes as configuration; one clock for camera, typography, panels, progress and scene changes; a pure function of time where practical.
@@ -62,11 +62,11 @@ Choose the least complex medium that reproduces what was observed. The medium mu
 
 ## Rules
 - **The look comes from the concept and tokens:** no colours, fonts or CSS in `motion.json`.
-- **The owner decides** concepts, specs and review items; agents never record approvals.
+- **The owner decides** concepts, specs and review items, at one checkpoint (or by delegating); agents never record approvals and never stop to ask what the project or the reference already answers.
 - **People first:** motion that starts by itself and runs more than 5 s (a short loop that repeats counts) needs a pause, stop or hide control, or an essential justification the owner accepts (WCAG 2.2.2). Nothing flashes more than three times a second (the harness rule; stricter than WCAG 2.3.1). Storytelling motion may run longer than the 100–500 ms UI range only if it never blocks input.
 - **The reference is analysis material:** keep it in the ignored `reference/` folder; never ship it, its frames or its sheets.
 - **Use the scripts.** No hand-written capture, recording or comparison scripts, no Playwright. `motion.py` never starts a dev server; start it yourself and stop it when you are done.
-- **No paid generation or external services** without the owner's say-so.
+- **No paid generation or external services** without the owner's say-so (asked at the checkpoint, never assumed, also when the owner delegated).
 - **Native motion is evidence-only in this release:** device and simulator runs are incomplete by design (see the capability table in platform-mobile). Expo web proves the web build, not the native runtime.
 - Mobile capture skills (`mobile-screen-capture`) are named, not linked: they ship with the mobile profile only.
 

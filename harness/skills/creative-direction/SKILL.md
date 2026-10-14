@@ -5,15 +5,15 @@ description: Project-specific creative direction for every media asset — store
 
 # Creative Direction
 
-Every media asset looks like **this project**, chosen by **its owner**. The harness supplies methods, renderers and checks; it supplies no look of its own. Existing identity and visual fidelity come before novelty: a project that already uses Inter, indigo or clay keeps them when that is the choice.
+Every media asset looks like **this project**, chosen by **its owner**, with as few interruptions as possible: research first, draft everything, then one checkpoint ([autonomy](references/autonomy.md)). The harness supplies methods, renderers and checks; it supplies no look of its own. Existing identity and visual fidelity come before novelty: a project that already uses Inter, indigo or clay keeps them when that is the choice.
 
 ## The flow
 1. **Discover** (creative-director). Read the project's evidence with [context-discovery](references/context-discovery.md). Reuse existing brand and design-system docs; write `brand/BRIEF.md` from [brief-template](references/brief-template.md) only when no strategy document exists.
 2. **Direct** (creative-director). Write `brand/direction.json` ([direction-schema](references/direction-schema.md)) and generate `brand/DIRECTION.md` from it (`direction.py summary`). Colours and type come from the project's tokens, built or extended with `palette.py` and `type_scale.py` (color-science, typography). Never start a second palette.
-3. **Gate 1: the owner approves the direction.** The main session shows the summary and open questions, then records the decision: `direction.py approve --gate direction --by <owner> --evidence <where they said it>`.
+3. **Gate 1: the direction.** Don't stop here: the direction goes to the owner with the drafts at the one checkpoint ([autonomy](references/autonomy.md)). Its inferences are assumptions shown there, not questions asked first.
 4. **Concept round.** Only the creators the request needs ([concept-round](references/concept-round.md)): `store-creative` (store), `brand-asset-creator` (marketing, logo), `icon-creator` (icon), `illustrator` (illustration), `video-creative` (video), `motion-designer` (motion). Each proposes 2–3 alternatives that differ in decisions that matter, with previews when it can render them. An unchanged approved family takes the reuse path instead.
 5. **Critique** (creative-director): [critique-guide](references/critique-guide.md). Audience fit, fidelity, legibility and a coherent identity first; [default signals](references/default-look.md) are prompts for discussion, never verdicts.
-6. **Gate 2: the owner picks one concept per requested family.** The main session records it: `direction.py approve --gate concept --family <f> --concept <file> ...`.
+6. **Drafts and the checkpoint.** The pieces are drafted on the recommended concept (storyboard, spec, preview frames, contact sheet). Then the main session shows everything once: direction, recommended concept and alternatives, drafts, assumptions, triaged review items, any paid go-ahead. The owner's answer records Gates 1, 2 and 3 together: `direction.py approve --gate direction,concept,storyboard[,mix] --family <f> --concept <file> [--piece <id>] ...` (all or nothing; `direction.py status --next` prints it). A correction comes back as one re-check. When the owner delegated ("you decide", or `media_approvals=delegated`), the main session records it with that evidence and skips the stop.
 7. **Production** with the family skill: `render_frames.py render`, `export_svg.py --plan`, `make_icon_set.py generate --from-direction`, the story-art style bible from `direction.py resolve illustration`, `render_video.py render` (video also needs Gate 3, the owner's approval of each piece's storyboard, and of its mix when it has audio), or `motion.py verify` (motion needs Gate 3 too: the owner's approval of each motion spec). Production commands enforce the gates; each run writes `brand/runs/<family>/<run>.json`.
 8. **Review** (creative-director): coherence across families, drift from the direction, every REVIEW REQUIRED item looked at. The family skills' own final gates still apply (contact sheet sign-off, per-image approval for story art, store pre-check).
 
@@ -28,7 +28,7 @@ Every media asset looks like **this project**, chosen by **its owner**. The harn
 - These records stop accidental drift. They are not tamper-proof.
 
 ## Rules
-- **Evidence over invention.** Every fact in the direction cites a source; owner preferences cite who and where; agent inferences are labelled as inferences and confirmed at Gate 1. A missing source is an open question, never an invented citation.
+- **Evidence over invention.** Every fact in the direction cites a source; owner preferences cite who and where; agent inferences are labelled as inferences and confirmed at the checkpoint. A missing source is an assumption with its basis (or, for the few blocking cases in [autonomy](references/autonomy.md), a question), never an invented citation.
 - **Tokens for authored roles.** Colours and type in the direction and concepts are token references. Photos, screenshots, generated images and legacy kits are exempt; palette tokens guide generation but don't constrain its pixels.
 - **Contrast where text meets a real backdrop.** Computed PASS/FAIL where the backdrop colour is known; sampled estimates are REVIEW REQUIRED (or FAIL when low), never a normative pass. Ratios are compared at full precision and only truncated for display.
 - **Logos and launcher icons are branding.** No WCAG threshold applies to them unless they act as UI; a project may set a target (`qualityTarget`), and an override never waives a requirement that does apply.
@@ -43,8 +43,8 @@ Every media asset looks like **this project**, chosen by **its owner**. The harn
 |---|---|
 | `init --name X` | Draft `brand/direction.json` and `DIRECTION.md` |
 | `validate` | Schema, token references, font records and licences, every concept, declared contrast pairs |
-| `status` | Which gates are met, and why not |
-| `approve --gate direction\|concept\|exception\|storyboard\|mix\|review ...` | Record an owner decision (main session only) |
+| `status [--next]` | Which gates are met, and why not; the approval mode; `--next` prints the chained approve for the checkpoint |
+| `approve --gate direction\|concept\|exception\|storyboard\|mix\|review ...` | Record an owner decision (main session only); `--gate direction,concept,storyboard,mix` records an ordered chain from one decision, all or nothing |
 | `summary` | Regenerate `brand/DIRECTION.md` |
 | `concept new --family F --id ID --name N [--run R]` / `concept check FILE` | Start / check a concept |
 | `resolve FAMILY [--concept FILE]` | The resolved values (style bible inputs for illustration) |
@@ -55,7 +55,8 @@ Every media asset looks like **this project**, chosen by **its owner**. The harn
 Exit codes: 0 done, 1 invalid data or an unmet gate, 2 bad arguments or a missing dependency.
 
 ## References
-- [context-discovery](references/context-discovery.md): what to read, how to cite it, what to ask.
+- [autonomy](references/autonomy.md): research first, defaults, the one owner checkpoint, delegation and paid generation.
+- [context-discovery](references/context-discovery.md): what to read, how to cite it, what is left to ask.
 - [direction-schema](references/direction-schema.md): `direction.json`, concepts, approvals and run manifests.
 - [brief-template](references/brief-template.md): `brand/BRIEF.md` when no strategy document exists.
 - [mood-levers](references/mood-levers.md): turning mood axes into type, colour, layout and illustration choices (heuristics).
