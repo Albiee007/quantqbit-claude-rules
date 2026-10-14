@@ -74,6 +74,15 @@ Duplicate content is not penalised by itself (outside spam); it wastes crawl and
 
 Coverage floors from claude-seo (heuristics, not Google rules — use to flag *possible* thinness, then judge by intent): home ~500 words, service/feature ~800, blog post ~1,500, product ~300–400, category intro ~150–400 above/below the grid, location ~500–600 with majority unique content. A short page that fully answers a narrow query is fine.
 
+## Information gain
+
+Pages that only restate what already ranks add nothing for searchers or for AI answers, which prefer sources that contribute something. Review a draft or page against the current top results for its query:
+1. **Consensus vs original.** Mark each claim as *consensus* (every top result says it) or *original* (only this page has it: first-hand test, own data, a worked example, an expert's judgement, a counter-argument with evidence). A page that is mostly consensus needs more original material, not more words.
+2. **Lines that add nothing.** Flag filler: definitions everyone gives, throat-clearing intros, generic tips, restated headings. Cut or replace them.
+3. **Additions worth citing.** Suggest specific, deliverable additions: a comparison table from your own testing, a screenshot walkthrough, a number from the business's own data (with permission), a quote from a named practitioner, a decision rule ("if X, choose Y").
+
+**Statistics rule.** Every statistic carries the figure, the year, the original source (not a blog that repeats it) and a working link. Prefer recent primary sources (government, standards bodies, peer-reviewed research, the original survey). If no source can be found, the statistic is not used: never estimate or invent one (safety rule 5).
+
 ## Search intent
 
 Classify the dominant intent from the current SERP before writing:

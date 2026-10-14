@@ -1,7 +1,7 @@
 ---
 name: seo
-description: Mandatory SEO standards and audit workflow for public web pages — technical SEO, on-page, content quality (E-E-A-T), structured data, Core Web Vitals, images, international, local, and AI/generative search (GEO). Use when building or changing public pages, routes, metadata, head tags, sitemaps, robots, structured data, content, or when asked for an SEO audit/plan.
-argument-hint: "[audit|page|launch|plan|schema|content] [url-or-path]"
+description: Mandatory SEO standards and audit workflow for public web pages — technical SEO, on-page, content quality (E-E-A-T), structured data, Core Web Vitals, images, international, local, AI/generative search (GEO), and analysis of the project's own data (Search Console, crawl, server-log and Bing AI exports) and site migrations. Use when building or changing public pages, routes, metadata, head tags, sitemaps, robots, structured data, content, or when asked for an SEO audit, plan, migration or data analysis.
+argument-hint: "[audit|page|launch|gsc|crawl|migrate|bots|citations|lint|plan|schema|content] [url-or-path]"
 ---
 
 # SEO
@@ -39,8 +39,16 @@ Guiding principle (Google Search Essentials): make pages for people, make them c
 | Go-live readiness for a website or webapp: indexing, sitemaps, CWV, accessibility, security, privacy, monitoring, PWA, launch roadmap | [references/web-launch-checklist.md](references/web-launch-checklist.md) |
 | Writing the audit deliverable | [references/audit-report-template.md](references/audit-report-template.md) |
 | Quick header/meta check of a live URL | [scripts/check-url.sh](scripts/check-url.sh) `<url>` |
+| Search Console exports: striking distance, CTR gaps, decay, cannibalisation, core-update winners/losers | [scripts/gsc_analyze.py](scripts/gsc_analyze.py) `<mode> <csv>` |
+| Crawl export (Screaming Frog etc.): issues ranked by internal link equity, top fixes | [scripts/crawl_triage.py](scripts/crawl_triage.py) `<crawl.csv>` |
+| Site migration: URL map, launch day, dated post-launch checks | [references/migration.md](references/migration.md), [scripts/redirect_map.py](scripts/redirect_map.py) |
+| Search and AI bot access from server/CDN logs or Clarity | [scripts/bot_log_audit.py](scripts/bot_log_audit.py) `<logs>` |
+| AI citations, prompt library, entity audit | [references/ai-visibility.md](references/ai-visibility.md), [scripts/ai_citations.py](scripts/ai_citations.py) |
+| Built HTML in CI (offline build-time checklist) | [scripts/lint_html.py](scripts/lint_html.py) `<dist/>` |
+| Comparison, alternatives, best-for, buyer's guide, category, product, calculator pages | [references/page-types.md](references/page-types.md) |
+| SaaS and B2B sites: page inventory, docs, integrations, product-led content | [references/saas-b2b.md](references/saas-b2b.md) |
 
-Argument shortcuts: `audit <url>` → audit workflow; `page <url|path>` → build-time checklist + single-page audit; `launch [url]` → web-launch-checklist, graded per surface (public site, app); `plan` → content-playbooks; `schema` → schema refs; `content` → content-eeat.
+Argument shortcuts: `audit <url>` → audit workflow; `page <url|path>` → build-time checklist + single-page audit; `launch [url]` → web-launch-checklist, graded per surface (public site, app); `gsc`, `crawl`, `bots`, `citations`, `lint` → the matching script (ask for the export it needs; never fetch account data yourself); `migrate` → migration.md; `plan` → content-playbooks; `schema` → schema refs; `content` → content-eeat.
 
 ## Build-time checklist (every indexable page)
 
@@ -80,7 +88,7 @@ Performance budgets (field p75, mobile and desktop): **LCP ≤ 2.5 s, INP ≤ 20
 
 ## Audit workflow
 
-1. **Scope.** Confirm the site/URL(s), business type (SaaS, e-commerce, local, publisher, agency, other), markets/languages, priority templates, and whether Search Console / analytics data is available. State the sample size.
+1. **Scope.** Confirm the site/URL(s), business type (SaaS, B2B services, e-commerce, local, publisher, agency, other), markets/languages, priority templates, and whether Search Console / analytics data is available. State the sample size.
 2. **Collect (read-only).** Run `scripts/check-url.sh` on the home page and one URL per template; fetch `/robots.txt`, sitemap(s), and a sample of 10–50 pages (more for large sites, respecting robots.txt). Compare raw HTML vs rendered where JS frameworks are detected. Pull CrUX/PSI field data if accessible.
 3. **Check by category** using the reference files: Technical, Content, On-Page, Schema, Core Web Vitals, AI-search readiness (GEO), Images (+ Local, International, E-commerce, Programmatic when applicable).
 4. **Score** each category 0–100 from its findings, then compute the weighted health score below. Note data gaps instead of guessing.
@@ -122,7 +130,7 @@ For multi-template or large sites, the orchestrator (you) does step 1–2, then 
 | `seo-performance` | core-web-vitals.md, images.md | CrUX/PSI data, LCP/INP/CLS causes from source |
 | `seo-geo` | geo-ai-search.md | AI crawler access, snippet controls, citability, entity clarity |
 
-Add `local.md`, `ecommerce.md`, or `programmatic.md` lenses when the business type warrants. **Output contract per subagent:** category score 0–100 with one-line rationale; findings table `| Severity | Finding | Evidence (URL, value) | Fix | Effort |`; data gaps. The orchestrator de-duplicates overlapping findings (keep the highest severity), computes the weighted score, and writes one report.
+Add `local.md`, `ecommerce.md`, `saas-b2b.md` or `programmatic.md` lenses when the business type warrants. When the user supplies Search Console, crawl or log exports, run the matching script first and hand its output to the lens instead of re-deriving the numbers. **Output contract per subagent:** category score 0–100 with one-line rationale; findings table `| Severity | Finding | Evidence (URL, value) | Fix | Effort |`; data gaps. The orchestrator de-duplicates overlapping findings (keep the highest severity), computes the weighted score, and writes one report.
 
 ## Output format
 
@@ -150,6 +158,11 @@ Health score: <NN>/100 (<band>)  [Tech NN · Content NN · On-page NN · Schema 
 - [geo-ai-search.md](references/geo-ai-search.md) — AI Overviews/AI Mode, answer engines, crawler tokens, llms.txt stance.
 - [international-hreflang.md](references/international-hreflang.md), [local.md](references/local.md), [images.md](references/images.md), [sitemaps.md](references/sitemaps.md), [ecommerce.md](references/ecommerce.md), [programmatic.md](references/programmatic.md).
 - [content-playbooks.md](references/content-playbooks.md) — 90-day sprint, research → cluster → brief → write → link → refresh, ethical link earning.
+- [migration.md](references/migration.md) — domain/URL/platform moves: inventory, mapping, staging, launch day, dated checks, rollback.
+- [ai-visibility.md](references/ai-visibility.md) — measuring AI search: bot access, Bing AI Performance, prompt library, entity audit, scorecard; [ai-bots.json](references/ai-bots.json) is the shared bot list.
+- [page-types.md](references/page-types.md) — decision-stage pages, category and product pages, listicles, calculators, persona fit.
+- [saas-b2b.md](references/saas-b2b.md) — SaaS/B2B page inventory, docs and app split, product-led content, audit checklist.
+- Scripts (Python 3 stdlib, local files only, `--json`, `--map canonical=Header` for other export headers): `gsc_analyze.py`, `crawl_triage.py`, `redirect_map.py`, `bot_log_audit.py`, `ai_citations.py`, `lint_html.py`, `check-url.sh`.
 - [web-launch-checklist.md](references/web-launch-checklist.md) — go-live and recurring checklist for websites and webapps (SEO, CWV, WCAG 2.2/EAA, security headers, consent, monitoring, PWA), P0/P1/P2 with launch gates.
 - [audit-report-template.md](references/audit-report-template.md) — full deliverable template.
 

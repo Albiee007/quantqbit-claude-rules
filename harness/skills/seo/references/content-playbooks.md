@@ -34,13 +34,13 @@ Correction vs source: Distribb's sprint suggests "add FAQ schema to every key pa
 
 ## Search Console audit (existing sites)
 
-Run before writing anything new. Each analysis can run in its own subagent returning only a findings table.
+Run before writing anything new. Each analysis can run in its own subagent returning only a findings table. Analyses 1–5 are automated by [`scripts/gsc_analyze.py`](../scripts/gsc_analyze.py) over Search Console exports (`ctr`, `decay`, `striking`, `cannibal`; `update` for core-update winners and losers). Its defaults: CTR below 70% of the site's own curve, decay at −20% clicks, striking distance at positions 4–15, cannibalisation when no page holds 80% of a query's clicks. Change them with flags when the site warrants it.
 
 | # | Analysis | Method | Action |
 |---|---|---|---|
 | 1 | CTR gaps | Queries/pages at position < 20 with impressions > ~50; compare CTR to your own site's CTR-by-position curve (industry curves vary widely and AI features lower CTR; label benchmark source); flag where actual < ~70% of expected | Rewrite title/meta; improve snippet eligibility |
 | 2 | Content decay | Period-over-period clicks and position per page | Position down → refresh content; CTR down with stable position → rewrite title/meta; both → full refresh |
-| 3 | Striking distance | Queries at positions 11–20 (pages at 8–12) with meaningful impressions | Expand/refresh + add internal links from strong pages |
+| 3 | Striking distance | Queries at positions 4–15 with meaningful impressions (4–10: on-page; 11–15: links + expansion) | Title tweak if CTR is weak; else expand/refresh + add internal links from strong pages |
 | 4 | Cannibalisation | Same non-brand query surfacing multiple URLs; duplicate target keywords in the content inventory | Consolidate (merge + 301) or differentiate intent |
 | 5 | Dead pages | Pages that had traffic and now have ~zero | Check status/noindex/canonical; restore or redirect; check for cannibalisation |
 | 6 | Brand vs non-brand | Classify queries by brand terms; non-brand click share | < ~40% non-brand → content engine is the priority |
@@ -73,12 +73,14 @@ Give-first playbooks (the user sends every email from their own account; the age
 | Original data | Publish surveys, benchmarks, statistics pages with methodology and sources | Transparent methodology; cite every third-party stat |
 | Digital PR / expert commentary | Respond to journalist requests where the user has real expertise | Truthful credentials only |
 
+**Competitor backlink shortlist** (from a backlink tool export such as Ahrefs, Semrush, Majestic or Bing Webmaster Tools' backlinks): keep links that are editorial, from relevant and live pages, and that you could earn by merit (resource lists, comparisons, journalism, partner pages). Drop directories, scraped or spun sites, paid placements, forum and comment links, and anything from a link scheme. For each kept link, note why the page would want yours and draft (never send) a tailored pitch with one of the playbooks above.
+
 Rules: small numbers of bespoke pitches beat mass templates; never claim something was sent that wasn't; never fabricate facts about a prospect's page; relevant sites only; no link exchanges as a scheme; no PBNs, no paid dofollow links, no automated comment/forum spam, no fake reviews or astroturfed Reddit/Quora posts.
 
 ## Local and AI-visibility add-ons
 
 - Local: GBP hygiene, review requests to all customers (no gating/incentives), weekly review replies drafted for approval, location/service pages with real local proof (local.md).
-- AI visibility: a fixed panel of real buyer prompts, checked periodically across engines; record citations as samples; mark anything unverifiable as unverified; improve the cited-source landscape via the playbooks above (geo-ai-search.md).
+- AI visibility: a fixed panel of real buyer prompts, checked periodically across engines; record citations as samples; mark anything unverifiable as unverified; improve the cited-source landscape via the playbooks above (method and tools in ai-visibility.md).
 
 ## Sources
 - Distribb SEO agent skill (`SKILL.md`, `upstream/90-day-seo-sprint/SKILL.md`, `upstream/references/audit-playbook.md`, `upstream/references/link-building-playbooks.md`, `upstream/commands/*.md`), reviewed 2026-09-23

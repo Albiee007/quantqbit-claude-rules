@@ -136,6 +136,8 @@ Logs are the ground truth of crawling. Useful analyses:
 - Important URLs never crawled; orphan URLs crawled but not linked.
 - Verify real Googlebot via reverse DNS (`*.googlebot.com`/`*.google.com`) or Google's published IP ranges — user-agent strings are spoofed.
 - Response time trends (slow TTFB reduces crawl rate).
+- Search and AI bot health per bot (blocked, throttled, erroring, robots violations, over-scraping): [`scripts/bot_log_audit.py`](../scripts/bot_log_audit.py) reads combined, W3C and CDN JSON logs.
+- Crawl exports (Screaming Frog and similar): [`scripts/crawl_triage.py`](../scripts/crawl_triage.py) ranks issues by the internal links they waste.
 
 ## 11. IndexNow
 
@@ -150,7 +152,7 @@ Protocol to notify participating engines (e.g. Bing, Yandex, Naver, Seznam) of U
 - **Structured data**: see schema.md.
 - **Internal search / preview URLs**: `noindex`.
 - **Staging**: HTTP auth + `noindex` header; never rely on robots.txt alone.
-- **Migrations**: crawl old site, build a 1:1 redirect map, keep old sitemap submitted briefly so Google recrawls redirects, monitor 404s and index coverage for weeks.
+- **Migrations**: crawl old site, build a 1:1 redirect map, keep old sitemap submitted briefly so Google recrawls redirects, monitor 404s and index coverage for weeks. Full playbook with dated checks: [migration.md](migration.md); map builder and checker: [`scripts/redirect_map.py`](../scripts/redirect_map.py).
 - **Search Console**: Page indexing report (reasons: "Crawled – currently not indexed", "Duplicate, Google chose different canonical", "Blocked by robots.txt", "Soft 404"), URL Inspection for live tests.
 
 ## Severity cheat-sheet

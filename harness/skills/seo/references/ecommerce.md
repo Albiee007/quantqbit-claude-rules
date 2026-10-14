@@ -29,6 +29,23 @@ Product, category, and brand pages are templates multiplied by thousands. Get th
 
 Merchant Center feeds complement (not replace) on-page markup; keep price/availability consistent between feed, markup, and page, or listings get disapproved. Submitting feeds or changing Merchant Center settings is an external action — approval required.
 
+**Merchant Center feed triage** (from a Diagnostics or product export), in this order:
+1. **Disapprovals and account issues first**: policy violations, price or availability mismatch with the landing page, missing identifiers, broken images or landing pages. Fix the source of truth (site or feed), not just the feed row.
+2. **Titles**: lead with what the shopper searches (brand + product type + key attribute such as size, colour, material, model), keep within the limit, no promotional text or ALL CAPS.
+3. **Attribute gaps**: GTIN/MPN/brand, `product_type` and Google product category, variant attributes (`item_group_id`, size, colour), shipping and return settings, sale price with effective dates.
+4. **Free listings** enabled and the feed refreshed at least daily for price and stock.
+
+## Agentic commerce (emerging; changes often)
+
+AI shopping agents (Google AI Mode and Gemini shopping, ChatGPT, Copilot and others) read product data and, increasingly, complete purchases. Readiness is mostly good e-commerce hygiene made machine-readable:
+- **Complete structured data and feeds**: Product + Offer markup and a clean Merchant Center feed with identifiers, variants, price, availability, shipping and returns. Agents can't recommend what they can't parse.
+- **Operable pages**: variant selectors, quantity, add-to-cart and checkout are real, labelled HTML controls with stable names (the accessibility tree is what an agent reads). No canvas-only or hover-only controls, and no interstitials that block the buy flow.
+- **Policies in text**: shipping costs and times, returns and warranty as HTML text on the product page or one link away.
+- **Protocols, where the merchant qualifies and opts in** (verify against official docs at use time; each is an external integration that needs approval):
+  - Google's Universal Commerce Protocol (UCP, January 2026): a capability profile at `/.well-known/ucp` and native or embedded checkout. It builds on a healthy Merchant Center feed.
+  - OpenAI and Stripe's Agentic Commerce Protocol (ACP): a product feed spec plus checkout endpoints for Instant Checkout in ChatGPT, available to approved merchants.
+- Track agent traffic in logs ([`scripts/bot_log_audit.py`](../scripts/bot_log_audit.py)); user-initiated fetchers such as ChatGPT-User show agent visits.
+
 ## Availability lifecycle
 
 | Situation | Do |
@@ -87,6 +104,9 @@ Product and category templates carry heavy JS (recommendation widgets, reviews, 
 Scoring (adapted from claude-seo's e-commerce weights): schema completeness 25, content quality 20, images 20, title/meta 15, internal linking 10, technical 10.
 
 ## Sources
+- https://support.google.com/merchants/answer/7052112 (product data specification)
+- https://developers.openai.com/commerce/guides/key-concepts (Agentic Commerce Protocol)
+- https://commercetools.com/blog/google-ucp-merchant-guide-to-agentic-commerce (UCP overview; verify against Google's UCP docs)
 - https://developers.google.com/search/docs/appearance/structured-data/product
 - https://developers.google.com/search/docs/specialty/ecommerce
 - https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading

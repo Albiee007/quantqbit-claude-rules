@@ -57,6 +57,8 @@ jobs:
         run: bash tests/story-art.test.sh
       - name: Colour, token and type tool tests (stdlib only)
         run: bash tests/color-tools.test.sh
+      - name: SEO data tool tests (stdlib only)
+        run: bash tests/seo.test.sh
       - name: Creative direction, concepts, approvals and production gates
         run: bash tests/creative-direction.test.sh
       - name: Store render, brand export and icon tests (headless Chrome from the runner image)

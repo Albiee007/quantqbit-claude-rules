@@ -39,6 +39,15 @@ Do:
 - Public replies are external posts → approval required before posting.
 - Site review stars: `aggregateRating` in LocalBusiness/Organization markup about **your own** business is not eligible for review rich results; only show genuine, attributable testimonials.
 
+### Review programme
+
+1. **Inventory.** Export existing reviews (GBP, industry platforms) and find unanswered ones, including brand mentions that are really reviews (social posts, forum threads).
+2. **Ask workflow.** One message, the same for every customer, sent after the moment of value (job done, delivery received), with the direct review link. Ask everyone, never only happy customers; no incentives; no staff quotas or required wording.
+3. **Responses.** Draft a reply for each review: thank, address the specifics, take problems offline, no private details. Posting is an external action: the user approves each reply (safety rule 1).
+4. **Removal requests.** Flag a review for removal only when it breaks Google's content policy: fake engagement (not a real experience, paid, multiple accounts), conflict of interest (competitor, former employee), off-topic, harassment, hate speech, personal information, profanity, sexual or violent content, impersonation, or advertising and links. A negative but genuine review is not removable: reply to it instead.
+5. **Proof on the site.** Per service or location page, pick 2–3 genuine quotes that mention that service or area, with first name or initials and date, used with permission where the platform's terms require it. Note which pages have no reviews yet: that's where to ask next.
+6. **Read the language.** Group reviews by service and sentiment; reuse customers' own words for the problems they describe in headings and FAQs (not for keyword stuffing).
+
 ## NAP consistency and citations
 
 NAP = Name, Address, Phone. Keep identical across: website (footer/contact page), LocalBusiness JSON-LD, GBP, Apple Business Connect, Bing Places, major directories and data aggregators, industry directories (e.g. medical, legal, trades), and social profiles.
@@ -77,6 +86,7 @@ Citations mostly support prominence and data accuracy; don't buy bulk low-qualit
 Weights adapted from claude-seo's local dimensions. Can't verify GBP data without access? Say so; infer only from public signals and never guess ratings or counts.
 
 ## Sources
+- https://support.google.com/contributionpolicy/answer/7400114 (Maps user-contributed content policy)
 - https://support.google.com/business/answer/3038177
 - https://support.google.com/business/answer/7091
 - https://support.google.com/contributionpolicy/answer/7400114
