@@ -688,8 +688,23 @@ if [[ $in_git -eq 1 && $uninstall -eq 0 ]]; then
       } >&2
       if [[ $dry -eq 1 ]]; then ignored=""; else exit 1; fi
     fi
+    # Likewise a rule hiding a whole folder another agent reads (.agents/ holds the shared
+    # runtime and skills since 2.0; .cursor/, .codex/, .gemini/ their rules and hooks).
+    whole="$(printf '%s\n' "$ignored" | cut -f1 | sed 's/^[^:]*:[0-9]*://' \
+               | grep -xE '/?\.(agents|cursor|codex|gemini)(/|/\*|/\*\*)?' | head -1 || true)"
+    if [[ -n "$whole" && -n "$ignored" ]]; then
+      {
+        printf '  Fix: the rule "%s" ignores a whole agent folder, but the harness files in it are meant\n' "$whole"
+        printf '       to be committed so every teammate and agent gets them. Delete that line (or narrow it\n'
+        printf '       to your own files there), then re-run.\n'
+      } >&2
+      if [[ $dry -eq 1 ]]; then ignored=""; else exit 1; fi
+    fi
   fi
-  if [[ -n "$ignored" ]]; then
+  if [[ -n "$ignored" ]] && ! printf '%s\n' "$ignored" | cut -f2 | grep -q '^\.claude/skills/'; then
+    printf '  Fix: narrow the rules named above so the harness paths are not ignored, then re-run.\n' >&2
+    [[ $dry -eq 1 ]] || exit 1
+  elif [[ -n "$ignored" ]]; then
     # The suggested exceptions name the harness skills this profile actually installs.
     {
       printf '  Fix: narrow that rule so the harness paths are not ignored. For example, replace\n'
