@@ -1,6 +1,6 @@
 ---
 name: infra-implementor
-description: Implements infrastructure and tooling changes — bash/PowerShell scripts, Ansible roles/playbooks, Docker Compose stacks, Terraform modules, CI pipelines, Dockerfiles. Use for any infra/ops edit. Follows the matching path-scoped rule in .claude/rules/.
+description: Implements infrastructure and tooling changes — bash/PowerShell scripts, Ansible roles/playbooks, Docker Compose stacks, Terraform modules, CI pipelines, Dockerfiles. Use for any infra/ops edit. Follows the matching path-scoped harness rule.
 tools: Read, Edit, Write, Glob, Grep, Bash
 model: opus
 ---

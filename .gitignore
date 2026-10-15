@@ -8,7 +8,7 @@ __pycache__/
 node_modules/
 
 # Sync scratch space
-.claude/harness/.tmp/
+.agents/harness/.tmp/
 harness/.tmp/
 
 # Local / personal

@@ -26,12 +26,12 @@ This skill runs the harness sync engine that ships with this plugin, against the
 - `0`: done.
 - `1`: nothing was written. Explain the cause, then let the user choose:
   - **CONFLICT-MODIFIED:** a harness file was edited locally. Recommend moving the change into `.claude/rules/project/`, then re-running with `--theirs`. `--keep` keeps the local version (doctor keeps flagging it).
-  - **CONFLICT-UNMANAGED:** a project file uses a reserved harness name (agents explorer, implementor, infra-implementor, verifier, reviewer, and in web and mobile projects creative-director, screen-capturer, store-creative, listing-copywriter, store-precheck-auditor, icon-creator, brand-asset-creator, illustrator, video-creative, motion-designer; skills coding-standards, design-patterns, ui-ux, typography, color-science, seo, harness, and creative-direction, mobile-screen-capture, store-mockups, store-listing, store-submission-precheck, app-icons, brand-assets, story-art, brand-video, motion-ui). Rename it (recommended), or use `--theirs`; the user's copy is saved under `.claude/harness/.backup/`. `--keep` does not apply.
+  - **CONFLICT-UNMANAGED:** a project file uses a reserved harness name (agents explorer, implementor, infra-implementor, verifier, reviewer, and in web and mobile projects creative-director, screen-capturer, store-creative, listing-copywriter, store-precheck-auditor, icon-creator, brand-asset-creator, illustrator, video-creative, motion-designer; skills coding-standards, design-patterns, ui-ux, typography, color-science, seo, harness, and creative-direction, mobile-screen-capture, store-mockups, store-listing, store-submission-precheck, app-icons, brand-assets, story-art, brand-video, motion-ui). Rename it (recommended), or use `--theirs`; the user's copy is saved under `.agents/harness/.backup/`. `--keep` does not apply.
   - **Older source:** "v<X> is older than the installed v<Y>". The plugin copy is stale: run `claude plugin marketplace update quantqbit` and `claude plugin update quantqbit-claude-rules@quantqbit`, restart Claude Code, then sync again. `--allow-downgrade` only on purpose.
   - **Dirty tree:** commit or stash the changes under the harness paths, or pass `--allow-dirty`.
 - `2`: error. Everything was rolled back automatically. Show the error.
 
 ## Never
-- Never edit files under `.claude/rules/harness/`, `.claude/harness/`, or the harness skills and agents by hand to "fix" a sync.
+- Never edit files under `.claude/rules/harness/`, `.agents/harness/`, or the harness skills and agents by hand to "fix" a sync.
 - Never pass `--theirs` or `--allow-dirty` without the user agreeing.
 - Never push. Never touch `.env` files.

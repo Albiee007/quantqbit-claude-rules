@@ -53,7 +53,7 @@ A correction ("use concept B", "shorter", "change the CTA") is applied, and the 
 ## Delegated mode
 The owner delegated when:
 - the request says so ("you decide", "just make it", "no questions", "use your judgement"); or
-- `.claude/harness.config` sets `media_approvals=delegated` (`direction.py status` shows the mode).
+- `.agents/harness.config` sets `media_approvals=delegated` (`direction.py status` shows the mode).
 
 Then the main session records the chained approvals itself, with the evidence quoting the request (`"chat 2026-10-14: 'just make it, you decide'"`) or `"harness.config media_approvals=delegated"`. It goes straight to production and acknowledges review items it has looked at, naming them in the final report. Delegation never covers paid generation, a destructive change, publishing or uploading. Agents still never run `direction.py approve`; delegation is the owner's word, recorded by the main session.
 

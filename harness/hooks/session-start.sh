@@ -6,10 +6,10 @@ set -uo pipefail
 # shellcheck source=_lib.sh
 _hd="${BASH_SOURCE[0]%/*}"; [[ "$_hd" == "${BASH_SOURCE[0]}" ]] && _hd=.
 source "$_hd/_lib.sh"
-hh_read_payload
+hh_read_payload "$@"
 
-lock="$HH_ROOT/.claude/harness/lock"
-cfg="$HH_ROOT/.claude/harness.config"
+lock="$HH_ROOT/.agents/harness/lock"
+cfg="$HH_ROOT/.agents/harness.config"
 
 # New context (startup / clear / compact): forget which checklists were shown,
 # and prune markers left behind by old sessions (> 1 day).
@@ -51,11 +51,11 @@ elif [[ -f "$HH_ROOT/.claude/agents/illustrator.md" ]]; then
 Brand, art, video and motion agents: creative-director (direction, concept critique) → brand-asset-creator / illustrator / video-creative / motion-designer (skills: creative-direction, brand-assets, story-art, brand-video, motion-ui)."
 fi
 [[ -f "$lock" ]] || msg+="
-WARNING: .claude/harness/lock is missing, so harness files are untracked. Run harness sync."
+WARNING: .agents/harness/lock is missing, so harness files are untracked. Run harness sync."
 [[ $conflict -eq 1 ]] && msg+="
-WARNING: .claude/harness/lock has merge-conflict markers. Take either side, then re-run harness sync."
+WARNING: .agents/harness/lock has merge-conflict markers. Take either side, then re-run harness sync."
 [[ $kept -gt 0 ]] && msg+="
-NOTE: $kept harness file(s) are kept-local (diverged from upstream). Run: bash .claude/harness/bin/harness-doctor.sh"
+NOTE: $kept harness file(s) are kept-local (diverged from upstream). Run: bash .agents/harness/bin/harness-doctor.sh"
 
 hh_emit_context SessionStart "$msg"
 exit 0

@@ -1,0 +1,9 @@
+# Google Antigravity (app, IDE and agy CLI): see SPEC.md. Rules are top-level files in .agents/rules/.
+#key	dest	renderer	ext
+core	.agents/rules/harness-	ag-rule
+rule	.agents/rules/harness-	ag-rule
+core	.agents/harness/rules/	core
+rule	.agents/harness/rules/	paths
+skill	.agents/skills/	paths
+agent	.agents/agents/	antigravity-agent
+@hooks	.agents/hooks.json	antigravity

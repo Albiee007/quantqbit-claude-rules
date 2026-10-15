@@ -56,7 +56,7 @@ Videos render **silent** unless the piece has an `audio` section. Every run (and
 
 - **Files:** one take per scene, named after the scene id.
 - **Format:** 48 kHz WAV, mono, peaks below −1 dBFS, half a second of room tone before and after.
-- **Where:** `brand/video/<id>/media/vo/`. Media files are project-owned; consider Git LFS. They never go into `.claude/`.
+- **Where:** `brand/video/<id>/media/vo/`. Media files are project-owned; consider Git LFS. They never go into the agent folders (`.claude/`, `.agents/`).
 - **Licence:** music needs `license`; a voice that isn't the owner's or the team's needs the same kind of evidence, kept with the project's records.
 
 ## Generated voice

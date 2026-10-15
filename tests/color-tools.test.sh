@@ -209,18 +209,18 @@ check "media sizes print canvas px" has "81.0 canvas px"
 
 echo "== bootstrap: one import path, source and installed layouts"
 for f in $(grep -rl "harness lib bootstrap" "$ROOT/harness/skills" --include='*.py'); do
-  grep -q 'sys.path\[:0\] = \[str(d) for d in (_root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()\]\[:1\]' "$f" \
+  grep -qF 'sys.path[:0] = [str(d) for d in (_root.parent / ".agents" / "harness" / "lib", _root / "harness" / "lib", _root / "lib") if (d / "harnesslib").is_dir()][:1]' "$f" \
     || bad "$(basename "$f") uses a different bootstrap"
 done
 n=$(grep -rl "from harnesslib\|import harnesslib" "$ROOT/harness/skills" --include='*.py' | wc -l | tr -d ' ')
 m=$(grep -rl "harness lib bootstrap" "$ROOT/harness/skills" --include='*.py' | wc -l | tr -d ' ')
 check "every script that imports harnesslib uses the documented bootstrap ($m of $n)" test "$n" -eq "$m"
-mkdir -p "$W/inst/.claude/harness" "$W/inst/.claude/skills/color-science"
-cp -R "$ROOT/harness/lib" "$W/inst/.claude/harness/lib"
+mkdir -p "$W/inst/.agents/harness" "$W/inst/.claude/skills/color-science"
+cp -R "$ROOT/harness/lib" "$W/inst/.agents/harness/lib"
 cp -R "$ROOT/harness/skills/color-science/scripts" "$W/inst/.claude/skills/color-science/scripts"
 run "$W/inst/.claude/skills/color-science/scripts/palette.py" convert "#336699"
-check "the installed layout (.claude/harness/lib) imports" rc 0
-rm -rf "$W/inst/.claude/harness/lib"
+check "the installed layout (.agents/harness/lib) imports" rc 0
+rm -rf "$W/inst/.agents/harness/lib"
 run "$W/inst/.claude/skills/color-science/scripts/palette.py" convert "#336699"
 check "a missing library exits 2 and says to sync" bash -c "[[ \$(cat '$W/rc') == 2 ]] && grep -q 'harness sync' '$W/out'"
 

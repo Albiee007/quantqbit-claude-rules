@@ -88,6 +88,8 @@ jobs:
         run: bash tests/motion-ui.test.sh
       - name: Sync scenario tests
         run: bash tests/sync.test.sh
+      - name: Target render tests (every agent's files)
+        run: bash tests/targets.test.sh
       - name: macOS stock bash 3.2 compatibility (hooks + sync + scaffold)
         if: runner.os == 'macOS'
         run: |
@@ -95,6 +97,7 @@ jobs:
           PATH="/bin:/usr/bin:$PATH" bash --version | head -1
           PATH="/bin:/usr/bin:$PATH" /bin/bash tests/hooks.test.sh
           PATH="/bin:/usr/bin:$PATH" /bin/bash tests/sync.test.sh
+          PATH="/bin:/usr/bin:$PATH" /bin/bash tests/targets.test.sh
           PATH="/bin:/usr/bin:$PATH" /bin/bash tests/scaffold.test.sh
       - name: Scaffold transaction tests (Windows Git Bash, trimmed)
         if: runner.os == 'Windows'
@@ -114,7 +117,7 @@ jobs:
           git -C $p add -A; git -C $p commit -qm init
           powershell -NoProfile -ExecutionPolicy Bypass -File scaffold\sync.ps1 --target $p --commit
           if ($LASTEXITCODE -ne 0) { throw "sync.ps1 failed: $LASTEXITCODE" }
-          powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $p '.claude\harness\bin\harness-doctor.ps1')
+          powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $p '.agents\harness\bin\harness-doctor.ps1')
           if ($LASTEXITCODE -ne 0) { throw "harness-doctor.ps1 failed: $LASTEXITCODE" }
           git -C $p log --oneline -1
 

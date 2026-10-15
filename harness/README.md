@@ -12,22 +12,22 @@ This project vendors the QuantQbit agent harness: shared agent rules, skills, ag
 | `.claude/agents/{explorer,implementor,infra-implementor,reviewer,verifier}.md` | harness | No. Add your own agents under other names |
 | `.claude/agents/{creative-director,screen-capturer,store-creative,listing-copywriter,store-precheck-auditor,icon-creator,brand-asset-creator,illustrator,video-creative,motion-designer}.md` (mobile; `creative-director`, `brand-asset-creator`, `illustrator`, `video-creative` and `motion-designer` also web) | harness | No |
 | `brand/direction.json`, `brand/concepts/`, `brand/video/`, `brand/approvals.json`, `brand/runs/` | project | The direction and concepts yes (through the creative-director); approvals only through `direction.py approve` after the owner decides |
-| `.claude/harness/*` (hooks, snippets, bin, lock, this README), `.claude/.gitattributes` | harness | No |
+| `.agents/harness/*` (hooks, snippets, bin, lock, this README), `.claude/.gitattributes` | harness | No |
 | `.claude/settings.json` | **generated** | No. Edit `.claude/settings.project.json` instead, then re-sync |
 | `.claude/settings.project.json` | project | Yes: team-shared permissions, env and hooks |
-| `.claude/harness.config` | project | Yes: profiles and verification commands |
+| `.agents/harness.config` | project | Yes: profiles and verification commands |
 | `.claude/rules/project/*` | project | Yes: project rules and overrides |
 | `CLAUDE.md`, `AGENTS.md`, `AI_RULES.md` | project | Yes. The harness never touches them |
 | `CLAUDE.local.md`, `.claude/settings.local.json` | you | Personal. Keep them gitignored |
 
-Harness files carry a `harness:managed vX.Y.Z` marker. `.claude/harness/lock` records the version and content hash of every harness file, so local edits and stale files are detected, not silently overwritten.
+Harness files carry a `harness:managed vX.Y.Z` marker. `.agents/harness/lock` records the version and content hash of every harness file, so local edits and stale files are detected, not silently overwritten.
 
 ## Commands
 
 ```bash
-bash .claude/harness/bin/harness-doctor.sh          # health check: modified / missing / stale files
-bash .claude/harness/bin/harness-sync.sh --dry-run  # preview an update
-bash .claude/harness/bin/harness-sync.sh --commit   # update to the latest harness and commit
+bash .agents/harness/bin/harness-doctor.sh          # health check: modified / missing / stale files
+bash .agents/harness/bin/harness-sync.sh --dry-run  # preview an update
+bash .agents/harness/bin/harness-sync.sh --commit   # update to the latest harness and commit
 ```
 
 In Claude Code you can also ask "sync the harness" (the in-project `harness` skill runs the commands above), or use the plugin's `/quantqbit-claude-rules:harness-install` if the plugin is installed.

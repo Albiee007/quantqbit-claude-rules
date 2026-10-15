@@ -159,7 +159,7 @@ hc_hash_file() {
 # them. The marker is plain ASCII so Windows PowerShell 5.1 renders it cleanly.
 hc_inject_header() {
   local src="$1" dest="$2" ver="$3" rel="${4:-}"
-  local md="<!-- harness:managed v${ver} - do not edit; override in .claude/rules/project/ (see .claude/harness/README.md) -->"
+  local md="<!-- harness:managed v${ver} - do not edit; override in .claude/rules/project/ (see .agents/harness/README.md) -->"
   local sh="# harness:managed v${ver} - do not edit; re-run harness sync to update"
   mkdir -p "$(dirname "$dest")"
   case "$rel" in
@@ -191,7 +191,7 @@ hc_inject_header() {
 # ps1; data files (json, tsv, txt, snippets, dotfiles) copied without a marker.
 hc_inject_headers() {
   awk -F'\t' '
-    function md(v) { return "<!-- harness:managed v" v " - do not edit; override in .claude/rules/project/ (see .claude/harness/README.md) -->" }
+    function md(v) { return "<!-- harness:managed v" v " - do not edit; override in .claude/rules/project/ (see .agents/harness/README.md) -->" }
     function sh(v) { return "# harness:managed v" v " - do not edit; re-run harness sync to update" }
     {
       src = $1; dest = $2; v = $3; rel = $4; n = 0; fm = 0

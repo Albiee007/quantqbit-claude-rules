@@ -111,7 +111,7 @@ def resolve_target(root: Path, piece: dict, base: str | None) -> Target:
         f = resolve_inside(root, cap["page"], "capture.page", must_exist=True)
         query = path if path.startswith("?") else ""
         return Target(f.as_uri() + query, "file", "file://", cap["page"])
-    raise UsageError("no base URL: pass --base-url, set $MOTION_BASE_URL or dev_url= in .claude/harness.config "
+    raise UsageError("no base URL: pass --base-url, set $MOTION_BASE_URL or dev_url= in .agents/harness.config "
                      "(motion.py never starts a dev server), or set capture.page to a project HTML file")
 
 

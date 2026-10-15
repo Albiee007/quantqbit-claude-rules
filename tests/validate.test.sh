@@ -73,7 +73,7 @@ fresh; printf 'def x(:\n' > "$W/r/harness/skills/store-listing/scripts/broken.py
 expect_fail "python syntax error"       "python syntax error"
 fresh; printf 'a\r\nb\r\n' >> "$W/r/harness/skills/store-mockups/templates/frame.html"
 expect_fail "CRLF in html template"     "CRLF line endings"
-fresh; echo "2.0.0" > "$W/r/VERSION"
+fresh; echo "9.9.9" > "$W/r/VERSION"
 expect_fail "VERSION drift"             "plugin.json version"
 fresh; echo "changed" >> "$W/r/harness/rules/coding.md"
 expect_fail "stale manifest"            "manifest.tsv is stale"

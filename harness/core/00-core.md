@@ -1,17 +1,35 @@
 # Harness Core Rules
 
+<!-- agent:claude -->
 Always loaded. Vendored by the QuantQbit agent harness into `.claude/rules/harness/`.
+<!-- /agent -->
+<!-- agent:other -->
+Always loaded. Vendored by the QuantQbit agent harness (canonical copy: `.claude/rules/harness/`).
+<!-- /agent -->
 Detail lives in skills and path-scoped rules. This file stays short on purpose.
 
 ## 1. Precedence
 - Project instructions (`CLAUDE.md`, `AGENTS.md`, `.claude/rules/project/`) override harness rules where they conflict.
+<!-- agent:claude -->
 - **Not overridable:** secrets/`.env` handling (§8), the Opus model policy (§2), and accessibility minimums (skills `ui-ux`, `typography`, `color-science`).
+<!-- /agent -->
+<!-- agent:other -->
+- **Not overridable:** secrets/`.env` handling (§8) and accessibility minimums (skills `ui-ux`, `typography`, `color-science`).
+<!-- /agent -->
 - If two instructions conflict and neither clearly wins, ask the user. Do not pick one silently.
 
+<!-- agent:claude -->
 ## 2. Model: Opus only
 - Every sub-agent runs on Opus. Pass `model: "opus"` when spawning with the Agent tool.
 - Settings force this (`CLAUDE_CODE_SUBAGENT_MODEL=opus` overrides agent frontmatter), and a hook denies any other requested model. Do not try to work around either.
 - If a tool, skill or plugin routes to a smaller model, tell the user before continuing.
+<!-- /agent -->
+<!-- agent:other -->
+## 2. Models, skills and sub-agents
+- Sub-agents run on the model the user configured for this agent; the harness does not pin one.
+- "Load a skill" means: read its `SKILL.md` (path below) and the references it points to before the work.
+- "Delegate to `<agent>`" means: run this agent's harness sub-agent of that name. If this agent has no sub-agents, do the step yourself, following that agent's file.
+<!-- /agent -->
 
 ## 3. Plan mode
 - In plan mode, take only read-only actions until the user approves the plan.
@@ -56,7 +74,7 @@ The first UI or SEO file write in each agent context is denied once: read every 
 
 ## 6. Verification before "done"
 Run the checks that match the change, and report the actual result:
-- Project lint command (`lint_cmd` in `.claude/harness.config`, otherwise `scripts/lint.sh` or `make lint`)
+- Project lint command (`lint_cmd` in `.agents/harness.config`, otherwise `scripts/lint.sh` or `make lint`)
 - Typecheck and unit tests for touched code
 - Bash: `bash -n` and `shellcheck`. PowerShell: parse check and PSScriptAnalyzer if installed
 - Ansible: `ansible-playbook --syntax-check`. Terraform: `terraform fmt -check && terraform validate`. Compose: `docker compose config --quiet`
@@ -91,7 +109,13 @@ If a check cannot run (tool missing, network blocked), say so and state what rem
 - Leave no dead code, commented-out code, or TODOs without an owner.
 
 ## 11. Harness-managed files
-- Files marked `harness:managed` (in `.claude/rules/harness/`, `.claude/skills/<harness skill>/`, `.claude/agents/<harness agent>.md` and `.claude/harness/`) are owned by the harness. Do not edit them.
+<!-- agent:claude -->
+- Files marked `harness:managed` (in `.claude/rules/harness/`, `.claude/skills/<harness skill>/`, `.claude/agents/<harness agent>.md` and `.agents/harness/`) are owned by the harness. Do not edit them.
 - To change behaviour, add or edit files in `.claude/rules/project/`, the project `CLAUDE.md`, or `.claude/settings.project.json`.
 - `.claude/settings.json` is generated. Put setting changes in `.claude/settings.project.json`, then run harness sync.
-- Run `bash .claude/harness/bin/harness-doctor.sh` to check harness health (stale, modified or missing files).
+<!-- /agent -->
+<!-- agent:other -->
+- Files marked `harness:managed` are owned by the harness: its rules, skills and sub-agents, `.agents/harness/`, and the marked block of `AGENTS.md`. Do not edit them.
+- To change behaviour, edit the project's own instructions (`AGENTS.md` outside the harness block), then run harness sync.
+<!-- /agent -->
+- Run `bash .agents/harness/bin/harness-doctor.sh` to check harness health (stale, modified or missing files).

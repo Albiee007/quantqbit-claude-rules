@@ -36,7 +36,7 @@ Make short videos that look and move like **this project**: the backgrounds, typ
 - **Reading time and pace are signals.** `lint` reports scenes too short to read or lines too long for their scene; fix them or say why they stay, and the owner decides at the checkpoint. The concept's minimum hold is enforced.
 - **Accessibility:** no more than three flashes a second (the render's flashing heuristic is a signal; look at anything it flags), keep text inside the safe insets, ship the caption sidecar with the video where the platform takes one.
 - **Use the scripts.** Don't write your own render, encode or check scripts; don't hand-edit `out/`, `.build/` or run manifests.
-- **ffmpeg** must be installed (`render_video.py` names the install command per OS); Chrome, Chromium or Edge renders. Media files never go into `.claude/`.
+- **ffmpeg** must be installed (`render_video.py` names the install command per OS); Chrome, Chromium or Edge renders. Media files never go into the agent folders (`.claude/`, `.agents/`).
 
 ## Output
 - `brand/video/<id>/video.json` (project-owned), `brand/video/<id>/out/`: per format `<format>/<id>.mp4` (`.webm` or `.mov` for overlays), `<format>/<id>-sheet.png` (each scene's still frame) and, when asked for, `<id>.gif`, `<id>.webp`, `<id>-poster.png`; once per piece `voice/script.md`, `voice/voice-prompt.md`, `voice/cues.json`, `voice/captions.planned.srt|vtt` (or `voice/captions.srt|vtt` when they follow recorded takes); `brand/runs/video/<run>.json`.

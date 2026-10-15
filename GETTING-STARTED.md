@@ -114,7 +114,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\.local\share\quantqbi
 ```
 
 **What happens on first install:**
-- **Profiles are detected** from your files: `web` (React/Vue/Svelte/…), `mobile`, `backend`, `infra`. They are saved in `.claude/harness.config`. Web projects get the UI/UX, typography, color-science and SEO skills; mobile projects get UI/UX, typography and color science plus the creative-direction, store and brand agents; web projects also get the creative-direction, brand, story-art and video agents; backend-only projects get neither.
+- **Profiles are detected** from your files: `web` (React/Vue/Svelte/…), `mobile`, `backend`, `infra`. They are saved in `.agents/harness.config`. Web projects get the UI/UX, typography, color-science and SEO skills; mobile projects get UI/UX, typography and color science plus the creative-direction, store and brand agents; web projects also get the creative-direction, brand, story-art and video agents; backend-only projects get neither.
 - **Your files are kept.**
   - `CLAUDE.md`, `AGENTS.md` and `AI_RULES.md` are never touched.
   - A `CLAUDE.md` stub is created only if you have neither `CLAUDE.md` nor `AGENTS.md`. A new `CLAUDE.md` would stop Claude Code reading `AGENTS.md`.
@@ -125,7 +125,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\.local\share\quantqbi
 
 | Message | Meaning | Fix |
 |---|---|---|
-| `CONFLICT-UNMANAGED: .claude/agents/reviewer.md` | You have your own file with a reserved harness name | Rename the file **and** its `name:` field, commit the rename, then re-run (recommended); or `--theirs` (yours is saved in `.claude/harness/.backup/`) |
+| `CONFLICT-UNMANAGED: .claude/agents/reviewer.md` | You have your own file with a reserved harness name | Rename the file **and** its `name:` field, commit the rename, then re-run (recommended); or `--theirs` (yours is saved in `.agents/harness/.backup/`) |
 | `CONFLICT-MODIFIED: …` | Someone edited a harness file | Move the change to `.claude/rules/project/`, then `--theirs`; or `--keep` to keep yours |
 | `uncommitted changes` | Harness paths have uncommitted edits | Commit or stash them first |
 | `older than the installed` | Your harness source is stale | Update the plugin or `git pull` your clone |
@@ -146,7 +146,7 @@ After pulling a project that has the harness, just use Claude Code as usual. You
 **Check that everything is healthy:**
 
 ```bash
-bash .claude/harness/bin/harness-doctor.sh      # 0 = healthy, 1 = warnings, 2 = errors
+bash .agents/harness/bin/harness-doctor.sh      # 0 = healthy, 1 = warnings, 2 = errors
 ```
 
 **Customise without conflicts.** Never edit files marked `harness:managed`. Use the project-owned files instead:
@@ -154,18 +154,18 @@ bash .claude/harness/bin/harness-doctor.sh      # 0 = healthy, 1 = warnings, 2 =
 | You want to… | Edit | Then |
 |---|---|---|
 | Add or override a rule | `.claude/rules/project/<topic>.md` (add `paths:` frontmatter to scope it to files) | commit |
-| Change team permissions, env or hooks (e.g. a different `defaultMode`) | `.claude/settings.project.json` | `bash .claude/harness/bin/harness-sync.sh --commit` |
-| Change profiles / lint / test commands | `.claude/harness.config` (or `harness-sync.sh --profiles web,backend`, which also saves it) | `harness-sync.sh --commit` |
-| Only inform (not pause) on UI/SEO writes | `checklists=inform` in `.claude/harness.config` | none |
+| Change team permissions, env or hooks (e.g. a different `defaultMode`) | `.claude/settings.project.json` | `bash .agents/harness/bin/harness-sync.sh --commit` |
+| Change profiles / lint / test commands | `.agents/harness.config` (or `harness-sync.sh --profiles web,backend`, which also saves it) | `harness-sync.sh --commit` |
+| Only inform (not pause) on UI/SEO writes | `checklists=inform` in `.agents/harness.config` | none |
 | Keep personal preferences | `CLAUDE.local.md`, `.claude/settings.local.json` (add both to `.gitignore`) | none |
 | Add your own agent or skill | Use a new name under `.claude/agents/` or `.claude/skills/` | commit |
 
 **Update to a newer harness** (on a branch):
 
 ```bash
-bash .claude/harness/bin/harness-sync.sh --dry-run   # uses the newest local source: plugin, $HARNESS_HOME, or ~/.local/share clone
-bash .claude/harness/bin/harness-sync.sh --commit
-bash .claude/harness/bin/harness-sync.sh --ref vX.Y.Z --dry-run   # or pin a pushed release tag (clones upstream)
+bash .agents/harness/bin/harness-sync.sh --dry-run   # uses the newest local source: plugin, $HARNESS_HOME, or ~/.local/share clone
+bash .agents/harness/bin/harness-sync.sh --commit
+bash .agents/harness/bin/harness-sync.sh --ref vX.Y.Z --dry-run   # or pin a pushed release tag (clones upstream)
 ```
 
 Only files whose content changed are updated. Your project-owned files are never touched.
@@ -183,7 +183,7 @@ Only files whose content changed are updated. Your project-owned files are never
 | `python 3 is required` | Install Python 3. On Windows the `py` launcher is enough. |
 | Hooks fail with `$'\r': command not found` (WSL/containers) | Commit or stash any `.claude` edits first, then re-checkout once: `git rm -r --cached -q .claude && git checkout HEAD -- .claude`. |
 | Doctor: `modified: …` (exit 2) | A harness file was edited. Move the change to `.claude/rules/project/`, then `harness-sync.sh --theirs --commit`. |
-| Git conflict inside `.claude/harness/lock` or `.claude/settings.json` | Take either side of those two files (resolve `settings.project.json` by hand), `git add` them and finish the merge commit, then run `harness-sync.sh --commit`. It re-derives the lock and regenerates `settings.json`. |
+| Git conflict inside `.agents/harness/lock` or `.claude/settings.json` | Take either side of those two files (resolve `settings.project.json` by hand), `git add` them and finish the merge commit, then run `harness-sync.sh --commit`. It re-derives the lock and regenerates `settings.json`. |
 | Sync exit 2 | Something failed mid-way and everything was rolled back. Read the `[FAIL]` line. |
 | Remove the harness | `bash <source>/scaffold/sync.sh --target . --uninstall --dry-run` to preview, then with `--commit`. Unmodified harness files are removed; `settings.json` reverts to your `settings.project.json`; your own files stay. |
 

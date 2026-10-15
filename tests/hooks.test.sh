@@ -9,13 +9,13 @@ HK="$SRC/harness/hooks"
 P="$(mktemp -d "${TMPDIR:-/tmp}/harness-hooks.XXXXXX")"
 export TMPDIR="$P/tmp"; mkdir -p "$TMPDIR"
 trap 'rm -rf "$P"' EXIT
-mkdir -p "$P/.claude/harness/snippets"
-cp "$SRC"/harness/snippets/*.md "$P/.claude/harness/snippets/"
+mkdir -p "$P/.agents/harness/snippets"
+cp "$SRC"/harness/snippets/*.md "$P/.agents/harness/snippets/"
 for s in ui-ux typography color-science seo creative-direction motion-ui; do mkdir -p "$P/.claude/skills/$s"; : > "$P/.claude/skills/$s/SKILL.md"; done
 export CLAUDE_PROJECT_DIR="$P"
 pass=0; fail=0
 
-run() { printf '%s' "$2" | bash "$HK/$1" 2>/dev/null; }
+run() { printf '%s' "$2" | bash "$HK/$1" ${HOOK_ARGS:-} 2>/dev/null; }
 expect() { # desc, hook, payload, grep-pattern ("" = expect empty output)
   local out; out="$(run "$2" "$3")"
   if [[ -z "$4" ]]; then
@@ -98,10 +98,10 @@ expect "story art prompt → art checklist" prompt-router.sh '{"session_id":"a14
 expect "hero image prompt → art checklist" prompt-router.sh '{"session_id":"a14c","prompt":"regenerate the hero image"}' 'Load skill: story-art'
 expect "no art for plain scene prompt" prompt-router.sh '{"session_id":"a14d","prompt":"fix the scene graph loader"}' ''
 # A web install has the art snippet but not the store snippet.
-mv "$P/.claude/harness/snippets/store.md" "$P/store.md.off"
+mv "$P/.agents/harness/snippets/store.md" "$P/store.md.off"
 expect "web: illustration prompt → art checklist" prompt-router.sh '{"session_id":"a14e","prompt":"add illustrations to the landing sections"}' 'export_art.py'
 expect "web: logo prompt → art checklist" prompt-router.sh '{"session_id":"a14f","prompt":"design a new logo"}' 'brand-asset-creator'
-mv "$P/store.md.off" "$P/.claude/harness/snippets/store.md"
+mv "$P/store.md.off" "$P/.agents/harness/snippets/store.md"
 expect "panorama prompt → media checklist" prompt-router.sh '{"session_id":"m1","prompt":"our panoramic store screenshots all look the same"}' 'Media checklist'
 expect "og image prompt → media checklist" prompt-router.sh '{"session_id":"m2","prompt":"make a new OG image for the blog"}' 'creative-director'
 expect "banner prompt → media checklist" prompt-router.sh '{"session_id":"m3","prompt":"design a promo banner for the launch"}' 'direction.py approve'
@@ -200,24 +200,63 @@ expect "approvals are never hand-edited" file-context.sh '{"session_id":"d3","to
 expect "approvals stay denied on retry" file-context.sh '{"session_id":"d3","tool_name":"Edit","tool_input":{"file_path":"/p/brand/approvals.json"}}' '"permissionDecision":"deny"'
 out="$(run file-context.sh '{"session_id":"d4","tool_name":"Write","tool_input":{"file_path":"/p/mobile/store-assets/LISTING.md"}}')"
 grep -q 'creative-direction' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] LISTING.md got the media gate"; } || { pass=$((pass+1)); echo "  [OK] LISTING.md is copy, not media"; }
-printf 'checklists=inform\n' > "$P/.claude/harness.config"
+printf 'checklists=inform\n' > "$P/.agents/harness.config"
 expect "inform mode: the media gate only informs" file-context.sh '{"session_id":"d5","tool_name":"Write","tool_input":{"file_path":"/p/brand/canvas.json"}}' '"additionalContext"'
 expect "inform mode adds context only"     file-context.sh '{"session_id":"b7","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Y.tsx"}}' '"additionalContext"'
 out="$(run file-context.sh '{"session_id":"b11","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Z.tsx"}}')"
 if ! grep -q 'deny' <<<"$out" && grep -q 'ui-ux, typography, color-science' <<<"$out"; then
   pass=$((pass+1)); echo "  [OK] inform mode names all three skills without denying"
 else fail=$((fail+1)); echo "  [FAIL] inform mode — got: ${out:0:200}"; fi
-rm -f "$P/.claude/harness.config"
+rm -f "$P/.agents/harness.config"
+
+echo "normalised operations (multi-file patches, moves, after-edit events, agents)"
+P1='*** Begin Patch\n*** Update File: src/a.go\n@@\n-x\n+y\n'
+expect "patch: protected second file denies the patch" file-context.sh '{"session_id":"m1","hook_event_name":"PreToolUse","tool_name":"apply_patch","tool_input":{"command":"'"$P1"'*** Update File: brand/approvals.json\n@@\n-a\n+b\n*** End Patch"}}' '"permissionDecision":"deny"'
+expect "patch: a move onto a protected path is denied" file-context.sh '{"session_id":"m2","hook_event_name":"PreToolUse","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: brand/old.json\n*** Move to: brand/runs/20261001.json\n*** End Patch"}}' 'brand/runs'
+expect "patch: .env as the second file is denied" guard.sh '{"hook_event_name":"PreToolUse","tool_name":"apply_patch","tool_input":{"command":"'"$P1"'*** Add File: config/.env.local\n+K=V\n*** End Patch"}}' '"permissionDecision":"deny"'
+expect "Edit carrying a patch body (Copilot CLI) checks every file" guard.sh '{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"command":"'"$P1"'*** Delete File: .env\n*** End Patch"}}' 'deny'
+expect "patch of ordinary files is allowed" guard.sh '{"hook_event_name":"PreToolUse","tool_name":"apply_patch","tool_input":{"command":"'"$P1"'*** End Patch"}}' ''
+out="$(run file-context.sh '{"session_id":"m3","hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"/p/brand/approvals.json"}}')"
+if ! grep -q 'permissionDecision' <<<"$out" && grep -q 'revert it now' <<<"$out"; then
+  pass=$((pass+1)); echo "  [OK] an after-edit event reports the violation instead of denying"
+else fail=$((fail+1)); echo "  [FAIL] after-edit should report, not deny — got: ${out:0:160}"; fi
+expect "after-edit: a UI gate only informs" file-context.sh '{"session_id":"m4","hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Late.tsx"}}' 'mandatory checklist'
+expect "a read is not a write (matcher-less hosts)" file-context.sh '{"session_id":"m5","tool_name":"Read","tool_input":{"file_path":"/p/brand/approvals.json"}}' ''
+echo "  Cursor runs .claude/settings.json hooks with its own payload (recognised by cursor_version)"
+expect "cursor: Shell reading .env denied" guard.sh '{"cursor_version":"3.24","hook_event_name":"preToolUse","tool_name":"Shell","tool_input":{"command":"cat .env"}}' 'deny'
+expect "cursor: beforeReadFile .env denied" guard.sh '{"cursor_version":"3.24","hook_event_name":"beforeReadFile","file_path":"/p/.env.local","content":""}' 'deny'
+expect "cursor: Write gates a UI file" file-context.sh '{"cursor_version":"3.24","conversation_id":"c1","hook_event_name":"preToolUse","tool_name":"Write","tool_input":{"file_path":"/p/src/ui/Nav.tsx","content":"x"}}' 'deny'
+expect "cursor: afterFileEdit on approvals.json reports" file-context.sh '{"cursor_version":"3.24","hook_event_name":"afterFileEdit","file_path":"/p/brand/approvals.json","edits":[]}' 'revert it now'
+echo "  Copilot CLI: Claude event and tool names, native arguments (path)"
+expect "copilot: Read path .env denied" guard.sh '{"hook_event_name":"PreToolUse","session_id":"s","tool_name":"Read","tool_input":{"path":"/p/.env"}}' 'deny'
+expect "copilot: Write (create) to brand/runs denied" file-context.sh '{"hook_event_name":"PreToolUse","session_id":"s","tool_name":"Write","tool_input":{"path":"/p/brand/runs/r1.json","file_text":"{}"}}' 'brand/runs'
+HOOK_ARGS="--agent codex"
+expect "Opus policy is Claude-only (codex keeps its model)" guard.sh '{"tool_name":"spawn_agent","tool_input":{"model":"gpt-5"}}' ''
+expect "codex: .env read via patch still denied" guard.sh '{"tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: .env\n*** End Patch"}}' 'deny'
+expect "codex: a thread-spawned sub-agent (agent_id) cannot approve" guard.sh '{"agent_id":"x","tool_name":"Bash","tool_input":{"command":"python direction.py approve --gate concept"}}' 'only the main session'
+HOOK_ARGS="--agent gemini"
+expect "gemini: read_file .env denied (decision JSON)" guard.sh '{"hook_event_name":"BeforeTool","tool_name":"read_file","tool_input":{"file_path":"/p/.env"}}' '"decision":"deny"'
+expect "gemini: read_many_files with .env among paths denied" guard.sh '{"hook_event_name":"BeforeTool","tool_name":"read_many_files","tool_input":{"paths":["src/a.ts",".env.local"]}}' '"decision":"deny"'
+expect "gemini: run_shell_command cat .env denied" guard.sh '{"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"cat .env"}}' 'deny'
+expect "gemini: write_file gates a UI file" file-context.sh '{"session_id":"g9","hook_event_name":"BeforeTool","tool_name":"write_file","tool_input":{"file_path":"/p/src/ui/G.tsx","content":"x"}}' '"decision":"deny"'
+HOOK_ARGS="--agent antigravity --event PreToolUse"
+expect "antigravity: view_file .env denied" guard.sh '{"conversationId":"c","workspacePaths":["/p"],"toolCall":{"name":"view_file","args":{"AbsolutePath":"/p/.env"}}}' '"decision":"deny"'
+expect "antigravity: run_command cat .env denied" guard.sh '{"conversationId":"c","toolCall":{"name":"run_command","args":{"CommandLine":"cat .env","Cwd":"/p"}}}' 'deny'
+expect "antigravity: write_to_file approvals.json denied" file-context.sh '{"conversationId":"c","toolCall":{"name":"write_to_file","args":{"TargetFile":"/p/brand/approvals.json","CodeContent":"{}"}}}' '"decision":"deny"'
+expect "antigravity: ordinary read allowed" guard.sh '{"conversationId":"c","toolCall":{"name":"view_file","args":{"AbsolutePath":"/p/src/a.ts"}}}' ''
+HOOK_ARGS="--agent gemini"
+expect "gemini: no sub-agent marker, so approval is not guessed" guard.sh '{"tool_name":"Bash","tool_input":{"command":"python direction.py approve --gate concept"}}' ''
+HOOK_ARGS=""
 
 echo "session-start"
 expect "summary without lock warns" session-start.sh '{"session_id":"c1","source":"startup"}' 'lock is missing'
-printf 'harness_version\t9.9.9\nprofiles\tweb\nmanaged\tx\t1\th\tkept-local\n' > "$P/.claude/harness/lock"
+printf 'harness_version\t9.9.9\nprofiles\tweb\nmanaged\tx\t1\th\tkept-local\n' > "$P/.agents/harness/lock"
 expect "reads version"      session-start.sh '{"session_id":"c1"}' 'v9.9.9'
 expect "reports kept-local" session-start.sh '{"session_id":"c1"}' 'kept-local'
 run prompt-router.sh '{"session_id":"c2","prompt":"style the navbar"}' >/dev/null
 run session-start.sh '{"session_id":"c2","source":"compact"}' >/dev/null
 expect "compact resets dedupe" prompt-router.sh '{"session_id":"c2","prompt":"style the navbar"}' 'ui-ux'
-printf 'harness_version\t9.9.9\r\nprofiles\tweb\r\nmanaged\tx\t1\th\tkept-local\r\n' > "$P/.claude/harness/lock"
+printf 'harness_version\t9.9.9\r\nprofiles\tweb\r\nmanaged\tx\t1\th\tkept-local\r\n' > "$P/.agents/harness/lock"
 expect "CRLF lock: kept-local still seen" session-start.sh '{"session_id":"c3"}' 'kept-local'
 out="$(run session-start.sh '{"session_id":"c4"}')"
 grep -q 'store-creative' <<<"$out" && { fail=$((fail+1)); echo "  [FAIL] store roster shown without store agents"; } || { pass=$((pass+1)); echo "  [OK] no store roster when store agents absent"; }

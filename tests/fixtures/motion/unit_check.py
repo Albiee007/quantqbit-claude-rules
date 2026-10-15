@@ -248,7 +248,7 @@ check(bool(framecheck.flash_signal(seq, 30, **mo.FLASH_POLICY)), "the stricter p
 # ---------------------------------------------------------------- harness.config
 with tempfile.TemporaryDirectory() as tmp:
     (Path(tmp) / ".claude").mkdir()
-    (Path(tmp) / ".claude/harness.config").write_bytes(b"# c\r\nprofiles=web\r\ndev_url = \"http://localhost:5173\" \r\n\r\nx\r\n")
+    (Path(tmp) / ".agents/harness.config").write_bytes(b"# c\r\nprofiles=web\r\ndev_url = \"http://localhost:5173\" \r\n\r\nx\r\n")
     cfg = harness_config(Path(tmp))
     check(cfg.get("dev_url") == "http://localhost:5173" and cfg.get("profiles") == "web", "harness.config reads CRLF lines and quotes")
     check(harness_config(Path(tmp) / "none") == {}, "no harness.config is an empty config")

@@ -14,14 +14,14 @@
 #                  https://github.com/Albiee007/quantqbit-claude-rules (private repo:
 #                  needs git credentials with read access).
 #
-# Usage: bash .claude/harness/bin/harness-sync.sh [--source DIR|--ref TAG|--remote] [sync options…]
+# Usage: bash .agents/harness/bin/harness-sync.sh [--source DIR|--ref TAG|--remote] [sync options…]
 #        sync options: --dry-run --diff --keep --theirs --commit --profiles … (see --help of sync.sh)
 set -euo pipefail
 unset MSYS_NO_PATHCONV MSYS2_ARG_CONV_EXCL
 
 BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$BIN/../../.." && pwd)"
-LOCK="$ROOT/.claude/harness/lock"
+LOCK="$ROOT/.agents/harness/lock"
 # shellcheck source=harness-lib.sh
 source "$BIN/harness-lib.sh"
 

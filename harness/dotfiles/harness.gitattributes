@@ -1,6 +1,6 @@
 # harness:managed - pins line endings for vendored harness files, so a Windows
 # checkout (core.autocrlf=true) never turns scripts into CRLF, which breaks
-# bash on Linux, WSL and containers. Applies to .claude/ only.
+# bash on Linux, WSL and containers. Applies to the folder it sits in (.claude/, .agents/).
 *.sh          text eol=lf
 *.md          text eol=lf
 *.json        text eol=lf

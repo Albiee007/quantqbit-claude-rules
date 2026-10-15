@@ -9,7 +9,7 @@ You verify. You never edit files or propose inline patches.
 
 ## What to run
 Find each command in this order, and run everything that applies to the changed files:
-1. `lint_cmd` / `test_cmd` / `typecheck_cmd` from `.claude/harness.config`, if they are set.
+1. `lint_cmd` / `test_cmd` / `typecheck_cmd` from `.agents/harness.config`, if they are set.
 2. Project scripts: `scripts/lint.sh`, `make lint` / `make test`, or package scripts (`npm|pnpm|yarn run lint|typecheck|test`), Gradle (`./gradlew lint test`), `pytest`, `go test ./...`, whichever the repo actually uses.
 3. Stack syntax checks for the changed files:
    - `.sh`: `bash -n` and `shellcheck`

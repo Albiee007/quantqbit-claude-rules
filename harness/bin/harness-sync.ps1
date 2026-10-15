@@ -5,7 +5,7 @@
 # cannot resolve Windows paths.
 #
 # Usage:
-#   powershell -NoProfile -ExecutionPolicy Bypass -File .claude\harness\bin\harness-sync.ps1 [options]
+#   powershell -NoProfile -ExecutionPolicy Bypass -File .agents\harness\bin\harness-sync.ps1 [options]
 #   (same options as harness-sync.sh; run with --help to list them)
 #
 # Note: do NOT set MSYS_NO_PATHCONV here. bash.exe would pass it on to native
