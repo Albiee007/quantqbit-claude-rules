@@ -557,6 +557,14 @@ run "$RX" --uninstall; check "uninstall exits 0" test $? -eq 0
 check "GEMINI.md deleted (the harness created it)" test ! -e "$RX/GEMINI.md"
 check "antigravity rules and hooks removed" test ! -e "$RX/.agents/rules/harness-00-core.md" -a ! -e "$RX/.agents/hooks.json"
 
+echo "34. a .gitignore that hides .agents/ is refused with specific advice"
+RG="$(new_repo ignoreagents)"; printf '.agents/\n' > "$RG/.gitignore"
+git -C "$RG" add -A; git -C "$RG" commit -qm ignore
+run "$RG" --profiles backend; check "refused (exit 1)" test $? -eq 1
+check "nothing written" test ! -e "$RG/.agents/harness/lock"
+check "advice names the rule and the folder" grep -q 'the rule ".agents/" ignores a whole agent folder' "$WORK/out.log"
+check "no unrelated .claude/skills advice" bash -c "! grep -q '/.claude/skills/\*' '$WORK/out.log'"
+
 echo
 echo "sync tests: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

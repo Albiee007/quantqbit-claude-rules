@@ -72,6 +72,12 @@ These findings come from the installed bundles: Gemini CLI 0.64.0, Codex `rust-v
 - **`.claude/settings.json`:** it is read as a repo config source, but whether its `hooks` are used is unconfirmed.
 - **Sub-agent marker:** none on tool hooks. The child session gets a different `session_id`.
 
+## Real runs
+- **Antigravity (Windows, 2026-10-15, harness 2.0.0, project synced with `--add-target antigravity`).**
+  - `PreToolUse` hooks in `.agents/hooks.json` fired and **blocked** `view_file` on `.env` and a `run_command` naming `.env`. Antigravity shows the deny reason to the model as "tool call denied with reason: …", which confirms the `{"decision":"deny","reason":…}` output.
+  - The hook ran through `cmd /c bash …`, where `bash` resolved to WSL's `C:\Windows\System32\bash.exe` (Git's bash was not on PATH). The relative command `bash harness/hooks/guard.sh` worked there too, from the `.agents/` working directory.
+  - `harness doctor` reported claude and antigravity hooks active.
+
 ## Codex CLI (0.162.1, docs: learn.chatgpt.com/docs)
 | Area | Spec | Run |
 |---|---|---|

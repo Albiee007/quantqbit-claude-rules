@@ -8,6 +8,17 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 Every entry has **Upgrade notes** for anything a project needs to act on.
 
+## [2.0.1] - 2026-10-15
+
+### Fixed
+- **A `.gitignore` that hides a whole agent folder** (`.agents/`, `.cursor/`, `.codex/` or `.gemini/`) is still refused with nothing written, and the advice now names the rule and says to delete or narrow it. Before, the advice wrongly suggested `.claude/skills/` exceptions.
+
+### Changed
+- `scaffold/targets/SPEC.md` records the first real Antigravity run: the hooks in `.agents/hooks.json` blocked `view_file` and `run_command` on `.env`, also when `bash` resolved to WSL's `bash.exe`.
+
+### Upgrade notes
+- None. Projects on 2.0.0 sync to 2.0.1 without changes to their files.
+
 ## [2.0.0] - 2026-10-15
 
 The harness now installs for **OpenAI Codex CLI, Gemini CLI, Google Antigravity, Cursor and GitHub Copilot**, as well as Claude Code. The same rules, skills, sub-agents and hooks are rendered into each agent's own format from the one Claude-format source. What each agent reads, and how its hooks block, trust and report sub-agents, was checked against its docs and its installed source code ([scaffold/targets/SPEC.md](scaffold/targets/SPEC.md)).
